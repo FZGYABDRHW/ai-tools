@@ -1,0 +1,126 @@
+/* Wowworks Toast UI Editor Custom Styling */
+
+.wowworks-editor-container {
+    border-radius: 8px;
+    overflow: hidden;
+    background: #fff;
+}
+
+/* Editor container styling */
+.wowworks-editor-container .toastui-editor-defaultUI {
+    border: none !important;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+/* Remove background for control panel (toolbar) */
+.wowworks-editor-container .toastui-editor-defaultUI-toolbar {
+    background: transparent !important;
+}
+
+
+
+
+
+/* Editor content area */
+.wowworks-editor-container .toastui-editor-main {
+    background: #fff !important;
+    border: none !important;
+}
+
+/* Editor text area */
+.wowworks-editor-container .toastui-editor-main .toastui-editor-md-splitter,
+.wowworks-editor-container .toastui-editor-main .toastui-editor-ww-editor {
+    background: #fff !important;
+    border: none !important;
+    padding: 20px !important;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif !important;
+    font-size: 14px !important;
+    line-height: 1.6 !important;
+    color: #333 !important;
+}
+
+/* Placeholder styling */
+.wowworks-editor-container .toastui-editor-main .toastui-editor-md-splitter .toastui-editor-md-placeholder,
+.wowworks-editor-container .toastui-editor-main .toastui-editor-ww-editor .toastui-editor-ww-placeholder {
+    color: #999 !important;
+    font-style: italic !important;
+}
+
+/* Focus states */
+.wowworks-editor-container .toastui-editor-main .toastui-editor-md-splitter:focus,
+.wowworks-editor-container .toastui-editor-main .toastui-editor-ww-editor:focus {
+    outline: none !important;
+    box-shadow: 0 0 0 2px rgba(255, 140, 105, 0.2) !important;
+}
+
+/* Scrollbar styling */
+.wowworks-editor-container .toastui-editor-main .toastui-editor-md-splitter::-webkit-scrollbar,
+.wowworks-editor-container .toastui-editor-main .toastui-editor-ww-editor::-webkit-scrollbar {
+    width: 8px !important;
+}
+
+.wowworks-editor-container .toastui-editor-main .toastui-editor-md-splitter::-webkit-scrollbar-track,
+.wowworks-editor-container .toastui-editor-main .toastui-editor-ww-editor::-webkit-scrollbar-track {
+    background: #f5f5f5 !important;
+    border-radius: 4px !important;
+}
+
+.wowworks-editor-container .toastui-editor-main .toastui-editor-md-splitter::-webkit-scrollbar-thumb,
+.wowworks-editor-container .toastui-editor-main .toastui-editor-ww-editor::-webkit-scrollbar-thumb {
+    background: #ff8c69 !important;
+    border-radius: 4px !important;
+}
+
+.wowworks-editor-container .toastui-editor-main .toastui-editor-md-splitter::-webkit-scrollbar-thumb:hover,
+.wowworks-editor-container .toastui-editor-main .toastui-editor-ww-editor::-webkit-scrollbar-thumb:hover {
+    background: #ff9f7f !important;
+}
+
+
+
+/* Table styling in editor */
+.wowworks-editor-container .toastui-editor-main .toastui-editor-md-splitter table,
+.wowworks-editor-container .toastui-editor-main .toastui-editor-ww-editor table {
+    border: 1px solid #e8e8e8 !important;
+    border-radius: 4px !important;
+}
+
+.wowworks-editor-container .toastui-editor-main .toastui-editor-md-splitter th,
+.wowworks-editor-container .toastui-editor-main .toastui-editor-ww-editor th {
+    background: rgba(255, 140, 105, 0.1) !important;
+    color: #ff8c69 !important;
+    font-weight: 600 !important;
+}
+
+/* Code block styling */
+.wowworks-editor-container .toastui-editor-main .toastui-editor-md-splitter pre,
+.wowworks-editor-container .toastui-editor-main .toastui-editor-ww-editor pre {
+    background: #f8f9fa !important;
+    border: 1px solid #e8e8e8 !important;
+    border-radius: 4px !important;
+    border-left: 3px solid #ff8c69 !important;
+}
+
+/* Quote styling */
+.wowworks-editor-container .toastui-editor-main .toastui-editor-md-splitter blockquote,
+.wowworks-editor-container .toastui-editor-main .toastui-editor-ww-editor blockquote {
+    border-left: 3px solid #ff8c69 !important;
+    background: rgba(255, 140, 105, 0.05) !important;
+    padding: 12px 16px !important;
+    margin: 16px 0 !important;
+    border-radius: 0 4px 4px 0 !important;
+}
+
+/* Link styling */
+.wowworks-editor-container .toastui-editor-main .toastui-editor-md-splitter a,
+.wowworks-editor-container .toastui-editor-main .toastui-editor-ww-editor a {
+    color: #ff8c69 !important;
+    text-decoration: none !important;
+}
+
+.wowworks-editor-container .toastui-editor-main .toastui-editor-md-splitter a:hover,
+.wowworks-editor-container .toastui-editor-main .toastui-editor-ww-editor a:hover {
+    text-decoration: underline !important;
+    color: #ff9f7f !important;
+}

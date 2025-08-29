@@ -5,6 +5,7 @@ import { AuthContext } from '../contexts/AuthContext';
 import { SidebarProvider } from '../contexts/SidebarContext';
 import Navigation from './Navigation';
 import AppHeader from './Header';
+import Breadcrumbs from './Breadcrumbs';
 import TaskAuthForm from './TaskAuthForm';
 import CustomOperationalReport from './CustomOperationalReport';
 import ReportsPage from './ReportsPage';
@@ -24,7 +25,7 @@ const App: React.FC = () => {
                 theme={{
                     algorithm: theme.defaultAlgorithm,
                     token: {
-                        colorPrimary: '#1890ff',
+                        colorPrimary: '#ff8c69',
                     },
                 }}
             >
@@ -33,10 +34,10 @@ const App: React.FC = () => {
                     justifyContent: 'center', 
                     alignItems: 'center', 
                     height: '100vh',
-                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+                    background: 'linear-gradient(135deg, #f5f5f5 0%, #e8e8e8 100%)'
                 }}>
-                    <div style={{ textAlign: 'center', color: '#fff' }}>
-                        <h2>Loading AI Tools...</h2>
+                    <div style={{ textAlign: 'center', color: '#333' }}>
+                        <h2>Loading Wowworks AI Tools...</h2>
                         <p>Please wait while we restore your session</p>
                     </div>
                 </div>
@@ -47,16 +48,16 @@ const App: React.FC = () => {
     // If not authenticated, show login screen
     if (!authToken || !user) {
         return (
-            <ConfigProvider
-                theme={{
-                    algorithm: theme.defaultAlgorithm,
-                    token: {
-                        colorPrimary: '#1890ff',
-                    },
-                }}
-            >
-                <LoginScreen />
-            </ConfigProvider>
+                    <ConfigProvider
+            theme={{
+                algorithm: theme.defaultAlgorithm,
+                token: {
+                    colorPrimary: '#ff6b35',
+                },
+            }}
+        >
+            <LoginScreen />
+        </ConfigProvider>
         );
     }
 
@@ -66,7 +67,7 @@ const App: React.FC = () => {
             theme={{
                 algorithm: theme.defaultAlgorithm,
                 token: {
-                    colorPrimary: '#1890ff',
+                    colorPrimary: '#ff6b35',
                 },
             }}
         >
@@ -74,12 +75,17 @@ const App: React.FC = () => {
                 <SidebarProvider>
                     <Layout style={{ minHeight: '100vh' }}>
                         <Navigation />
-                        <Layout>
+                        <Layout style={{ height: '100vh', overflow: 'hidden' }}>
                             <AppHeader />
+                            <Breadcrumbs />
                             <Content style={{ 
                                 margin: 0, 
-                                background: '#f5f5f5',
-                                minHeight: 'calc(100vh - 48px)'
+                                background: 'linear-gradient(135deg, #f5f5f5 0%, #e8e8e8 100%)',
+                                height: 'calc(100vh - 48px - 48px)',
+                                width: '100%',
+                                boxSizing: 'border-box',
+                                overflow: 'auto',
+                                padding: '20px'
                             }}>
                                 <Routes>
                                     <Route path="/task-text-builder" element={<TaskAuthForm />} />

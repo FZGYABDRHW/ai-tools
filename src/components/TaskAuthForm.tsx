@@ -57,12 +57,49 @@ const TaskAuthForm: React.FC = () => {
     };
 
     return (
-        <Content style={{ padding: '24px' }}>
-            <Card>
-                <Title level={3}>
-                    <FileTextOutlined style={{ marginRight: 8 }} />
-                    AI Task Builder
-                </Title>
+        <div style={{ 
+            width: '100%', 
+            boxSizing: 'border-box',
+            minHeight: 'calc(100vh - 96px)',
+            maxWidth: '800px',
+            margin: '0 auto'
+        }}>
+            <div style={{ 
+                background: 'linear-gradient(135deg, #fff 0%, #f8f9fa 100%)',
+                borderRadius: '12px',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+                border: '1px solid #ff8c69',
+                overflow: 'hidden',
+                width: '100%',
+                boxSizing: 'border-box',
+                maxWidth: '100%'
+            }}>
+                {/* Header */}
+                <div style={{
+                    background: 'linear-gradient(135deg, #ff8c69 0%, #ff9f7f 100%)',
+                    padding: '16px 20px',
+                    borderBottom: '1px solid rgba(255, 140, 105, 0.2)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px'
+                }}>
+                    <FileTextOutlined style={{ color: '#fff', fontSize: '20px' }} />
+                    <Title level={4} style={{ 
+                        margin: 0, 
+                        color: '#fff',
+                        fontWeight: 600,
+                        letterSpacing: '0.5px'
+                    }}>
+                        Wowworks Task Builder
+                    </Title>
+                </div>
+                
+                {/* Content */}
+                <div style={{ padding: '24px' }}>
+                    <Title level={3} style={{ marginBottom: '24px' }}>
+                        <FileTextOutlined style={{ marginRight: 8, color: '#ff8c69' }} />
+                        AI Task Builder
+                    </Title>
                 
                 <Form layout="vertical" style={{ maxWidth: 600 }}>
                     <Form.Item
@@ -114,8 +151,9 @@ const TaskAuthForm: React.FC = () => {
                         </Space>
                     </div>
                 )}
-            </Card>
-        </Content>
+                </div>
+            </div>
+        </div>
     );
 };
 

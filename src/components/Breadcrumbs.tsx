@@ -28,7 +28,7 @@ const Breadcrumbs: React.FC = () => {
                 title: (
                     <span>
                         <FileTextOutlined style={{ marginRight: 4 }} />
-                        AI Task Builder
+                        Wowworks Task Builder
                     </span>
                 ),
             });
@@ -37,7 +37,7 @@ const Breadcrumbs: React.FC = () => {
                 title: (
                     <span>
                         <UnorderedListOutlined style={{ marginRight: 4 }} />
-                        Custom Operational Report Management
+                        Wowworks Report Management
                     </span>
                 ),
             });
@@ -46,7 +46,7 @@ const Breadcrumbs: React.FC = () => {
                 title: (
                     <Link to="/reports">
                         <UnorderedListOutlined style={{ marginRight: 4 }} />
-                        Custom Operational Report Management
+                        Wowworks Report Management
                     </Link>
                 ),
             });
@@ -77,9 +77,7 @@ const Breadcrumbs: React.FC = () => {
     return (
         <div style={{ 
             padding: '12px 24px', 
-            background: '#fff', 
-            borderBottom: '1px solid #f0f0f0',
-            boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
+            background: 'linear-gradient(180deg, #fafafa 0%, #f5f5f5 100%)'
         }}>
             <Breadcrumb
                 items={getBreadcrumbItems()}

@@ -17,13 +17,12 @@ const AppHeader: React.FC = () => {
 
     return (
         <Header style={{ 
-            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            background: 'linear-gradient(180deg, #ffffff 0%, #fafafa 100%)',
             padding: '0 16px',
             height: '48px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
             position: 'relative',
             zIndex: 1000
         }}>
@@ -37,17 +36,16 @@ const AppHeader: React.FC = () => {
                     icon={isSidebarVisible ? <MenuFoldOutlined /> : <MenuUnfoldOutlined />}
                     onClick={toggleSidebar}
                     style={{
-                        color: '#fff',
+                        color: '#ff8c69',
                         fontSize: '14px',
                         width: '32px',
                         height: '32px',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        background: 'rgba(255, 255, 255, 0.1)',
-                        border: '1px solid rgba(255, 255, 255, 0.2)',
-                        borderRadius: '6px',
-                        backdropFilter: 'blur(10px)'
+                        background: 'rgba(255, 140, 105, 0.1)',
+                        border: '1px solid rgba(255, 140, 105, 0.3)',
+                        borderRadius: '6px'
                     }}
                 />
             </div>
@@ -58,20 +56,22 @@ const AppHeader: React.FC = () => {
                 gap: '24px' 
             }}>
                 {user && (
-                    <div className="glass-effect" style={{
+                    <div style={{
                         display: 'flex',
                         alignItems: 'center',
                         gap: '8px',
                         padding: '8px 12px',
-                        borderRadius: '6px'
+                        borderRadius: '6px',
+                        background: 'rgba(255, 140, 105, 0.1)',
+                        border: '1px solid rgba(255, 140, 105, 0.3)'
                     }}>
                         <UserOutlined style={{ 
-                            color: '#fff', 
+                            color: '#ff8c69', 
                             fontSize: '14px' 
                         }} />
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
                             <Text style={{ 
-                                color: '#fff', 
+                                color: '#333', 
                                 fontSize: '12px',
                                 fontWeight: 500,
                                 lineHeight: 1
@@ -79,7 +79,7 @@ const AppHeader: React.FC = () => {
                                 {user.name}
                             </Text>
                             <Text style={{ 
-                                color: 'rgba(255, 255, 255, 0.7)', 
+                                color: '#666', 
                                 fontSize: '10px',
                                 lineHeight: 1
                             }}>
@@ -96,10 +96,9 @@ const AppHeader: React.FC = () => {
                     loading={isLoading}
                     size="middle"
                     style={{
-                        background: 'rgba(255, 255, 255, 0.1)',
-                        border: '1px solid rgba(255, 255, 255, 0.2)',
+                        background: '#ff8c69',
+                        border: '1px solid #ff8c69',
                         color: '#fff',
-                        backdropFilter: 'blur(10px)',
                         height: '32px',
                         fontSize: '12px'
                     }}

@@ -147,7 +147,7 @@ const ReportsPage: React.FC = () => {
                         strong 
                         style={{ 
                             cursor: 'pointer',
-                            color: '#1890ff'
+                            color: '#ff8c69'
                         }}
                         onClick={() => handleOpenReport(record)}
                     >
@@ -191,58 +191,111 @@ const ReportsPage: React.FC = () => {
     ];
 
     return (
-        <div style={{ padding: '24px' }}>
-            <Card>
-                <div style={{ 
-                    display: 'flex', 
-                    justifyContent: 'space-between', 
-                    alignItems: 'center', 
-                    marginBottom: 24 
+        <div style={{ 
+            width: '100%', 
+            boxSizing: 'border-box',
+            minHeight: 'calc(100vh - 96px)'
+        }}>
+            <div style={{ 
+                background: 'linear-gradient(135deg, #fff 0%, #f8f9fa 100%)',
+                borderRadius: '12px',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+                border: '1px solid #ff8c69',
+                overflow: 'hidden',
+                width: '100%',
+                boxSizing: 'border-box',
+                maxWidth: '100%'
+            }}>
+                {/* Header */}
+                <div style={{
+                    background: 'linear-gradient(135deg, #ff8c69 0%, #ff9f7f 100%)',
+                    padding: '16px 20px',
+                    borderBottom: '1px solid rgba(255, 140, 105, 0.2)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: '12px',
+                    width: '100%',
+                    boxSizing: 'border-box'
                 }}>
-                    <div>
-                        <Title level={2} style={{ margin: 0 }}>
-                            <FileTextOutlined style={{ marginRight: 12 }} />
-                            Custom Operational Report Management
-                        </Title>
-                        <Text type="secondary">
-                            Create, manage, and generate custom operational reports
-                        </Text>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0, flex: 1 }}>
+                        <FileTextOutlined style={{ color: '#fff', fontSize: '20px', flexShrink: 0 }} />
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                            <Title level={4} style={{ 
+                                margin: 0, 
+                                color: '#fff',
+                                fontWeight: 600,
+                                letterSpacing: '0.5px',
+                                fontSize: '18px'
+                            }}>
+                                Wowworks Report Management
+                            </Title>
+                            <Text style={{ 
+                                color: 'rgba(255, 255, 255, 0.8)',
+                                fontSize: '13px'
+                            }}>
+                                Create, manage, and generate Wowworks operational reports
+                            </Text>
+                        </div>
                     </div>
                     <Button 
-                        type="primary" 
+                        type="default"
                         icon={<PlusOutlined />}
                         onClick={() => setIsCreateModalVisible(true)}
+                        style={{
+                            background: 'rgba(255, 255, 255, 0.2)',
+                            border: '1px solid rgba(255, 255, 255, 0.3)',
+                            color: '#fff',
+                            fontWeight: 600,
+                            flexShrink: 0
+                        }}
                     >
                         New Report
                     </Button>
                 </div>
+                
+                {/* Content */}
+                <div style={{ padding: '20px', width: '100%', boxSizing: 'border-box' }}>
+                    <div style={{ marginBottom: '16px' }}>
+                        <Search
+                            placeholder="Search reports by name or prompt..."
+                            allowClear
+                            value={searchText}
+                            onChange={(e) => setSearchText(e.target.value)}
+                            style={{ width: '100%', maxWidth: '350px' }}
+                            prefix={<SearchOutlined />}
+                        />
+                    </div>
 
-                <div style={{ marginBottom: 16 }}>
-                    <Search
-                        placeholder="Search reports by name or prompt..."
-                        allowClear
-                        value={searchText}
-                        onChange={(e) => setSearchText(e.target.value)}
-                        style={{ width: 400 }}
-                        prefix={<SearchOutlined />}
-                    />
+                    <div style={{
+                        background: '#fff',
+                        borderRadius: '8px',
+                        border: '1px solid #f0f0f0',
+                        overflow: 'hidden',
+                        width: '100%',
+                        boxSizing: 'border-box'
+                    }}>
+                        <Table
+                            columns={columns}
+                            dataSource={filteredReports}
+                            rowKey="id"
+                            loading={loading}
+                            pagination={{
+                                pageSize: 10,
+                                showSizeChanger: true,
+                                showQuickJumper: true,
+                                showTotal: (total, range) => 
+                                    `${range[0]}-${range[1]} of ${total} reports`,
+                            }}
+                            scroll={{ x: 600 }}
+                            style={{
+                                background: 'transparent'
+                            }}
+                        />
+                    </div>
                 </div>
-
-                <Table
-                    columns={columns}
-                    dataSource={filteredReports}
-                    rowKey="id"
-                    loading={loading}
-                    pagination={{
-                        pageSize: 10,
-                        showSizeChanger: true,
-                        showQuickJumper: true,
-                        showTotal: (total, range) => 
-                            `${range[0]}-${range[1]} of ${total} reports`,
-                    }}
-                    scroll={{ x: 1200 }}
-                />
-            </Card>
+            </div>
 
             {/* Create Report Modal */}
             <Modal

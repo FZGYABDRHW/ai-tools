@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useContext, useRef } from 'react';
 import { Card, Typography, Form, Input, Button, Space, Divider, Layout, Table, Row, Col, message } from 'antd';
-import { BarChartOutlined, LoadingOutlined, DownloadOutlined, StopOutlined } from '@ant-design/icons';
+import { BarChartOutlined, LoadingOutlined, DownloadOutlined, StopOutlined, FullscreenOutlined, FullscreenExitOutlined } from '@ant-design/icons';
 import { AuthContext } from '../contexts/AuthContext';
+import { SidebarContext } from '../contexts/SidebarContext';
 import { buildServiceInitializer } from '../serviceInit';
 import { buildReport } from '../reportBuilder';
 import builder from '../builder';
@@ -13,6 +14,7 @@ const { Content } = Layout;
 
 const CustomOperationalReport: React.FC = () => {
     const { authToken, user } = useContext(AuthContext);
+    const { hideSidebar, showSidebar } = useContext(SidebarContext);
     const [reportText, setReportText] = useState<string>(() => {
         return localStorage.getItem('customOperationalReport') || '';
     });
@@ -26,6 +28,7 @@ const CustomOperationalReport: React.FC = () => {
         processed: number;
         total: number;
     } | null>(null);
+    const [isTableFullScreen, setIsTableFullScreen] = useState<boolean>(false);
     const abortControllerRef = useRef<AbortController | null>(null);
 
     useEffect(() => {
@@ -98,6 +101,16 @@ const CustomOperationalReport: React.FC = () => {
         message.success('CSV file downloaded successfully!');
     };
 
+    const toggleTableFullScreen = () => {
+        if (isTableFullScreen) {
+            setIsTableFullScreen(false);
+            showSidebar();
+        } else {
+            setIsTableFullScreen(true);
+            hideSidebar();
+        }
+    };
+
     const handleStopReport = () => {
         if (abortControllerRef.current) {
             console.log('Aborting report generation...');
@@ -109,25 +122,26 @@ const CustomOperationalReport: React.FC = () => {
     };
 
     return (
-        <Content style={{ padding: '24px' }}>
+        <div style={{ width: '100%', boxSizing: 'border-box' }}>
             {/* Control Bar */}
             <div style={{
-                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                background: 'linear-gradient(135deg, #fff 0%, #f8f9fa 100%)',
                 padding: '8px 20px',
                 borderRadius: '8px',
                 marginBottom: '20px',
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                border: '1px solid #ff8c69'
             }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <BarChartOutlined style={{ fontSize: '20px', color: '#fff' }} />
+                    <BarChartOutlined style={{ fontSize: '20px', color: '#ff8c69' }} />
                     <div>
-                        <div style={{ color: '#fff', fontSize: '16px', fontWeight: 600 }}>
+                        <div style={{ color: '#333', fontSize: '16px', fontWeight: 600 }}>
                             Report Generation Control
                         </div>
-                        <div style={{ color: 'rgba(255,255,255,0.8)', fontSize: '12px' }}>
+                        <div style={{ color: '#666', fontSize: '12px' }}>
                             {isGenerating ? 'Processing tasks...' : 'Ready to generate report'}
                         </div>
                     </div>
@@ -146,8 +160,8 @@ const CustomOperationalReport: React.FC = () => {
                                 fontWeight: 600,
                                 height: '36px',
                                 padding: '0 16px',
-                                background: '#52c41a',
-                                borderColor: '#52c41a'
+                                background: '#ff8c69',
+                                borderColor: '#ff8c69'
                             }}
                         >
                             ▶️ Start Report
@@ -163,8 +177,9 @@ const CustomOperationalReport: React.FC = () => {
                                 fontWeight: 600,
                                 height: '36px',
                                 padding: '0 16px',
-                                backgroundColor: '#ff4d4f',
-                                borderColor: '#ff4d4f'
+                                backgroundColor: '#ff7875',
+                                borderColor: '#ff7875',
+                                color: '#ffffff'
                             }}
                         >
                             ⏹️ Stop Report
@@ -173,12 +188,13 @@ const CustomOperationalReport: React.FC = () => {
                     
                     {progressInfo && (
                         <div style={{
-                            background: 'rgba(255,255,255,0.2)',
+                            background: 'rgba(255, 140, 105, 0.1)',
                             padding: '6px 12px',
                             borderRadius: '6px',
-                            color: '#fff',
+                            color: '#ff8c69',
                             fontSize: '12px',
-                            fontWeight: 500
+                            fontWeight: 500,
+                            border: '1px solid rgba(255, 140, 105, 0.3)'
                         }}>
                             {isGenerating ? '🔄 Processing' : '✅ Complete'}: {progressInfo.processed} items
                         </div>
@@ -187,32 +203,126 @@ const CustomOperationalReport: React.FC = () => {
             </div>
             
             <Row gutter={24}>
-                <Col xs={24} lg={12}>
-                    <div style={{ height: 'calc(100vh - 100px)' }}>
-                        <MilkdownEditor
-                            value={reportText}
-                            onChange={setReportText}
-                            placeholder="Write your prompt here..."
-                        />
+                <Col xs={24} lg={isTableFullScreen ? 0 : 12}>
+                    <div style={{ 
+                        height: 'calc(100vh - 100px)',
+                        background: 'linear-gradient(135deg, #fff 0%, #f8f9fa 100%)',
+                        borderRadius: '12px',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+                        border: '1px solid #ff8c69',
+                        overflow: 'hidden',
+                        position: 'relative'
+                    }}>
+                        {/* Header for the editor */}
+                        <div style={{
+                            background: 'linear-gradient(135deg, #ff8c69 0%, #ff9f7f 100%)',
+                            padding: '12px 20px',
+                            borderBottom: '1px solid rgba(255, 140, 105, 0.2)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px'
+                        }}>
+                            <BarChartOutlined style={{ color: '#fff', fontSize: '16px' }} />
+                            <span style={{ 
+                                color: '#fff', 
+                                fontSize: '14px', 
+                                fontWeight: 600,
+                                letterSpacing: '0.5px'
+                            }}>
+                                Report Editor
+                            </span>
+                        </div>
+                        
+                        {/* Editor container */}
+                        <div style={{ 
+                            height: 'calc(100% - 48px)',
+                            background: '#fff',
+                            overflow: 'hidden'
+                        }}>
+                            <MilkdownEditor
+                                value={reportText}
+                                onChange={setReportText}
+                                placeholder="Write your prompt here..."
+                            />
+                        </div>
                     </div>
                 </Col>
                 
-                <Col xs={24} lg={12}>
-                    <Card style={{ height: 'calc(100vh - 100px)', display: 'flex', flexDirection: 'column', padding: '8px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', marginBottom: 8, flexShrink: 0 }}>
+                <Col xs={24} lg={isTableFullScreen ? 24 : 12}>
+                    <div style={{ 
+                        height: 'calc(100vh - 100px)', 
+                        display: 'flex', 
+                        flexDirection: 'column',
+                        background: 'linear-gradient(135deg, #fff 0%, #f8f9fa 100%)',
+                        borderRadius: '12px',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+                        border: '1px solid #ff8c69',
+                        overflow: 'hidden',
+                        position: 'relative'
+                    }}>
+                        {/* Header for the table */}
+                        <div style={{
+                            background: 'linear-gradient(135deg, #ff8c69 0%, #ff9f7f 100%)',
+                            padding: '12px 20px',
+                            borderBottom: '1px solid rgba(255, 140, 105, 0.2)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between'
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <BarChartOutlined style={{ color: '#fff', fontSize: '16px' }} />
+                                <span style={{ 
+                                    color: '#fff', 
+                                    fontSize: '14px', 
+                                    fontWeight: 600,
+                                    letterSpacing: '0.5px'
+                                }}>
+                                    Generated Results
+                                </span>
+                            </div>
+                            
+                            {/* Action buttons in header */}
                             {tableData && (
-                                <Button
-                                    type="default"
-                                    icon={<DownloadOutlined />}
-                                    onClick={handleDownloadCSV}
-                                    size="small"
-                                >
-                                    Download CSV
-                                </Button>
+                                <div style={{ display: 'flex', gap: '8px' }}>
+                                    <Button
+                                        type="default"
+                                        icon={isTableFullScreen ? <FullscreenExitOutlined /> : <FullscreenOutlined />}
+                                        onClick={toggleTableFullScreen}
+                                        size="small"
+                                        title={isTableFullScreen ? "Exit Full Screen" : "Full Screen"}
+                                        style={{
+                                            background: 'rgba(255, 255, 255, 0.2)',
+                                            border: '1px solid rgba(255, 255, 255, 0.3)',
+                                            color: '#fff'
+                                        }}
+                                    >
+                                        {isTableFullScreen ? "Exit Full Screen" : "Full Screen"}
+                                    </Button>
+                                    <Button
+                                        type="default"
+                                        icon={<DownloadOutlined />}
+                                        onClick={handleDownloadCSV}
+                                        size="small"
+                                        style={{
+                                            background: 'rgba(255, 255, 255, 0.2)',
+                                            border: '1px solid rgba(255, 255, 255, 0.3)',
+                                            color: '#fff'
+                                        }}
+                                    >
+                                        Download CSV
+                                    </Button>
+                                </div>
                             )}
                         </div>
                         
-                        {!tableData && isGenerating ? (
+                        {/* Table container */}
+                        <div style={{ 
+                            flex: 1,
+                            padding: '16px',
+                            background: '#fff',
+                            overflow: 'hidden'
+                        }}>
+                            {!tableData && isGenerating ? (
                             <div style={{ 
                                 display: 'flex', 
                                 justifyContent: 'center', 
@@ -265,7 +375,7 @@ const CustomOperationalReport: React.FC = () => {
                                         }}
                                         scroll={{ 
                                             x: 'max-content',
-                                            y: 'calc(100vh - 250px)'
+                                            y: isTableFullScreen ? 'calc(100vh - 150px)' : 'calc(100vh - 250px)'
                                         }}
                                         size="small"
                                         style={{ 
@@ -287,10 +397,11 @@ const CustomOperationalReport: React.FC = () => {
                                 Generate a report to see the table here
                             </div>
                         )}
-                    </Card>
+                        </div>
+                    </div>
                 </Col>
             </Row>
-        </Content>
+        </div>
     );
 };
 

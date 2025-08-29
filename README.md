@@ -1,6 +1,6 @@
-# AI Tools
+# Wowworks AI Tools
 
-A modern Electron application for building task text prompts and generating custom operational reports.
+A modern Electron application for building task text prompts and generating custom operational reports. Part of the [Wowworks ecosystem](https://wowworks.org/).
 
 ## Features
 

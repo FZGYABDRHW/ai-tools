@@ -18,7 +18,7 @@ const LoginScreen: React.FC = () => {
     };
 
     return (
-        <Layout style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}>
+        <Layout style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #f5f5f5 0%, #e8e8e8 100%)' }}>
             <Content style={{ 
                 display: 'flex', 
                 justifyContent: 'center', 
@@ -44,18 +44,18 @@ const LoginScreen: React.FC = () => {
                         }}>
                             <FileTextOutlined style={{ 
                                 fontSize: '48px', 
-                                color: '#1890ff',
+                                color: '#ff8c69',
                                 marginRight: '12px'
                             }} />
-                            <Title level={2} style={{ margin: 0, color: '#1890ff' }}>
-                                AI Tools
+                            <Title level={2} style={{ margin: 0, color: '#ff8c69' }}>
+                                Wowworks AI Tools
                             </Title>
                         </div>
                         <Title level={3} style={{ margin: '16px 0 8px 0' }}>
                             Welcome Back
                         </Title>
                         <Text type="secondary" style={{ fontSize: '16px' }}>
-                            Sign in to access your AI-powered workspace
+                            Sign in to access your Wowworks AI-powered workspace
                         </Text>
                     </div>
 
@@ -103,7 +103,9 @@ const LoginScreen: React.FC = () => {
                                     height: '48px', 
                                     borderRadius: '8px',
                                     fontSize: '16px',
-                                    fontWeight: 600
+                                    fontWeight: 600,
+                                    background: '#ff8c69',
+                                    borderColor: '#ff8c69'
                                 }}
                             >
                                 {isLoading ? 'Signing In...' : 'Sign In'}
@@ -112,16 +114,16 @@ const LoginScreen: React.FC = () => {
                     </Form>
 
                     <Divider style={{ margin: '24px 0' }}>
-                        <Text type="secondary">AI-Powered Task Management</Text>
+                        <Text type="secondary">Wowworks AI-Powered Task Management</Text>
                     </Divider>
 
                     <div style={{ textAlign: 'center' }}>
                         <Space direction="vertical" size="small">
                             <Text type="secondary" style={{ fontSize: '14px' }}>
-                                ✨ AI Task Builder
+                                ✨ Wowworks Task Builder
                             </Text>
                             <Text type="secondary" style={{ fontSize: '14px' }}>
-                                📊 Custom Operational Reports
+                                📊 Wowworks Operational Reports
                             </Text>
                             <Text type="secondary" style={{ fontSize: '14px' }}>
                                 🔐 Secure Authentication

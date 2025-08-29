@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { Editor } from '@toast-ui/react-editor';
 import '@toast-ui/editor/dist/toastui-editor.css';
+import './MilkdownEditor.css';
 
 interface MilkdownEditorProps {
     value: string;
@@ -35,7 +36,7 @@ const MilkdownEditor: React.FC<MilkdownEditorProps> = ({
     };
 
     return (
-        <div style={{ height: '100%', minHeight: '400px' }}>
+        <div className="wowworks-editor-container" style={{ height: '100%', minHeight: '400px' }}>
             <Editor
                 ref={editorRef}
                 initialValue={value}
@@ -46,6 +47,13 @@ const MilkdownEditor: React.FC<MilkdownEditorProps> = ({
                 initialEditType="wysiwyg"
                 useCommandShortcut={true}
                 hideModeSwitch={false}
+                toolbarItems={[
+                    ['heading', 'bold', 'italic', 'strike'],
+                    ['hr', 'quote'],
+                    ['ul', 'ol', 'task', 'indent', 'outdent'],
+                    ['table', 'image', 'link'],
+                    ['code', 'codeblock']
+                ]}
             />
         </div>
     );

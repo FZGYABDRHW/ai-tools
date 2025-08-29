@@ -73,20 +73,20 @@ body {
 /* Enhanced input focus states */
 .ant-input:focus,
 .ant-input-focused {
-  border-color: #667eea;
-  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
+  border-color: #ff8c69;
+  box-shadow: 0 0 0 2px rgba(255, 140, 105, 0.2);
 }
 
 /* Status indicator animations */
 @keyframes pulse {
   0% {
-    box-shadow: 0 0 0 0 rgba(82, 196, 26, 0.7);
+    box-shadow: 0 0 0 0 rgba(255, 140, 105, 0.7);
   }
   70% {
-    box-shadow: 0 0 0 10px rgba(82, 196, 26, 0);
+    box-shadow: 0 0 0 10px rgba(255, 140, 105, 0);
   }
   100% {
-    box-shadow: 0 0 0 0 rgba(82, 196, 26, 0);
+    box-shadow: 0 0 0 0 rgba(255, 140, 105, 0);
   }
 }
 
@@ -147,12 +147,12 @@ body {
 
 /* Hover and focus states for the phone input container */
 .phone-input-container:hover {
-    border-color: #40a9ff !important;
+    border-color: #ff8c69 !important;
 }
 
 .phone-input-container:focus-within {
-    border-color: #1890ff !important;
-    box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2) !important;
+    border-color: #ff8c69 !important;
+    box-shadow: 0 0 0 2px rgba(255, 140, 105, 0.2) !important;
 }
 
 .ant-menu-inline .ant-menu-submenu-title {
@@ -162,8 +162,8 @@ body {
 }
 
 .ant-menu-inline .ant-menu-submenu-title:hover {
-    background-color: #f0f7ff;
-    color: #1890ff;
+    background-color: rgba(255, 140, 105, 0.1);
+    color: #ff8c69;
 }
 
 .ant-menu-inline .ant-menu-item {
@@ -174,20 +174,20 @@ body {
 }
 
 .ant-menu-inline .ant-menu-item:hover {
-    background-color: #f0f7ff;
-    color: #1890ff;
+    background-color: rgba(255, 140, 105, 0.1);
+    color: #ff8c69;
 }
 
 .ant-menu-inline .ant-menu-item-selected {
-    background-color: #e6f7ff;
-    color: #1890ff;
-    border-right: 3px solid #1890ff;
+    background-color: rgba(255, 140, 105, 0.2);
+    color: #ff8c69;
+    border-right: 3px solid #ff8c69;
     font-weight: 500;
 }
 
 .ant-menu-inline .ant-menu-submenu-selected > .ant-menu-submenu-title {
-    color: #1890ff;
-    background-color: #f0f7ff;
+    color: #ff8c69;
+    background-color: rgba(255, 140, 105, 0.1);
 }
 
 .ant-menu-inline .ant-menu-submenu-inline > .ant-menu-submenu-title .ant-menu-submenu-arrow {

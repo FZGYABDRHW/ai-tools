@@ -1,8 +1,8 @@
 {
-  "name": "ai-tools",
-  "productName": "AI Tools",
+  "name": "wowworks-ai-tools",
+  "productName": "Wowworks AI Tools",
   "version": "1.0.0",
-  "description": "AI Tools - A modern Electron application for AI-powered task building and report generation",
+      "description": "Wowworks AI Tools - A modern Electron application for AI-powered task building and report generation",
   "main": ".webpack/main",
   "scripts": {
     "start": "electron-forge start",
