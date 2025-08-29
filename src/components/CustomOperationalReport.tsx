@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useContext, useRef } from 'react';
+import React, { useEffect, useState, useContext, useRef, useCallback } from 'react';
 import { Card, Typography, Form, Input, Button, Space, Divider, Layout, Table, Row, Col, message } from 'antd';
 import { BarChartOutlined, LoadingOutlined, DownloadOutlined, StopOutlined, FullscreenOutlined, FullscreenExitOutlined } from '@ant-design/icons';
 import { AuthContext } from '../contexts/AuthContext';
@@ -29,11 +29,49 @@ const CustomOperationalReport: React.FC = () => {
         total: number;
     } | null>(null);
     const [isTableFullScreen, setIsTableFullScreen] = useState<boolean>(false);
+    const [dynamicPageSize, setDynamicPageSize] = useState<number>(20);
+    const tableContainerRef = useRef<HTMLDivElement>(null);
     const abortControllerRef = useRef<AbortController | null>(null);
 
     useEffect(() => {
         localStorage.setItem('customOperationalReport', reportText);
     }, [reportText]);
+
+    // Calculate dynamic page size based on available container height
+    const calculateDynamicPageSize = useCallback(() => {
+        if (!tableContainerRef.current) return;
+        
+        const container = tableContainerRef.current;
+        const containerHeight = container.clientHeight;
+        
+        // Estimate row height (including padding, borders, etc.)
+        const estimatedRowHeight = 40; // Approximate height per row
+        const headerHeight = 55; // Table header height
+        const paginationHeight = 50; // Pagination controls height
+        const padding = 32; // Container padding (16px top + 16px bottom)
+        
+        // Calculate available height for rows
+        const availableHeight = containerHeight - headerHeight - paginationHeight - padding;
+        
+        // Calculate how many rows can fit
+        const maxRows = Math.max(1, Math.floor(availableHeight / estimatedRowHeight));
+        
+        setDynamicPageSize(maxRows);
+    }, []);
+
+    // Recalculate page size on window resize
+    useEffect(() => {
+        const handleResize = () => {
+            calculateDynamicPageSize();
+        };
+
+        window.addEventListener('resize', handleResize);
+        calculateDynamicPageSize(); // Initial calculation
+
+        return () => {
+            window.removeEventListener('resize', handleResize);
+        };
+    }, [calculateDynamicPageSize]);
 
     const handleCustomReport = async () => {
         if (!reportText.trim()) {
@@ -122,7 +160,7 @@ const CustomOperationalReport: React.FC = () => {
     };
 
     return (
-        <div style={{ width: '100%', boxSizing: 'border-box' }}>
+        <div style={{ width: '100%', boxSizing: 'border-box', height: '100%', overflow: 'hidden' }}>
             {/* Control Bar */}
             <div style={{
                 background: 'linear-gradient(135deg, #fff 0%, #f8f9fa 100%)',
@@ -202,10 +240,10 @@ const CustomOperationalReport: React.FC = () => {
                 </div>
             </div>
             
-            <Row gutter={24}>
+            <Row gutter={24} style={{ height: 'calc(100% - 80px)' }}>
                 <Col xs={24} lg={isTableFullScreen ? 0 : 12}>
                     <div style={{ 
-                        height: 'calc(100vh - 100px)',
+                        height: '100%',
                         background: 'linear-gradient(135deg, #fff 0%, #f8f9fa 100%)',
                         borderRadius: '12px',
                         boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
@@ -250,7 +288,7 @@ const CustomOperationalReport: React.FC = () => {
                 
                 <Col xs={24} lg={isTableFullScreen ? 24 : 12}>
                     <div style={{ 
-                        height: 'calc(100vh - 100px)', 
+                        height: '100%', 
                         display: 'flex', 
                         flexDirection: 'column',
                         background: 'linear-gradient(135deg, #fff 0%, #f8f9fa 100%)',
@@ -316,12 +354,15 @@ const CustomOperationalReport: React.FC = () => {
                         </div>
                         
                         {/* Table container */}
-                        <div style={{ 
-                            flex: 1,
-                            padding: '16px',
-                            background: '#fff',
-                            overflow: 'hidden'
-                        }}>
+                        <div 
+                            ref={tableContainerRef}
+                            style={{ 
+                                flex: 1,
+                                padding: '16px',
+                                background: '#fff',
+                                overflow: 'hidden'
+                            }}
+                        >
                             {!tableData && isGenerating ? (
                             <div style={{ 
                                 display: 'flex', 
@@ -342,11 +383,11 @@ const CustomOperationalReport: React.FC = () => {
                                 flex: 1,
                                 display: 'flex',
                                 flexDirection: 'column',
-                                minHeight: 0,
+                                height: '100%',
                                 width: '100%'
                             }}>
 
-                                <div style={{ flex: 1, overflow: 'hidden' }}>
+                                <div style={{ flex: 1, overflow: 'hidden', height: '100%' }}>
                                     <Table
                                         dataSource={tableData.results.map((row, index) => ({
                                             ...row,
@@ -366,8 +407,8 @@ const CustomOperationalReport: React.FC = () => {
                                             }
                                         }))}
                                         pagination={{
-                                            pageSize: 20,
-                                            showSizeChanger: true,
+                                            pageSize: dynamicPageSize,
+                                            showSizeChanger: false,
                                             showQuickJumper: true,
                                             showTotal: (total, range) => 
                                                 `${range[0]}-${range[1]} of ${total} items`,
@@ -375,7 +416,7 @@ const CustomOperationalReport: React.FC = () => {
                                         }}
                                         scroll={{ 
                                             x: 'max-content',
-                                            y: isTableFullScreen ? 'calc(100vh - 150px)' : 'calc(100vh - 250px)'
+                                            y: '100%'
                                         }}
                                         size="small"
                                         style={{ 

@@ -194,7 +194,8 @@ const ReportsPage: React.FC = () => {
         <div style={{ 
             width: '100%', 
             boxSizing: 'border-box',
-            minHeight: 'calc(100vh - 96px)'
+            height: '100%',
+            overflow: 'hidden'
         }}>
             <div style={{ 
                 background: 'linear-gradient(135deg, #fff 0%, #f8f9fa 100%)',

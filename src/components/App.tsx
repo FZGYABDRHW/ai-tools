@@ -81,10 +81,10 @@ const App: React.FC = () => {
                             <Content style={{ 
                                 margin: 0, 
                                 background: 'linear-gradient(135deg, #f5f5f5 0%, #e8e8e8 100%)',
-                                height: 'calc(100vh - 48px - 48px)',
+                                flex: 1,
                                 width: '100%',
                                 boxSizing: 'border-box',
-                                overflow: 'auto',
+                                overflow: 'hidden',
                                 padding: '20px'
                             }}>
                                 <Routes>
