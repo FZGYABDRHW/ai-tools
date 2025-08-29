@@ -7,6 +7,7 @@ import Navigation from './Navigation';
 import AppHeader from './Header';
 import TaskAuthForm from './TaskAuthForm';
 import CustomOperationalReport from './CustomOperationalReport';
+import ReportsPage from './ReportsPage';
 import LoginScreen from './LoginScreen';
 
 const { Content } = Layout;
@@ -82,6 +83,7 @@ const App: React.FC = () => {
                             }}>
                                 <Routes>
                                     <Route path="/task-text-builder" element={<TaskAuthForm />} />
+                                    <Route path="/reports" element={<ReportsPage />} />
                                     <Route path="/custom-report" element={<CustomOperationalReport />} />
                                     <Route path="*" element={<TaskAuthForm />} />
                                 </Routes>
