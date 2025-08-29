@@ -98,6 +98,64 @@ body {
 .ant-menu-inline .ant-menu-submenu-title {
     font-weight: 500;
     color: #333;
+}
+
+/* Phone Input Integration with Ant Design */
+.phone-input-container {
+    display: flex !important;
+    align-items: center !important;
+    width: 100% !important;
+}
+
+.phone-input-container .ant-select {
+    border: none !important;
+    box-shadow: none !important;
+}
+
+.phone-input-container .ant-select-selector {
+    border: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+}
+
+.phone-input-container .ant-select-focused .ant-select-selector {
+    border: none !important;
+    box-shadow: none !important;
+}
+
+.phone-input-container input {
+    border: none !important;
+    outline: none !important;
+    background: transparent !important;
+    font-size: 14px !important;
+    color: #000 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    box-shadow: none !important;
+}
+
+.phone-input-container input:focus {
+    outline: none !important;
+    box-shadow: none !important;
+    border: none !important;
+}
+
+.phone-input-container input::placeholder {
+    color: #bfbfbf !important;
+}
+
+/* Hover and focus states for the phone input container */
+.phone-input-container:hover {
+    border-color: #40a9ff !important;
+}
+
+.phone-input-container:focus-within {
+    border-color: #1890ff !important;
+    box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2) !important;
+}
+
+.ant-menu-inline .ant-menu-submenu-title {
     border-radius: 6px;
     margin: 2px 8px;
     transition: all 0.2s ease;

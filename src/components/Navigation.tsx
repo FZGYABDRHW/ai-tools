@@ -1,7 +1,7 @@
 import React, { useContext } from 'react';
 import { Layout, Menu, Typography } from 'antd';
 import { Link, useLocation } from 'react-router-dom';
-import { FileTextOutlined, BarChartOutlined } from '@ant-design/icons';
+import { FileTextOutlined, BarChartOutlined, UnorderedListOutlined } from '@ant-design/icons';
 import { SidebarContext } from '../contexts/SidebarContext';
 
 const { Sider } = Layout;
@@ -18,9 +18,9 @@ const Navigation: React.FC = () => {
             label: <Link to="/task-text-builder">AI Task Builder</Link>,
         },
         {
-            key: '/custom-report',
-            icon: <BarChartOutlined />,
-            label: <Link to="/custom-report">Custom Operational Report</Link>,
+            key: '/reports',
+            icon: <UnorderedListOutlined />,
+            label: <Link to="/reports">Custom Operational Report Management</Link>,
         },
     ];
 

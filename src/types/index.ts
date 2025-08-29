@@ -18,3 +18,31 @@ export interface User {
     phone: string;
     name: string;
 }
+
+export interface Report {
+    id: string;
+    name: string;
+    prompt: string;
+    createdAt: string;
+    updatedAt: string;
+    lastGeneratedAt?: string;
+    tableData?: {
+        columns: string[];
+        results: Array<Record<string, unknown>>;
+        csv: string;
+    };
+}
+
+export interface ReportList {
+    reports: Report[];
+}
+
+export interface CreateReportRequest {
+    name: string;
+    prompt: string;
+}
+
+export interface UpdateReportRequest {
+    name?: string;
+    prompt?: string;
+}
