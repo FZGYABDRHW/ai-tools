@@ -1,0 +1,56 @@
+export interface UploadedFile {
+    lastModified: number;
+    lastModifiedDate: Date;
+    name: string;
+    preview?: string;
+    size: number;
+    type: string;
+    webkitRelativePath: string;
+}
+
+export enum FileType {
+    TASK_ATTACHMENT = 1,
+    AVATAR_USER,
+    AVATAR_USER_FULLSIZE,
+    COMPANY_LOGO,
+    TASK_FILE_BILL = 6,
+    PASSPORT_DOCUMENT,
+    SKILL_IMG,
+    CATEGORY_ICON,
+    SHOP_PROPERTY_ICON,
+    SHOP_FILE,
+    CLEANING_TASK_ATTACHMENT,
+    PAYMENT_DOCUMENT_INCOMING,
+    FRANCHISE_FILES,
+    INDIVIDUAL_ENTREPRENEUR_FILES,
+    TASK_ATTACHMENT_CURATOR_UPLOAD_AS_ORGANISATION,
+    TASK_ATTACHMENT_CURATOR_UPLOAD_AS_PERFORMER,
+    TASK_FILE_BILL_CURATOR_UPLOAD_AS_PERFORMER,
+    PRESS,
+    BGRANDOM,
+    REQUEST_MESSAGE,
+    INDIVIDUAL_ENTREPRENEUR_ACT,
+    EXPENDABLE_BILL,
+    COMPANY_SMALL_LOGO,
+    CLEANING_TASK_FILE_BILL,
+    CLEANING_TASK_ACT,
+    TASK_FILE_PHOTO_REPORT,
+    TASK_FILE_ACT_OF_COMPLETED_WORK,
+    TASK_NOT_DONE_SHOP = 30,
+    EXPENDABLE_INVOICE,
+    INCIDENT_ATTACHMENT = 35,
+    WORK_VISA_FILE = 36,
+    TYPE_PAYMENT_INVOICE,
+    EQUIPMENT_PHOTO = 38,
+    EQUIPMENT_FILES = 39,
+    INCIDENT_ACTS = 40,
+    TASK_EVENT_ATTACHMENTS = 41,
+    TASK_PERFORMER_INVOICE_ATTACHMENTS = 43,
+    CONSTRUCTION_WORKS_LICENSE = 44,
+}
+
+export type EntityName = 'executionAddress' | 'shop' | 'user';
+export interface GetVirtualPhoneNumber {
+    entityName: EntityName;
+    entityId: number;
+}
