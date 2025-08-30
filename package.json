@@ -3,17 +3,25 @@
   "productName": "Wowworks AI Tools",
   "version": "1.0.0",
   "description": "Wowworks AI Tools - A modern Electron application for AI-powered task building and report generation",
+  "homepage": "https://wowworks.ru",
+  "author": {
+    "name": "Wowworks",
+    "email": "info@wowworks.ru"
+  },
   "main": ".webpack/main",
   "scripts": {
     "start": "electron-forge start",
     "package": "electron-forge package",
     "make": "electron-forge make",
+    "make:mac": "electron-forge make --platform darwin",
+    "make:dmg": "electron-forge make --platform darwin --targets @electron-forge/maker-dmg",
     "publish": "electron-forge publish",
     "lint": "eslint --ext .ts,.tsx ."
   },
   "devDependencies": {
     "@electron-forge/cli": "^7.5.0",
     "@electron-forge/maker-deb": "^7.5.0",
+    "@electron-forge/maker-dmg": "^7.8.3",
     "@electron-forge/maker-rpm": "^7.5.0",
     "@electron-forge/maker-squirrel": "^7.5.0",
     "@electron-forge/maker-zip": "^7.5.0",
