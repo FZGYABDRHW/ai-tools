@@ -507,12 +507,13 @@ const CustomOperationalReport: React.FC = () => {
     };
 
     return (
-        <div style={{ width: '100%', boxSizing: 'border-box', height: '100%', overflow: 'hidden' }}>
+        <div style={{ width: '100%', boxSizing: 'border-box', height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
             {/* Tabs */}
             <Tabs
                 activeKey={activeTab}
                 onChange={handleTabChange}
-                style={{ height: '100%' }}
+                style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}
+                tabBarStyle={{ marginBottom: 0 }}
                 items={[
                     {
                         key: 'editor',
@@ -523,7 +524,7 @@ const CustomOperationalReport: React.FC = () => {
                             </span>
                         ),
                         children: (
-                            <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+                            <div style={{ height: 'calc(100vh - 200px)', display: 'flex', flexDirection: 'column', marginTop: '16px' }}>
                                 {/* Control Bar */}
                                 <div style={{
                                     background: 'linear-gradient(135deg, #fff 0%, #f8f9fa 100%)',
@@ -754,16 +755,18 @@ const CustomOperationalReport: React.FC = () => {
                                     </div>
                                 </div>
 
-                                <Row gutter={24} style={{ flex: 1, minHeight: 0 }}>
-                                    <Col xs={24} lg={isTableFullScreen ? 0 : 12}>
+                                <Row gutter={24} style={{ flex: 1, minHeight: 0, height: 'calc(100% - 80px)' }}>
+                                    <Col xs={24} lg={isTableFullScreen ? 0 : 12} style={{ display: 'flex', flexDirection: 'column' }}>
                                     <div style={{ 
-                                        height: '100%',
+                                        flex: 1,
                                         background: 'linear-gradient(135deg, #fff 0%, #f8f9fa 100%)',
                                         borderRadius: '12px',
                                         boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
                                         border: '1px solid #ff8c69',
                                         overflow: 'hidden',
-                                        position: 'relative'
+                                        position: 'relative',
+                                        display: 'flex',
+                                        flexDirection: 'column'
                                     }}>
                                         {/* Header for the editor */}
                                         <div style={{
@@ -787,7 +790,7 @@ const CustomOperationalReport: React.FC = () => {
                                         
                                         {/* Editor container */}
                                         <div style={{ 
-                                            height: 'calc(100% - 48px)',
+                                            flex: 1,
                                             background: '#fff',
                                             overflow: 'hidden'
                                         }}>
@@ -800,15 +803,17 @@ const CustomOperationalReport: React.FC = () => {
                                     </div>
                                 </Col>
                                 
-                                <Col xs={24} lg={isTableFullScreen ? 24 : 12}>
+                                <Col xs={24} lg={isTableFullScreen ? 24 : 12} style={{ display: 'flex', flexDirection: 'column' }}>
                                     <div style={{ 
-                                        height: '100%',
+                                        flex: 1,
                                         background: 'linear-gradient(135deg, #fff 0%, #f8f9fa 100%)',
                                         borderRadius: '12px',
                                         boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
                                         border: '1px solid #ff8c69',
                                         overflow: 'hidden',
-                                        position: 'relative'
+                                        position: 'relative',
+                                        display: 'flex',
+                                        flexDirection: 'column'
                                     }}>
                                         {/* Header for the results */}
                                         <div style={{
@@ -857,7 +862,7 @@ const CustomOperationalReport: React.FC = () => {
                                         <div 
                                             ref={tableContainerRef}
                                             style={{ 
-                                                height: 'calc(100% - 48px)',
+                                                flex: 1,
                                                 padding: '16px',
                                                 background: '#fff',
                                                 overflow: 'hidden'
@@ -868,7 +873,7 @@ const CustomOperationalReport: React.FC = () => {
                                                 display: 'flex', 
                                                 justifyContent: 'center', 
                                                 alignItems: 'center', 
-                                                height: 200,
+                                                height: '100%',
                                                 flexDirection: 'column',
                                                 gap: 16
                                             }}>
@@ -931,7 +936,7 @@ const CustomOperationalReport: React.FC = () => {
                                                 display: 'flex', 
                                                 justifyContent: 'center', 
                                                 alignItems: 'center', 
-                                                height: 200,
+                                                height: '100%',
                                                 color: '#666',
                                                 fontSize: 16
                                             }}>
@@ -954,7 +959,7 @@ const CustomOperationalReport: React.FC = () => {
                             </span>
                         ),
                         children: (
-                            <div style={{ height: '100%', overflow: 'auto' }}>
+                            <div style={{ height: 'calc(100vh - 200px)', overflow: 'auto', marginTop: '16px' }}>
                                 {selectedLogId ? (
                                     <ReportLogViewer 
                                         reportLogId={selectedLogId} 
