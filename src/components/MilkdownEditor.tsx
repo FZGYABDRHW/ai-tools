@@ -19,22 +19,37 @@ const MilkdownEditor: React.FC<MilkdownEditorProps> = ({
     const editorRef = useRef<Editor>(null);
 
     useEffect(() => {
-        if (editorRef.current) {
+        if (editorRef.current && !readOnly) {
             const editorInstance = editorRef.current.getInstance();
             if (editorInstance.getMarkdown() !== value) {
                 editorInstance.setMarkdown(value);
             }
         }
-    }, [value]);
+    }, [value, readOnly]);
+
+    // Handle readonly state changes
+    useEffect(() => {
+        if (editorRef.current) {
+            const editorInstance = editorRef.current.getInstance();
+            // Set the editor content when readonly state changes
+            if (editorInstance.getMarkdown() !== value) {
+                editorInstance.setMarkdown(value);
+            }
+        }
+    }, [readOnly, value]);
 
 
 
     const handleChange = () => {
-        if (editorRef.current) {
+        if (editorRef.current && !readOnly) {
             const editorInstance = editorRef.current.getInstance();
             const markdown = editorInstance.getMarkdown();
             onChange(markdown);
         }
+    };
+
+    const handleReadOnlyChange = () => {
+        // No-op function for readonly mode to prevent errors
     };
 
     return (
@@ -42,7 +57,7 @@ const MilkdownEditor: React.FC<MilkdownEditorProps> = ({
             <Editor
                 ref={editorRef}
                 initialValue={value}
-                onChange={readOnly ? undefined : handleChange}
+                onChange={readOnly ? handleReadOnlyChange : handleChange}
                 placeholder={placeholder}
                 previewStyle="vertical"
                 height="100%"
