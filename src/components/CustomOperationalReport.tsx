@@ -62,11 +62,18 @@ const CustomOperationalReport: React.FC = () => {
         // Extract parameters from the prompt
         if (reportText.trim()) {
             const extracted = ParameterExtractionService.extractParameters(reportText);
+            console.log('Extracted parameters:', extracted);
             setExtractedParameters(extracted);
         } else {
+            console.log('No report text, clearing extracted parameters');
             setExtractedParameters(null);
         }
     }, [reportText]);
+
+    // Debug extracted parameters
+    useEffect(() => {
+        console.log('Extracted parameters state changed:', extractedParameters);
+    }, [extractedParameters]);
 
     // Update generation status for UI updates
     useEffect(() => {
@@ -610,25 +617,38 @@ const CustomOperationalReport: React.FC = () => {
                         </div>
                         {extractedParameters && extractedParameters.humanReadable.length > 0 && (
                             <div style={{ 
-                                marginTop: '4px', 
-                                padding: '4px 8px', 
-                                background: 'rgba(255, 140, 105, 0.1)', 
-                                borderRadius: '4px',
-                                border: '1px solid rgba(255, 140, 105, 0.3)'
+                                marginTop: '8px', 
+                                padding: '8px 12px', 
+                                background: 'rgba(255, 140, 105, 0.15)', 
+                                borderRadius: '6px',
+                                border: '2px solid rgba(255, 140, 105, 0.4)'
                             }}>
-                                <div style={{ color: '#ff8c69', fontSize: '11px', fontWeight: 600, marginBottom: '2px' }}>
-                                    Extracted Parameters:
+                                <div style={{ color: '#ff8c69', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>
+                                    🔍 Extracted Parameters:
                                 </div>
                                 {extractedParameters.humanReadable.map((param, index) => (
-                                    <div key={index} style={{ color: '#666', fontSize: '10px' }}>
+                                    <div key={index} style={{ color: '#333', fontSize: '11px', marginBottom: '2px' }}>
                                         • {param}
                                     </div>
                                 ))}
                                 {extractedParameters.errors.length > 0 && (
-                                    <div style={{ color: '#ff4d4f', fontSize: '10px', marginTop: '2px' }}>
+                                    <div style={{ color: '#ff4d4f', fontSize: '11px', marginTop: '4px' }}>
                                         ⚠️ {extractedParameters.errors.join(', ')}
                                     </div>
                                 )}
+                            </div>
+                        )}
+                        {extractedParameters && extractedParameters.humanReadable.length === 0 && (
+                            <div style={{ 
+                                marginTop: '8px', 
+                                padding: '4px 8px', 
+                                background: 'rgba(128, 128, 128, 0.1)', 
+                                borderRadius: '4px',
+                                border: '1px solid rgba(128, 128, 128, 0.3)'
+                            }}>
+                                <div style={{ color: '#666', fontSize: '10px' }}>
+                                    No parameters detected in prompt
+                                </div>
                             </div>
                         )}
                     </div>
