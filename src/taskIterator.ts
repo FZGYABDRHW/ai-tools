@@ -5,8 +5,8 @@ import { TaskListParameters } from './services/parameterExtractionService';
 
 import { defer, from, EMPTY, Observable } from 'rxjs';
 import { concatMap, expand, map, startWith, endWith } from 'rxjs/operators';
-// import type { ListQueryParams, Task } from './api-client/src/services/v2/curator/task/interfaces';
-// import type { AxiosRequestConfig } from 'axios';
+import type { Task } from './api-client/src/services/v2/curator/task/interfaces';
+// import type { ListQueryParams, AxiosRequestConfig } from 'axios';
 
 /**
  * Streamed event describing the progress of the iteration through the
@@ -59,9 +59,9 @@ export function taskIterator(
       return from(service[serviceMethod]({ ...queryParams, offset: nextOffset }));
     }),
     // Flatten each page into individual tasks.
-    concatMap(tasks => from(tasks)),
+    concatMap((tasks: Task[]) => from(tasks)),
     // Wrap each task as a content event.
-    map(task => ({ type: 'content', taskId: task.id } as Event)),
+    map((task: Task) => ({ type: 'content', taskId: task.id } as Event)),
     // Mark stream start and end.
     startWith({ type: 'start', task: null } as Event),
     endWith({ type: 'end', task: null } as Event),
