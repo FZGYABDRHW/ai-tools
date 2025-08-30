@@ -319,8 +319,7 @@ Return only the JSON object, no additional text.`
     }
   }
 
-  // Automatically download the CSV in renderer contexts
-  downloadCsv(csvContent);
+  // Return the results without automatic download
   return { 
     columns, 
     results, 
