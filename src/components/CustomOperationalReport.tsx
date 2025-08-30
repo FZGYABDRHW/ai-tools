@@ -12,6 +12,7 @@ import { reportLogService } from '../services/reportLogService';
 import { reportService } from '../services/reportService';
 import { reportGenerationService } from '../services/reportGenerationService';
 import { reportCheckpointService } from '../services/reportCheckpointService';
+import { ParameterExtractionService, ExtractedParameters } from '../services/parameterExtractionService';
 import ReportLogsList from './ReportLogsList';
 import ReportLogViewer from './ReportLogViewer';
 
@@ -51,11 +52,20 @@ const CustomOperationalReport: React.FC = () => {
     const [selectedLogId, setSelectedLogId] = useState<string | null>(null);
     const [logsRefreshKey, setLogsRefreshKey] = useState<number>(0);
     const [currentGenerationStatus, setCurrentGenerationStatus] = useState<string | null>(null);
+    const [extractedParameters, setExtractedParameters] = useState<ExtractedParameters | null>(null);
     const tableContainerRef = useRef<HTMLDivElement>(null);
     const abortControllerRef = useRef<AbortController | null>(null);
 
     useEffect(() => {
         localStorage.setItem('customOperationalReport', reportText);
+        
+        // Extract parameters from the prompt
+        if (reportText.trim()) {
+            const extracted = ParameterExtractionService.extractParameters(reportText);
+            setExtractedParameters(extracted);
+        } else {
+            setExtractedParameters(null);
+        }
     }, [reportText]);
 
     // Update generation status for UI updates
@@ -227,11 +237,11 @@ const CustomOperationalReport: React.FC = () => {
         setIsGenerating(true);
         setTableData(null); // Clear previous data
         setProgressInfo(null); // Clear progress info
-
+        
         try {
             await reportGenerationService.startGeneration(
                 reportId,
-                reportText,
+                reportText, 
                 authToken,
                 (progress) => {
                     // Progress callback - update UI in real-time
@@ -253,7 +263,9 @@ const CustomOperationalReport: React.FC = () => {
                     if (error.message !== 'Aborted') {
                         message.error('Failed to generate custom report');
                     }
-                }
+                },
+                0, // startOffset
+                extractedParameters?.parameters
             );
         } catch (error) {
             setIsGenerating(false);
@@ -556,51 +568,74 @@ const CustomOperationalReport: React.FC = () => {
                         ),
                         children: (
                             <div style={{ height: 'calc(100vh - 200px)', display: 'flex', flexDirection: 'column', marginTop: '16px' }}>
-                                {/* Control Bar */}
-                                <div style={{
-                                    background: 'linear-gradient(135deg, #fff 0%, #f8f9fa 100%)',
-                                    padding: '8px 20px',
-                                    borderRadius: '8px',
-                                    marginBottom: '20px',
-                                    display: 'flex',
-                                    justifyContent: 'space-between',
-                                    alignItems: 'center',
-                                    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-                                    border: '1px solid #ff8c69'
-                                }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                        <BarChartOutlined style={{ fontSize: '20px', color: '#ff8c69' }} />
-                                        <div>
-                                            <div style={{ color: '#333', fontSize: '16px', fontWeight: 600 }}>
-                                                Report Generation Control
-                                            </div>
-                                            <div style={{ color: '#666', fontSize: '12px' }}>
-                                                {(() => {
-                                                    const searchParams = new URLSearchParams(location.search);
-                                                    const reportId = searchParams.get('reportId');
-                                                    const status = reportId ? reportGenerationService.getGenerationStatus(reportId) : null;
-                                                    
-                                                    switch (status) {
-                                                        case 'in_progress':
-                                                            return '🔄 Processing tasks...';
-                                                        case 'paused':
-                                                            return '⏸️ Generation paused';
-                                                        case 'failed':
-                                                            return '❌ Generation failed';
-                                                        case 'completed':
-                                                            return '✅ Generation completed';
-                                                        case 'ready':
-                                                            return '🚀 Ready to generate';
-                                                        default:
-                                                            return 'Ready to generate report';
-                                                    }
-                                                })()}
-                                            </div>
-                                        </div>
+            {/* Control Bar */}
+            <div style={{
+                background: 'linear-gradient(135deg, #fff 0%, #f8f9fa 100%)',
+                padding: '8px 20px',
+                borderRadius: '8px',
+                marginBottom: '20px',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                border: '1px solid #ff8c69'
+            }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <BarChartOutlined style={{ fontSize: '20px', color: '#ff8c69' }} />
+                    <div>
+                        <div style={{ color: '#333', fontSize: '16px', fontWeight: 600 }}>
+                            Report Generation Control
+                        </div>
+                        <div style={{ color: '#666', fontSize: '12px' }}>
+                            {(() => {
+                                const searchParams = new URLSearchParams(location.search);
+                                const reportId = searchParams.get('reportId');
+                                const status = reportId ? reportGenerationService.getGenerationStatus(reportId) : null;
+                                
+                                switch (status) {
+                                    case 'in_progress':
+                                        return '🔄 Processing tasks...';
+                                    case 'paused':
+                                        return '⏸️ Generation paused';
+                                    case 'failed':
+                                        return '❌ Generation failed';
+                                    case 'completed':
+                                        return '✅ Generation completed';
+                                    case 'ready':
+                                        return '🚀 Ready to generate';
+                                    default:
+                                        return 'Ready to generate report';
+                                }
+                            })()}
+                        </div>
+                        {extractedParameters && extractedParameters.humanReadable.length > 0 && (
+                            <div style={{ 
+                                marginTop: '4px', 
+                                padding: '4px 8px', 
+                                background: 'rgba(255, 140, 105, 0.1)', 
+                                borderRadius: '4px',
+                                border: '1px solid rgba(255, 140, 105, 0.3)'
+                            }}>
+                                <div style={{ color: '#ff8c69', fontSize: '11px', fontWeight: 600, marginBottom: '2px' }}>
+                                    Extracted Parameters:
+                                </div>
+                                {extractedParameters.humanReadable.map((param, index) => (
+                                    <div key={index} style={{ color: '#666', fontSize: '10px' }}>
+                                        • {param}
                                     </div>
-                                    
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        {!isGenerating ? (
+                                ))}
+                                {extractedParameters.errors.length > 0 && (
+                                    <div style={{ color: '#ff4d4f', fontSize: '10px', marginTop: '2px' }}>
+                                        ⚠️ {extractedParameters.errors.join(', ')}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                </div>
+                
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    {!isGenerating ? (
                                             <>
                                                 {(() => {
                                                     const searchParams = new URLSearchParams(location.search);
@@ -730,38 +765,38 @@ const CustomOperationalReport: React.FC = () => {
                                                     
                                                     // Only show Start Report button when status is 'ready' or null (no status)
                                                     return (status === 'ready' || status === null) ? (
-                                                        <Button
-                                                            type="primary"
-                                                            size="middle"
-                                                            onClick={handleCustomReport}
-                                                            icon={<BarChartOutlined />}
-                                                            disabled={!reportText.trim() || !authToken.trim() || !user}
-                                                            style={{
-                                                                fontSize: '14px',
-                                                                fontWeight: 600,
-                                                                height: '36px',
-                                                                padding: '0 16px',
-                                                                background: '#ff8c69',
-                                                                borderColor: '#ff8c69'
-                                                            }}
-                                                        >
+                        <Button
+                            type="primary"
+                            size="middle"
+                            onClick={handleCustomReport}
+                            icon={<BarChartOutlined />}
+                            disabled={!reportText.trim() || !authToken.trim() || !user}
+                            style={{
+                                fontSize: '14px',
+                                fontWeight: 600,
+                                height: '36px',
+                                padding: '0 16px',
+                                background: '#ff8c69',
+                                borderColor: '#ff8c69'
+                            }}
+                        >
                                                             Generate Report
-                                                        </Button>
+                        </Button>
                                                     ) : null;
                                                 })()}
                                             </>
-                                        ) : (
+                    ) : (
                                             <div style={{ display: 'flex', gap: '8px' }}>
-                                                <Button
-                                                    danger
-                                                    size="middle"
-                                                    onClick={handleStopReport}
-                                                    icon={<StopOutlined />}
-                                                    style={{
-                                                        fontSize: '14px',
-                                                        fontWeight: 600,
-                                                        height: '36px',
-                                                        padding: '0 16px',
+                        <Button
+                            danger
+                            size="middle"
+                            onClick={handleStopReport}
+                            icon={<StopOutlined />}
+                            style={{
+                                fontSize: '14px',
+                                fontWeight: 600,
+                                height: '36px',
+                                padding: '0 16px',
                                                         backgroundColor: '#ff9c6e',
                                                         borderColor: '#ff9c6e',
                                                         color: '#ffffff'
@@ -781,59 +816,59 @@ const CustomOperationalReport: React.FC = () => {
                                                         padding: '0 16px',
                                                         backgroundColor: '#73d13d',
                                                         borderColor: '#73d13d',
-                                                        color: '#ffffff'
-                                                    }}
-                                                >
+                                color: '#ffffff'
+                            }}
+                        >
                                                     Save & Finish
-                                                </Button>
+                        </Button>
                                             </div>
-                                        )}
-                                        
-                                        {progressInfo && (
-                                            <div style={{
-                                                background: 'rgba(255, 140, 105, 0.1)',
-                                                padding: '6px 12px',
-                                                borderRadius: '6px',
-                                                color: '#ff8c69',
-                                                fontSize: '12px',
-                                                fontWeight: 500,
-                                                border: '1px solid rgba(255, 140, 105, 0.3)'
-                                            }}>
-                                                {isGenerating ? '🔄 Processing' : '✅ Complete'}: {progressInfo.processed} items
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-
+                    )}
+                    
+                    {progressInfo && (
+                        <div style={{
+                            background: 'rgba(255, 140, 105, 0.1)',
+                            padding: '6px 12px',
+                            borderRadius: '6px',
+                            color: '#ff8c69',
+                            fontSize: '12px',
+                            fontWeight: 500,
+                            border: '1px solid rgba(255, 140, 105, 0.3)'
+                        }}>
+                            {isGenerating ? '🔄 Processing' : '✅ Complete'}: {progressInfo.processed} items
+                        </div>
+                    )}
+                </div>
+            </div>
+            
                                 <Row gutter={24} style={{ flex: 1, minHeight: 0, height: 'calc(100% - 80px)' }}>
                                     <Col xs={24} lg={isTableFullScreen ? 0 : 12} style={{ display: 'flex', flexDirection: 'column' }}>
-                                    <div style={{ 
+                    <div style={{ 
                                         flex: 1,
-                                        background: 'linear-gradient(135deg, #fff 0%, #f8f9fa 100%)',
-                                        borderRadius: '12px',
-                                        boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
-                                        border: '1px solid #ff8c69',
-                                        overflow: 'hidden',
+                        background: 'linear-gradient(135deg, #fff 0%, #f8f9fa 100%)',
+                        borderRadius: '12px',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+                        border: '1px solid #ff8c69',
+                        overflow: 'hidden',
                                         position: 'relative',
                                         display: 'flex',
                                         flexDirection: 'column'
-                                    }}>
-                                        {/* Header for the editor */}
-                                        <div style={{
-                                            background: 'linear-gradient(135deg, #ff8c69 0%, #ff9f7f 100%)',
-                                            padding: '12px 20px',
-                                            borderBottom: '1px solid rgba(255, 140, 105, 0.2)',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '8px'
-                                        }}>
-                                            <BarChartOutlined style={{ color: '#fff', fontSize: '16px' }} />
-                                                                                         <span style={{ 
-                                                 color: '#fff', 
-                                                 fontSize: '14px', 
-                                                 fontWeight: 600,
-                                                 letterSpacing: '0.5px'
-                                             }}>
+                    }}>
+                        {/* Header for the editor */}
+                        <div style={{
+                            background: 'linear-gradient(135deg, #ff8c69 0%, #ff9f7f 100%)',
+                            padding: '12px 20px',
+                            borderBottom: '1px solid rgba(255, 140, 105, 0.2)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px'
+                        }}>
+                            <BarChartOutlined style={{ color: '#fff', fontSize: '16px' }} />
+                            <span style={{ 
+                                color: '#fff', 
+                                fontSize: '14px', 
+                                fontWeight: 600,
+                                letterSpacing: '0.5px'
+                            }}>
                                                  Editor
                                                 {(currentGenerationStatus === 'in_progress' || currentGenerationStatus === 'paused') && (
                                                         <span style={{ 
@@ -844,69 +879,69 @@ const CustomOperationalReport: React.FC = () => {
                                                             (Read Only)
                                                         </span>
                                                     )}
-                                            </span>
-                                        </div>
-                                        
-                                        {/* Editor container */}
-                                        <div style={{ 
+                            </span>
+                        </div>
+                        
+                        {/* Editor container */}
+                        <div style={{ 
                                             flex: 1,
-                                            background: '#fff',
-                                            overflow: 'hidden'
-                                        }}>
-                                            <MilkdownEditor
-                                                value={reportText}
-                                                onChange={setReportText}
-                                                placeholder="Write your prompt here..."
+                            background: '#fff',
+                            overflow: 'hidden'
+                        }}>
+                            <MilkdownEditor
+                                value={reportText}
+                                onChange={setReportText}
+                                placeholder="Write your prompt here..."
                                                 readOnly={currentGenerationStatus === 'in_progress' || currentGenerationStatus === 'paused'}
-                                            />
-                                        </div>
-                                    </div>
-                                </Col>
-                                
+                            />
+                        </div>
+                    </div>
+                </Col>
+                
                                 <Col xs={24} lg={isTableFullScreen ? 24 : 12} style={{ display: 'flex', flexDirection: 'column' }}>
-                                    <div style={{ 
+                    <div style={{ 
                                         flex: 1,
-                                        background: 'linear-gradient(135deg, #fff 0%, #f8f9fa 100%)',
-                                        borderRadius: '12px',
-                                        boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
-                                        border: '1px solid #ff8c69',
-                                        overflow: 'hidden',
+                        background: 'linear-gradient(135deg, #fff 0%, #f8f9fa 100%)',
+                        borderRadius: '12px',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+                        border: '1px solid #ff8c69',
+                        overflow: 'hidden',
                                         position: 'relative',
                                         display: 'flex',
                                         flexDirection: 'column'
-                                    }}>
+                    }}>
                                         {/* Header for the results */}
-                                        <div style={{
-                                            background: 'linear-gradient(135deg, #ff8c69 0%, #ff9f7f 100%)',
-                                            padding: '12px 20px',
-                                            borderBottom: '1px solid rgba(255, 140, 105, 0.2)',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'space-between'
-                                        }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                <BarChartOutlined style={{ color: '#fff', fontSize: '16px' }} />
-                                                                                                 <span style={{ 
-                                                     color: '#fff', 
-                                                     fontSize: '14px', 
-                                                     fontWeight: 600,
-                                                     letterSpacing: '0.5px'
-                                                 }}>
+                        <div style={{
+                            background: 'linear-gradient(135deg, #ff8c69 0%, #ff9f7f 100%)',
+                            padding: '12px 20px',
+                            borderBottom: '1px solid rgba(255, 140, 105, 0.2)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between'
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <BarChartOutlined style={{ color: '#fff', fontSize: '16px' }} />
+                                <span style={{ 
+                                    color: '#fff', 
+                                    fontSize: '14px', 
+                                    fontWeight: 600,
+                                    letterSpacing: '0.5px'
+                                }}>
                                                      Results
-                                                </span>
-                                            </div>
-                                            
-                                            {tableData && (
+                                </span>
+                            </div>
+                            
+                            {tableData && (
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                    <Button
+                                    <Button
                                                         type="text"
-                                                        size="small"
-                                                        icon={<DownloadOutlined />}
-                                                        onClick={handleDownloadCSV}
+                                        size="small"
+                                        icon={<DownloadOutlined />}
+                                        onClick={handleDownloadCSV}
                                                         style={{ color: '#fff', borderColor: 'rgba(255,255,255,0.3)' }}
-                                                    >
-                                                        Download CSV
-                                                    </Button>
+                                    >
+                                        Download CSV
+                                    </Button>
                                                     <Button
                                                         type="text"
                                                         size="small"
@@ -914,99 +949,99 @@ const CustomOperationalReport: React.FC = () => {
                                                         onClick={toggleTableFullScreen}
                                                         style={{ color: '#fff', borderColor: 'rgba(255,255,255,0.3)' }}
                                                     />
-                                                </div>
-                                            )}
-                                        </div>
-                                        
-                                        {/* Table container */}
-                                        <div 
-                                            ref={tableContainerRef}
-                                            style={{ 
-                                                flex: 1,
-                                                padding: '16px',
-                                                background: '#fff',
-                                                overflow: 'hidden'
-                                            }}
-                                        >
-                                            {!tableData && isGenerating ? (
-                                            <div style={{ 
-                                                display: 'flex', 
-                                                justifyContent: 'center', 
-                                                alignItems: 'center', 
+                                </div>
+                            )}
+                        </div>
+                        
+                        {/* Table container */}
+                        <div 
+                            ref={tableContainerRef}
+                            style={{ 
+                                flex: 1,
+                                padding: '16px',
+                                background: '#fff',
+                                overflow: 'hidden'
+                            }}
+                        >
+                            {!tableData && isGenerating ? (
+                            <div style={{ 
+                                display: 'flex', 
+                                justifyContent: 'center', 
+                                alignItems: 'center', 
                                                 height: '100%',
-                                                flexDirection: 'column',
-                                                gap: 16
-                                            }}>
-                                                <LoadingOutlined style={{ fontSize: 32, color: '#1890ff' }} />
-                                                <div>Initializing report generation...</div>
-                                                <div style={{ fontSize: 12, color: '#666' }}>
-                                                    Setting up schema and preparing tasks
-                                                </div>
-                                            </div>
-                                        ) : tableData ? (
-                                            <div style={{ 
-                                                flex: 1,
-                                                display: 'flex',
-                                                flexDirection: 'column',
-                                                height: '100%',
-                                                width: '100%'
-                                            }}>
+                                flexDirection: 'column',
+                                gap: 16
+                            }}>
+                                <LoadingOutlined style={{ fontSize: 32, color: '#1890ff' }} />
+                                <div>Initializing report generation...</div>
+                                <div style={{ fontSize: 12, color: '#666' }}>
+                                    Setting up schema and preparing tasks
+                                </div>
+                            </div>
+                        ) : tableData ? (
+                            <div style={{ 
+                                flex: 1,
+                                display: 'flex',
+                                flexDirection: 'column',
+                                height: '100%',
+                                width: '100%'
+                            }}>
 
-                                                <div style={{ flex: 1, overflow: 'hidden', height: '100%' }}>
-                                                    <Table
-                                                        dataSource={tableData.results.map((row, index) => ({
-                                                            ...row,
-                                                            key: row.taskId || index
-                                                        }))}
-                                                        columns={tableData.columns.map(col => ({
-                                                            title: col,
-                                                            dataIndex: col,
-                                                            key: col,
-                                                            width: 150,
-                                                            ellipsis: true,
-                                                            render: (value: any) => {
-                                                                if (typeof value === 'object' && value !== null) {
-                                                                    return JSON.stringify(value);
-                                                                }
-                                                                return String(value || '');
-                                                            }
-                                                        }))}
-                                                        pagination={{
-                                                            pageSize: dynamicPageSize,
-                                                            showSizeChanger: false,
-                                                            showQuickJumper: true,
-                                                            showTotal: (total, range) => 
-                                                                `${range[0]}-${range[1]} of ${total} items`,
-                                                            size: 'small'
-                                                        }}
-                                                        scroll={{ 
-                                                            x: 'max-content',
-                                                            y: '100%'
-                                                        }}
-                                                        size="small"
-                                                        style={{ 
-                                                            height: '100%',
-                                                            width: '100%'
-                                                        }}
-                                                    />
-                                                </div>
-                                            </div>
-                                        ) : (
-                                            <div style={{ 
-                                                display: 'flex', 
-                                                justifyContent: 'center', 
-                                                alignItems: 'center', 
+                                <div style={{ flex: 1, overflow: 'hidden', height: '100%' }}>
+                                    <Table
+                                        dataSource={tableData.results.map((row, index) => ({
+                                            ...row,
+                                            key: row.taskId || index
+                                        }))}
+                                        columns={tableData.columns.map(col => ({
+                                            title: col,
+                                            dataIndex: col,
+                                            key: col,
+                                            width: 150,
+                                            ellipsis: true,
+                                            render: (value: any) => {
+                                                if (typeof value === 'object' && value !== null) {
+                                                    return JSON.stringify(value);
+                                                }
+                                                return String(value || '');
+                                            }
+                                        }))}
+                                        pagination={{
+                                            pageSize: dynamicPageSize,
+                                            showSizeChanger: false,
+                                            showQuickJumper: true,
+                                            showTotal: (total, range) => 
+                                                `${range[0]}-${range[1]} of ${total} items`,
+                                            size: 'small'
+                                        }}
+                                        scroll={{ 
+                                            x: 'max-content',
+                                            y: '100%'
+                                        }}
+                                        size="small"
+                                        style={{ 
+                                            height: '100%',
+                                            width: '100%'
+                                        }}
+                                    />
+                                </div>
+                            </div>
+                        ) : (
+                            <div style={{ 
+                                display: 'flex', 
+                                justifyContent: 'center', 
+                                alignItems: 'center', 
                                                 height: '100%',
-                                                color: '#666',
-                                                fontSize: 16
-                                            }}>
-                                                Generate a report to see the table here
-                                            </div>
-                                        )}
-                                        </div>
-                                    </div>
-                                </Col>
-                            </Row>
+                                color: '#666',
+                                fontSize: 16
+                            }}>
+                                Generate a report to see the table here
+                            </div>
+                        )}
+                        </div>
+                    </div>
+                </Col>
+            </Row>
                                 </div>
                         )
                     },

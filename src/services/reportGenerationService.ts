@@ -4,6 +4,7 @@ import builder from '../builder';
 import { reportService } from './reportService';
 import { reportLogService } from './reportLogService';
 import { reportCheckpointService } from './reportCheckpointService';
+import { TaskListParameters } from './parameterExtractionService';
 
 export type GenerationStatus = 'in_progress' | 'paused' | 'completed' | 'failed' | 'ready';
 
@@ -22,6 +23,7 @@ export interface ReportGenerationState {
     startTime: number;
     abortController: AbortController | null;
     errorMessage?: string;
+    parameters?: TaskListParameters;
 }
 
 interface GenerationCallbacks {
@@ -193,7 +195,8 @@ class ReportGenerationService {
         onProgress?: (progress: any) => void,
         onComplete?: (result: any) => void,
         onError?: (error: any) => void,
-        startOffset: number = 0
+        startOffset: number = 0,
+        parameters?: TaskListParameters
     ): Promise<void> {
         // Store callbacks for this generation
         this.setCallbacks(reportId, { onProgress, onComplete, onError });
@@ -229,7 +232,8 @@ class ReportGenerationService {
             progress: existingProgress || null,
             tableData: existingTableData || null,
             startTime,
-            abortController
+            abortController,
+            parameters
         };
 
         this.activeGenerations.set(reportId, generationState);
@@ -289,7 +293,8 @@ class ReportGenerationService {
                     callbacks?.onProgress?.(mergedProgress);
                 },
                 abortController.signal,
-                startOffset
+                startOffset,
+                parameters
             );
 
             // Final save - merge with existing data if resuming

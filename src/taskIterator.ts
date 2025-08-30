@@ -1,8 +1,7 @@
 // eslint-disable-next-line import/namespace
 import {buildServiceInitializer, ServiceInitializer} from "./serviceInit";
 import { CuratorListService } from './api-client/src/services/v2/curator/task/index';
-
-
+import { TaskListParameters } from './services/parameterExtractionService';
 
 import { defer, from, EMPTY, Observable } from 'rxjs';
 import { concatMap, expand, map, startWith, endWith } from 'rxjs/operators';
@@ -21,14 +20,35 @@ export interface Event {
 export function taskIterator(
     si: ServiceInitializer,
     startOffset: number = 0,
+    parameters?: TaskListParameters,
 ): Observable<Event> {
 
   const service = si(CuratorListService);
 
-  const limit = 30;
+  // Default parameters
+  const defaultLimit = 30;
+  const limit = parameters?.limit || defaultLimit;
+  
+  // Determine which service method to use based on task status
+  const taskStatus = parameters?.taskStatus || 'in-work';
+  const serviceMethod = getServiceMethod(taskStatus);
+  
+  // Build query parameters
+  const queryParams: any = { 
+    limit, 
+    offset: startOffset 
+  };
+  
+  // Add time range parameters if provided
+  if (parameters?.timeRangeFrom) {
+    queryParams.timeRangeFrom = parameters.timeRangeFrom;
+  }
+  if (parameters?.timeRangeTo) {
+    queryParams.timeRangeTo = parameters.timeRangeTo;
+  }
 
   return defer(() =>
-    from(service.getInWorkTasks({ limit, offset: startOffset })),
+    from(service[serviceMethod](queryParams)),
   ).pipe(
     // Fetch subsequent pages until a final short page is returned.
     expand((tasks, idx) => {
@@ -36,7 +56,7 @@ export function taskIterator(
         return EMPTY;
       }
       const nextOffset = (idx + 1) * limit;
-      return from(service.getInWorkTasks({ limit, offset: nextOffset }));
+      return from(service[serviceMethod]({ ...queryParams, offset: nextOffset }));
     }),
     // Flatten each page into individual tasks.
     concatMap(tasks => from(tasks)),
@@ -46,6 +66,23 @@ export function taskIterator(
     startWith({ type: 'start', task: null } as Event),
     endWith({ type: 'end', task: null } as Event),
   );
+}
+
+/**
+ * Helper function to get the appropriate service method based on task status
+ */
+function getServiceMethod(status: string): string {
+  const methodMap: Record<string, string> = {
+    'new': 'getNewTasks',
+    'done': 'getDoneTasks',
+    'canceled': 'getCanceledTasks',
+    'in-work': 'getInWorkTasks',
+    'on-moderation': 'getOnModerationTasks',
+    'awaiting-approve': 'getOnAwaitingApprove',
+    'on-payment': 'getOnPayment',
+    'in-queue': 'getInQueueTasks'
+  };
+  return methodMap[status] || 'getInWorkTasks';
 }
 
 /**

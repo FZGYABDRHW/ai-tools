@@ -2,6 +2,7 @@ import { taskIterator, Event as TaskEvent } from './taskIterator';
 import { ServiceInitializer } from './serviceInit';
 import OpenAI from 'openai';
 import { filter, mergeMap } from 'rxjs/operators';
+import { TaskListParameters } from './services/parameterExtractionService';
 
 // Helper to trigger a file download in a browser/Electron renderer
 function downloadCsv(csvContent: string, filename = 'report.csv') {
@@ -40,6 +41,7 @@ export async function buildReport(
   onProgress?: (update: { columns: string[]; results: Array<Record<string, unknown>>; csv: string }) => void,
   abortSignal?: AbortSignal,
   startOffset: number = 0,
+  parameters?: TaskListParameters,
 ): Promise<{ columns: string[]; results: Array<Record<string, unknown>>; csv: string }> {
 
   const openai = new OpenAI({dangerouslyAllowBrowser: true, apiKey: "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"});
@@ -100,7 +102,7 @@ export async function buildReport(
   await new Promise<void>((resolve, reject) => {
     let abortHandler: (() => void) | null = null;
     
-    const subscription = taskIterator(si, startOffset).pipe(
+    const subscription = taskIterator(si, startOffset, parameters).pipe(
       // We only care about concrete "content" events (those carry the task ID).
       filter((ev): ev is TaskEvent & { taskId: number } => ev.type === 'content'),
       // Add abort check to the stream

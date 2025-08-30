@@ -168,17 +168,17 @@ const ReportsPage: React.FC = () => {
             okType: 'danger',
             cancelText: 'Cancel',
             onOk: () => {
-                try {
-                    const success = reportService.deleteReport(reportId);
-                    if (success) {
-                        message.success('Report deleted successfully!');
-                        loadReports();
-                    } else {
-                        message.error('Report not found');
-                    }
-                } catch (error) {
-                    message.error('Failed to delete report');
-                }
+        try {
+            const success = reportService.deleteReport(reportId);
+            if (success) {
+                message.success('Report deleted successfully!');
+                loadReports();
+            } else {
+                message.error('Report not found');
+            }
+        } catch (error) {
+            message.error('Failed to delete report');
+        }
             }
         });
     };
@@ -528,21 +528,21 @@ const ReportsPage: React.FC = () => {
                         >
                             View Logs
                         </Button>
-                        <Popconfirm
-                            title="Are you sure you want to delete this report?"
-                            onConfirm={() => handleDeleteReport(record.id)}
-                            okText="Yes"
-                            cancelText="No"
-                        >
-                            <Button
-                                type="default"
-                                danger
-                                size="small"
-                                icon={<DeleteOutlined />}
-                            >
-                                Delete
-                            </Button>
-                        </Popconfirm>
+                <Popconfirm
+                    title="Are you sure you want to delete this report?"
+                    onConfirm={() => handleDeleteReport(record.id)}
+                    okText="Yes"
+                    cancelText="No"
+                >
+                    <Button
+                        type="default"
+                        danger
+                        size="small"
+                        icon={<DeleteOutlined />}
+                    >
+                        Delete
+                    </Button>
+                </Popconfirm>
                     </Space>
                 );
             }
@@ -619,20 +619,20 @@ const ReportsPage: React.FC = () => {
                                 </Button>
                             ) : null;
                         })()}
-                        <Button 
-                            type="default"
-                            icon={<PlusOutlined />}
-                            onClick={() => setIsCreateModalVisible(true)}
-                            style={{
-                                background: 'rgba(255, 255, 255, 0.2)',
-                                border: '1px solid rgba(255, 255, 255, 0.3)',
-                                color: '#fff',
-                                fontWeight: 600,
-                                flexShrink: 0
-                            }}
-                        >
-                            New Report
-                        </Button>
+                    <Button 
+                        type="default"
+                        icon={<PlusOutlined />}
+                        onClick={() => setIsCreateModalVisible(true)}
+                        style={{
+                            background: 'rgba(255, 255, 255, 0.2)',
+                            border: '1px solid rgba(255, 255, 255, 0.3)',
+                            color: '#fff',
+                            fontWeight: 600,
+                            flexShrink: 0
+                        }}
+                    >
+                        New Report
+                    </Button>
                     </Space>
                 </div>
                 
