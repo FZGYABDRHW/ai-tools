@@ -609,17 +609,7 @@ const CustomOperationalReport: React.FC = () => {
                                 }
                             })()}
                         </div>
-                        {/* Debug info */}
-                        <div style={{ 
-                            marginTop: '4px', 
-                            padding: '2px 4px', 
-                            background: 'rgba(0, 0, 255, 0.1)', 
-                            borderRadius: '2px',
-                            fontSize: '10px',
-                            color: 'blue'
-                        }}>
-                            Debug: extractedParameters = {JSON.stringify(getExtractedParameters())}
-                        </div>
+
                         {getExtractedParameters() && getExtractedParameters()!.humanReadable.length > 0 && (
                             <div style={{ 
                                 marginTop: '8px', 
