@@ -145,8 +145,8 @@ class ReportService {
         
         if (index === -1) return null;
 
-        // Remove tableData and lastGeneratedAt
-        const { tableData, lastGeneratedAt, ...reportWithoutData } = reports[index];
+        // Remove tableData, extractedParameters, and lastGeneratedAt
+        const { tableData, extractedParameters, lastGeneratedAt, ...reportWithoutData } = reports[index];
         
         reports[index] = {
             ...reportWithoutData,
@@ -154,7 +154,7 @@ class ReportService {
         };
 
         this.saveReportsToStorage(reports);
-        console.log(`Cleared table data for report ${id}`);
+        console.log(`Cleared table data and extracted parameters for report ${id}`);
         return reports[index];
     }
 

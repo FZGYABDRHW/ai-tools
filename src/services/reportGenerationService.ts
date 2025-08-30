@@ -184,9 +184,9 @@ class ReportGenerationService {
         if (state && state.status === 'completed') {
             // Clear the completed state to allow new generation
             this.clearGeneration(reportId);
-            // Clear report table data to ensure fresh start
+            // Clear all report data (table data, extracted parameters) to ensure fresh start
             reportService.clearReportData(reportId);
-            console.log(`Report ${reportId} ready for rerun - cleared generation state and report data`);
+            console.log(`Report ${reportId} ready for rerun - cleared generation state and all report data`);
             return true;
         }
         return false;
@@ -204,9 +204,9 @@ class ReportGenerationService {
         if (state && state.status === 'failed') {
             // Clear the failed state to allow new generation
             this.clearGeneration(reportId);
-            // Clear report table data to ensure fresh start
+            // Clear all report data (table data, extracted parameters) to ensure fresh start
             reportService.clearReportData(reportId);
-            console.log(`Report ${reportId} ready for restart from failed state - cleared generation state and report data`);
+            console.log(`Report ${reportId} ready for restart from failed state - cleared generation state and all report data`);
             return true;
         }
         return false;
