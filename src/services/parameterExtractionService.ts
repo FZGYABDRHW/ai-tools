@@ -119,7 +119,7 @@ export class ParameterExtractionService {
       if (match) {
         const now = new Date();
         
-        if (pattern.source.includes('last|past|previous') || pattern.source.includes('ago')) {
+        if (pattern.source.includes('last') || pattern.source.includes('past') || pattern.source.includes('previous') || pattern.source.includes('ago')) {
           const amount = parseInt(match[1], 10);
           const unit = match[2].toLowerCase();
           
@@ -135,9 +135,9 @@ export class ParameterExtractionService {
           return {
             from: from.toISOString().split('T')[0],
             to: now.toISOString().split('T')[0],
-            displayName: `Last ${amount} ${unit}`
+            displayName: `Last ${amount} ${unit}${amount > 1 ? 's' : ''}`
           };
-        } else if (pattern.source.includes('today|yesterday|this')) {
+        } else if (pattern.source.includes('today') || pattern.source.includes('yesterday') || pattern.source.includes('this')) {
           if (match[1] === 'today') {
             return {
               from: now.toISOString().split('T')[0],
@@ -168,7 +168,7 @@ export class ParameterExtractionService {
               displayName: 'This month'
             };
           }
-        } else if (pattern.source.includes('from|between')) {
+        } else if (pattern.source.includes('from') || pattern.source.includes('between')) {
           // Handle specific date ranges
           const date1 = new Date(match[1]);
           const date2 = new Date(match[2] || match[1]);
