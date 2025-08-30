@@ -9,6 +9,7 @@ import Breadcrumbs from './Breadcrumbs';
 import TaskAuthForm from './TaskAuthForm';
 import CustomOperationalReport from './CustomOperationalReport';
 import ReportsPage from './ReportsPage';
+import ReportLogsPage from './ReportLogsPage';
 import LoginScreen from './LoginScreen';
 
 const { Content } = Layout;
@@ -75,7 +76,7 @@ const App: React.FC = () => {
                 <SidebarProvider>
                     <Layout style={{ minHeight: '100vh' }}>
                         <Navigation />
-                        <Layout style={{ height: '100vh', overflow: 'hidden' }}>
+                        <Layout style={{ minHeight: '100vh' }}>
                             <AppHeader />
                             <Breadcrumbs />
                             <Content style={{ 
@@ -84,12 +85,12 @@ const App: React.FC = () => {
                                 flex: 1,
                                 width: '100%',
                                 boxSizing: 'border-box',
-                                overflow: 'hidden',
                                 padding: '20px'
                             }}>
                                 <Routes>
                                     <Route path="/task-text-builder" element={<TaskAuthForm />} />
                                     <Route path="/reports" element={<ReportsPage />} />
+                                    <Route path="/report-logs" element={<ReportLogsPage />} />
                                     <Route path="/custom-report" element={<CustomOperationalReport />} />
                                     <Route path="*" element={<TaskAuthForm />} />
                                 </Routes>

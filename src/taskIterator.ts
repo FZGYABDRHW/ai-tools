@@ -20,6 +20,7 @@ export interface Event {
 
 export function taskIterator(
     si: ServiceInitializer,
+    startOffset: number = 0,
 ): Observable<Event> {
 
   const service = si(CuratorListService);
@@ -27,7 +28,7 @@ export function taskIterator(
   const limit = 30;
 
   return defer(() =>
-    from(service.getInWorkTasks({ limit, offset: 0 })),
+    from(service.getInWorkTasks({ limit, offset: startOffset })),
   ).pipe(
     // Fetch subsequent pages until a final short page is returned.
     expand((tasks, idx) => {

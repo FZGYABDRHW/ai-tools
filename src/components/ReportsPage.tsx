@@ -19,11 +19,20 @@ import {
     PlusOutlined, 
     SearchOutlined, 
     DeleteOutlined, 
-    FileTextOutlined
+    FileTextOutlined,
+    HistoryOutlined,
+    PlayCircleOutlined,
+    EditOutlined,
+    PauseCircleOutlined,
+    CheckCircleOutlined,
+    ReloadOutlined
 } from '@ant-design/icons';
 import { Report } from '../types';
 import { reportService } from '../services/reportService';
+import { reportGenerationService } from '../services/reportGenerationService';
+import { reportCheckpointService } from '../services/reportCheckpointService';
 import { useNavigate } from 'react-router-dom';
+import ResumableReportsModal from './ResumableReportsModal';
 
 const { Text, Title } = Typography;
 const { Search } = Input;
@@ -36,16 +45,38 @@ const ReportsPage: React.FC = () => {
     const [isEditModalVisible, setIsEditModalVisible] = useState(false);
     const [editingReport, setEditingReport] = useState<Report | null>(null);
     const [loading, setLoading] = useState(false);
+    const [activeGenerations, setActiveGenerations] = useState<Map<string, any>>(new Map());
+    const [isResumableModalVisible, setIsResumableModalVisible] = useState(false);
     const [form] = Form.useForm();
     const navigate = useNavigate();
 
     useEffect(() => {
         loadReports();
+        // Clean up any orphaned data on page load
+        const cleanedCount = reportService.cleanupOrphanedData();
+        if (cleanedCount > 0) {
+            console.log(`Cleaned up ${cleanedCount} orphaned data entries`);
+        }
     }, []);
 
     useEffect(() => {
         filterReports();
     }, [reports, searchText]);
+
+    // Monitor active generations
+    useEffect(() => {
+        const updateActiveGenerations = () => {
+            setActiveGenerations(reportGenerationService.getActiveGenerations());
+        };
+
+        // Update immediately
+        updateActiveGenerations();
+
+        // Set up interval to check for updates
+        const interval = setInterval(updateActiveGenerations, 1000);
+
+        return () => clearInterval(interval);
+    }, []);
 
     const loadReports = () => {
         setLoading(true);
@@ -82,9 +113,11 @@ const ReportsPage: React.FC = () => {
             form.resetFields();
             loadReports();
             // Navigate to the report editor
-            navigate('/custom-report', { state: { reportId: newReport.id } });
-        } catch (error) {
-            message.error('Failed to create report');
+            navigate(`/custom-report?reportId=${newReport.id}`, { state: { reportId: newReport.id } });
+        } catch (error: any) {
+            const errorMessage = error.message || 'Failed to create report';
+            message.error(errorMessage);
+            console.error('Report creation error:', error);
         }
     };
 
@@ -108,23 +141,248 @@ const ReportsPage: React.FC = () => {
     };
 
     const handleDeleteReport = (reportId: string) => {
-        try {
-            const success = reportService.deleteReport(reportId);
-            if (success) {
-                message.success('Report deleted successfully!');
-                loadReports();
-            } else {
-                message.error('Report not found');
+        // Get cleanup summary to show what will be removed
+        const cleanupSummary = reportService.getCleanupSummary(reportId);
+        const report = reports.find(r => r.id === reportId);
+        
+        let description = `Are you sure you want to delete "${report?.name || 'this report'}"?`;
+        
+        if (cleanupSummary.hasGenerationState || cleanupSummary.hasCheckpoint) {
+            description += '\n\nThis will also clean up:';
+            if (cleanupSummary.isGenerating) {
+                description += '\n• Stop any ongoing generation';
             }
-        } catch (error) {
-            message.error('Failed to delete report');
+            if (cleanupSummary.hasGenerationState) {
+                description += '\n• Remove generation state data';
+            }
+            if (cleanupSummary.hasCheckpoint) {
+                description += `\n• Remove checkpoint data (status: ${cleanupSummary.checkpointStatus})`;
+            }
+            description += '\n\nNote: Report logs will be preserved.';
         }
+
+        Modal.confirm({
+            title: 'Delete Report',
+            content: description,
+            okText: 'Delete',
+            okType: 'danger',
+            cancelText: 'Cancel',
+            onOk: () => {
+                try {
+                    const success = reportService.deleteReport(reportId);
+                    if (success) {
+                        message.success('Report deleted successfully!');
+                        loadReports();
+                    } else {
+                        message.error('Report not found');
+                    }
+                } catch (error) {
+                    message.error('Failed to delete report');
+                }
+            }
+        });
     };
 
 
 
     const handleOpenReport = (report: Report) => {
-        navigate('/custom-report', { state: { reportId: report.id } });
+        navigate(`/custom-report?reportId=${report.id}`, { state: { reportId: report.id } });
+    };
+
+    const handleViewReportLogs = (report: Report) => {
+        navigate('/report-logs', { state: { selectedReportId: report.id } });
+    };
+
+    const handleStopGeneration = (reportId: string) => {
+        if (reportGenerationService.stopGeneration(reportId)) {
+            message.success('Report generation stopped');
+            loadReports(); // Refresh to update status
+        }
+    };
+
+    const handleSetToPaused = (reportId: string) => {
+        if (reportGenerationService.setToPaused(reportId)) {
+            message.success('Report set to paused');
+            loadReports(); // Refresh to update status
+        }
+    };
+
+    const handleSetToCompleted = (reportId: string) => {
+        if (reportGenerationService.setToCompleted(reportId)) {
+            message.success('Report marked as completed');
+            loadReports(); // Refresh to update status
+        }
+    };
+
+    const handleResetToReady = (reportId: string) => {
+        Modal.confirm({
+            title: 'Reset Report to Ready State',
+            content: 'This will clear all generation progress and checkpoint data. The report will be ready for a fresh start. Are you sure?',
+            okText: 'Reset',
+            okType: 'default',
+            cancelText: 'Cancel',
+            onOk: () => {
+                if (reportGenerationService.resetToReady(reportId)) {
+                    message.success('Report reset to ready state');
+                    loadReports(); // Refresh to update status
+                } else {
+                    message.error('Failed to reset report');
+                }
+            }
+        });
+    };
+
+    const handleRerunFromCompleted = (reportId: string) => {
+        Modal.confirm({
+            title: 'Rerun Report Generation',
+            content: 'This will clear the completed state and allow new generation. Are you sure?',
+            okText: 'Rerun',
+            okType: 'default',
+            cancelText: 'Cancel',
+            onOk: () => {
+                if (reportGenerationService.rerunFromCompleted(reportId)) {
+                    message.success('Report ready for rerun');
+                    loadReports(); // Refresh to update status
+                } else {
+                    message.error('Failed to prepare report for rerun');
+                }
+            }
+        });
+    };
+
+    const handleRestartFromFailed = (reportId: string) => {
+        Modal.confirm({
+            title: 'Restart Report Generation',
+            content: 'This will clear the failed state and allow new generation. Are you sure?',
+            okText: 'Restart',
+            okType: 'default',
+            cancelText: 'Cancel',
+            onOk: () => {
+                if (reportGenerationService.restartFromFailed(reportId)) {
+                    message.success('Report ready for restart');
+                    loadReports(); // Refresh to update status
+                } else {
+                    message.error('Failed to prepare report for restart');
+                }
+            }
+        });
+    };
+
+    const handleCompleteGeneration = (reportId: string) => {
+        Modal.confirm({
+            title: 'Complete Report Generation',
+            content: 'This will stop the current generation, create a report log with current results, and reset the report to ready state. Are you sure?',
+            okText: 'Complete',
+            okType: 'primary',
+            cancelText: 'Cancel',
+            onOk: async () => {
+                try {
+                    // Get current report data
+                    const report = reportService.getReportById(reportId);
+                    if (!report) {
+                        message.error('Report not found');
+                        return;
+                    }
+
+                    // Get current generation state and table data
+                    const generationState = reportGenerationService.getGenerationState(reportId);
+                    const currentTableData = generationState?.tableData || report.tableData;
+                    
+                    if (!currentTableData || currentTableData.results.length === 0) {
+                        message.error('No data to save to report log');
+                        return;
+                    }
+
+                    // Import reportLogService
+                    const { reportLogService } = await import('../services/reportLogService');
+
+                    // Create report log with current results
+                    await reportLogService.createFromReportGeneration(
+                        reportId,
+                        report.name,
+                        report.prompt,
+                        currentTableData,
+                        currentTableData.results.length,
+                        currentTableData.results.length,
+                        Date.now(),
+                        'completed'
+                    );
+
+                    // Stop generation first if it's in progress
+                    if (reportGenerationService.isGenerating(reportId)) {
+                        reportGenerationService.stopGeneration(reportId);
+                    }
+                    
+                    // Reset to ready
+                    if (reportGenerationService.resetToReady(reportId)) {
+                        message.success('Report generation completed and log created successfully!');
+                        loadReports(); // Refresh to update status
+                    } else {
+                        message.error('Failed to reset report to ready state');
+                    }
+                } catch (error) {
+                    console.error('Error completing generation:', error);
+                    message.error('Failed to complete report generation');
+                }
+            }
+        });
+    };
+
+    const isGenerating = (reportId: string) => {
+        return reportGenerationService.isGenerating(reportId);
+    };
+
+    const getGenerationStatus = (reportId: string) => {
+        return reportGenerationService.getGenerationStatus(reportId);
+    };
+
+    const getGenerationProgress = (reportId: string) => {
+        const state = reportGenerationService.getGenerationState(reportId);
+        return state?.progress;
+    };
+
+    const getStatusTag = (record: Report) => {
+        const status = getGenerationStatus(record.id);
+        const progress = getGenerationProgress(record.id);
+        
+        switch (status) {
+            case 'in_progress':
+                return (
+                    <Tag color="blue" style={{ marginLeft: 8 }}>
+                        🔄 Generating...
+                        {progress ? ` (${progress.processed}/${progress.total})` : ''}
+                    </Tag>
+                );
+            case 'paused':
+                return (
+                    <Tag color="orange" style={{ marginLeft: 8 }}>
+                        ⏸️ Paused
+                        {progress ? ` (${progress.processed} completed)` : ''}
+                    </Tag>
+                );
+            case 'failed':
+                return (
+                    <Tag color="red" style={{ marginLeft: 8 }}>
+                        ❌ Failed
+                    </Tag>
+                );
+            case 'completed':
+                return (
+                    <Tag color="green" style={{ marginLeft: 8 }}>
+                        ✅ Completed
+                    </Tag>
+                );
+            case 'ready':
+                return (
+                    <Tag color="purple" style={{ marginLeft: 8 }}>
+                        🚀 Ready
+                    </Tag>
+                );
+            default:
+                return record.lastGeneratedAt ? (
+                    <Tag color="green" style={{ marginLeft: 8 }}>Generated</Tag>
+                ) : null;
+        }
     };
 
     const formatDate = (dateString: string) => {
@@ -153,9 +411,7 @@ const ReportsPage: React.FC = () => {
                     >
                         {text}
                     </Text>
-                    {record.lastGeneratedAt && (
-                        <Tag color="green" style={{ marginLeft: 8 }}>Generated</Tag>
-                    )}
+                    {getStatusTag(record)}
                 </div>
             ),
             sorter: (a: Report, b: Report) => a.name.localeCompare(b.name),
@@ -170,23 +426,126 @@ const ReportsPage: React.FC = () => {
         {
             title: 'Actions',
             key: 'actions',
-            render: (_, record: Report) => (
-                <Popconfirm
-                    title="Are you sure you want to delete this report?"
-                    onConfirm={() => handleDeleteReport(record.id)}
-                    okText="Yes"
-                    cancelText="No"
-                >
-                    <Button
-                        type="default"
-                        danger
-                        size="small"
-                        icon={<DeleteOutlined />}
-                    >
-                        Delete
-                    </Button>
-                </Popconfirm>
-            ),
+            render: (_, record: Report) => {
+                const status = getGenerationStatus(record.id);
+                
+                return (
+                    <Space>
+                        {/* Ready state - only start generation */}
+                        {status === 'ready' && (
+                            <Button
+                                type="primary"
+                                size="small"
+                                icon={<PlayCircleOutlined />}
+                                onClick={() => handleOpenReport(record)}
+                            >
+                                Start Generation
+                            </Button>
+                        )}
+                        
+                        {/* In Progress state - can pause or complete */}
+                        {status === 'in_progress' && (
+                            <>
+                                <Button
+                                    danger
+                                    size="small"
+                                    icon={<DeleteOutlined />}
+                                    onClick={() => handleStopGeneration(record.id)}
+                                >
+                                    Stop
+                                </Button>
+                                <Button
+                                    type="default"
+                                    size="small"
+                                    icon={<PauseCircleOutlined />}
+                                    onClick={() => handleSetToPaused(record.id)}
+                                >
+                                    Pause
+                                </Button>
+                                <Button
+                                    type="primary"
+                                    size="small"
+                                    icon={<CheckCircleOutlined />}
+                                    onClick={() => handleCompleteGeneration(record.id)}
+                                >
+                                    Complete Generation
+                                </Button>
+                            </>
+                        )}
+                        
+                        {/* Paused state - can resume or reset */}
+                        {status === 'paused' && (
+                            <>
+                                <Button
+                                    type="default"
+                                    size="small"
+                                    icon={<PlayCircleOutlined />}
+                                    onClick={() => handleOpenReport(record)}
+                                >
+                                    Resume
+                                </Button>
+                                <Button
+                                    type="default"
+                                    size="small"
+                                    icon={<EditOutlined />}
+                                    onClick={() => handleResetToReady(record.id)}
+                                >
+                                    Reset
+                                </Button>
+                            </>
+                        )}
+                        
+                        {/* Completed state - can rerun */}
+                        {status === 'completed' && (
+                            <Button
+                                type="default"
+                                size="small"
+                                icon={<ReloadOutlined />}
+                                onClick={() => handleRerunFromCompleted(record.id)}
+                            >
+                                Rerun
+                            </Button>
+                        )}
+                        
+                        {/* Failed state - can restart */}
+                        {status === 'failed' && (
+                            <Button
+                                type="default"
+                                size="small"
+                                icon={<ReloadOutlined />}
+                                onClick={() => handleRestartFromFailed(record.id)}
+                            >
+                                Restart
+                            </Button>
+                        )}
+                        
+                        {/* Common actions for all states */}
+                        <Button
+                            type="primary"
+                            size="small"
+                            icon={<HistoryOutlined />}
+                            onClick={() => handleViewReportLogs(record)}
+                        >
+                            View Logs
+                        </Button>
+                        <Popconfirm
+                            title="Are you sure you want to delete this report?"
+                            onConfirm={() => handleDeleteReport(record.id)}
+                            okText="Yes"
+                            cancelText="No"
+                        >
+                            <Button
+                                type="default"
+                                danger
+                                size="small"
+                                icon={<DeleteOutlined />}
+                            >
+                                Delete
+                            </Button>
+                        </Popconfirm>
+                    </Space>
+                );
+            }
         },
     ];
 
@@ -240,20 +599,41 @@ const ReportsPage: React.FC = () => {
                             </Text>
                         </div>
                     </div>
-                    <Button 
-                        type="default"
-                        icon={<PlusOutlined />}
-                        onClick={() => setIsCreateModalVisible(true)}
-                        style={{
-                            background: 'rgba(255, 255, 255, 0.2)',
-                            border: '1px solid rgba(255, 255, 255, 0.3)',
-                            color: '#fff',
-                            fontWeight: 600,
-                            flexShrink: 0
-                        }}
-                    >
-                        New Report
-                    </Button>
+                    <Space>
+                        {(() => {
+                            const resumableCount = reportCheckpointService.getResumableCheckpoints().length;
+                            return resumableCount > 0 ? (
+                                <Button 
+                                    type="default"
+                                    icon={<PlayCircleOutlined />}
+                                    onClick={() => setIsResumableModalVisible(true)}
+                                    style={{
+                                        background: 'rgba(255, 255, 255, 0.2)',
+                                        border: '1px solid rgba(255, 255, 255, 0.3)',
+                                        color: '#fff',
+                                        fontWeight: 600,
+                                        flexShrink: 0
+                                    }}
+                                >
+                                    Resume ({resumableCount})
+                                </Button>
+                            ) : null;
+                        })()}
+                        <Button 
+                            type="default"
+                            icon={<PlusOutlined />}
+                            onClick={() => setIsCreateModalVisible(true)}
+                            style={{
+                                background: 'rgba(255, 255, 255, 0.2)',
+                                border: '1px solid rgba(255, 255, 255, 0.3)',
+                                color: '#fff',
+                                fontWeight: 600,
+                                flexShrink: 0
+                            }}
+                        >
+                            New Report
+                        </Button>
+                    </Space>
                 </div>
                 
                 {/* Content */}
@@ -388,6 +768,14 @@ const ReportsPage: React.FC = () => {
                 </Form>
             </Modal>
 
+            {/* Resumable Reports Modal */}
+            <ResumableReportsModal
+                visible={isResumableModalVisible}
+                onClose={() => setIsResumableModalVisible(false)}
+                onResume={(reportId) => {
+                    navigate(`/custom-report?reportId=${reportId}`);
+                }}
+            />
 
         </div>
     );

@@ -3,6 +3,7 @@ import { Layout, Menu, Typography } from 'antd';
 import { Link, useLocation } from 'react-router-dom';
 import { FileTextOutlined, BarChartOutlined, UnorderedListOutlined } from '@ant-design/icons';
 import { SidebarContext } from '../contexts/SidebarContext';
+import logo from '../logo.png';
 
 const { Sider } = Layout;
 const { Title } = Typography;
@@ -22,6 +23,11 @@ const Navigation: React.FC = () => {
             icon: <UnorderedListOutlined />,
             label: <Link to="/reports">Wowworks Report Management</Link>,
         },
+        {
+            key: '/report-logs',
+            icon: <FileTextOutlined />,
+            label: <Link to="/report-logs">Report Logs</Link>,
+        },
     ];
 
     if (!isSidebarVisible) {
@@ -40,25 +46,34 @@ const Navigation: React.FC = () => {
         >
             {/* Header */}
             <div style={{ 
-                padding: '20px 16px', 
-                textAlign: 'center',
-                background: 'linear-gradient(135deg, #ff8c69 0%, #ff9f7f 100%)',
-                borderBottom: '1px solid rgba(255, 140, 105, 0.2)'
+                padding: '8px 16px', 
+                textAlign: 'left',
+                background: 'transparent',
+                borderBottom: '1px solid #e8e8e8',
+                height: '48px',
+                display: 'flex',
+                alignItems: 'center'
             }}>
-                <Title level={4} style={{ 
-                    margin: 0, 
-                    color: '#fff',
-                    fontWeight: 600,
-                    letterSpacing: '0.5px'
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
                 }}>
-                    Wowworks AI Tools
-                </Title>
-                <div style={{ 
-                    fontSize: '12px', 
-                    color: 'rgba(255, 255, 255, 0.8)',
-                    marginTop: '4px'
-                }}>
-                    Professional Workspace
+                    <img 
+                        src={logo} 
+                        alt="Wowworks Logo" 
+                        style={{ 
+                            height: '32px', 
+                            width: 'auto'
+                        }} 
+                    />
+                    <span style={{
+                        fontSize: '16px',
+                        fontWeight: '600',
+                        color: '#ff8c69'
+                    }}>
+                        AI Tools
+                    </span>
                 </div>
             </div>
             

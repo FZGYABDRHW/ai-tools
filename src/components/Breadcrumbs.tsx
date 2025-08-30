@@ -1,7 +1,7 @@
 import React from 'react';
 import { Breadcrumb, Typography } from 'antd';
 import { Link, useLocation } from 'react-router-dom';
-import { HomeOutlined, FileTextOutlined, UnorderedListOutlined, BarChartOutlined } from '@ant-design/icons';
+import { HomeOutlined, FileTextOutlined, UnorderedListOutlined, BarChartOutlined, HistoryOutlined } from '@ant-design/icons';
 
 const { Text } = Typography;
 
@@ -58,17 +58,23 @@ const Breadcrumbs: React.FC = () => {
                     </span>
                 ),
             });
-
-            // Add entity ID if available in location state
-            if (location.state?.reportId) {
-                items.push({
-                    title: (
-                        <Text type="secondary" style={{ fontSize: '12px' }}>
-                            ID: {location.state.reportId}
-                        </Text>
-                    ),
-                });
-            }
+        } else if (pathname === '/report-logs') {
+            items.push({
+                title: (
+                    <Link to="/reports">
+                        <UnorderedListOutlined style={{ marginRight: 4 }} />
+                        Wowworks Report Management
+                    </Link>
+                ),
+            });
+            items.push({
+                title: (
+                    <span>
+                        <HistoryOutlined style={{ marginRight: 4 }} />
+                        Report Logs
+                    </span>
+                ),
+            });
         }
 
         return items;

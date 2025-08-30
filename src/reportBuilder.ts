@@ -39,11 +39,17 @@ export async function buildReport(
   taskPlotGenerator: (taskId: number) => Promise<string>,
   onProgress?: (update: { columns: string[]; results: Array<Record<string, unknown>>; csv: string }) => void,
   abortSignal?: AbortSignal,
+  startOffset: number = 0,
 ): Promise<{ columns: string[]; results: Array<Record<string, unknown>>; csv: string }> {
 
   const openai = new OpenAI({dangerouslyAllowBrowser: true, apiKey: "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"});
 
   // 1) Derive the tabular schema (column names) from the raw prompt
+  // Check for abort signal before making the initial OpenAI call
+  if (abortSignal?.aborted) {
+    throw new Error('Aborted');
+  }
+  
   const schemaCompletion = await openai.chat.completions.create({
     model: 'o3',
     messages: [
@@ -92,9 +98,13 @@ export async function buildReport(
 
   // Wrap the RxJS pipeline in an explicit promise so we can await completion.
   await new Promise<void>((resolve, reject) => {
-    const subscription = taskIterator(si).pipe(
+    let abortHandler: (() => void) | null = null;
+    
+    const subscription = taskIterator(si, startOffset).pipe(
       // We only care about concrete "content" events (those carry the task ID).
       filter((ev): ev is TaskEvent & { taskId: number } => ev.type === 'content'),
+      // Add abort check to the stream
+      filter(() => !abortSignal?.aborted),
       // Call OpenAI for each task, one at a time to stay within rate limits.
       // Increase the concurrency argument (2nd param) if higher throughput is needed.
       mergeMap(
@@ -113,13 +123,38 @@ export async function buildReport(
             throw new Error('Aborted');
           }
           
-          const completion = await openai.chat.completions.create({
+          // Create a promise that can be cancelled
+          const completionPromise = openai.chat.completions.create({
             model: 'o3', // replace with any model your account supports
             messages: [
               { role: 'system', content: 'You are a helpful assistant producing structured task rows.' },
               { role: 'user', content: makeTaskPrompt(task) },
             ],
           });
+          
+          // Check for abort during the OpenAI call
+          const completion = await Promise.race([
+            completionPromise,
+            new Promise<never>((_, reject) => {
+              // Check if already aborted
+              if (abortSignal?.aborted) {
+                reject(new Error('Aborted'));
+                return;
+              }
+              
+              // Set up abort listener
+              const abortListener = () => {
+                reject(new Error('Aborted'));
+              };
+              
+              abortSignal?.addEventListener('abort', abortListener, { once: true });
+              
+              // Clean up listener if promise resolves normally
+              completionPromise.finally(() => {
+                abortSignal?.removeEventListener('abort', abortListener);
+              });
+            })
+          ]);
           console.log(completion.choices[0].message.content);
           // Persist the answer in memory.
           try {
@@ -135,16 +170,24 @@ export async function buildReport(
         30, // concurrency
       ),
     ).subscribe({
-      complete: resolve,
+      complete: () => {
+        if (abortHandler) {
+          abortSignal?.removeEventListener('abort', abortHandler);
+        }
+        resolve();
+      },
       error: (error) => {
         console.log('RxJS stream error:', error);
+        if (abortHandler) {
+          abortSignal?.removeEventListener('abort', abortHandler);
+        }
         reject(error);
       },
     });
 
     // Listen for abort signal and unsubscribe if aborted
     if (abortSignal) {
-      const abortHandler = () => {
+      abortHandler = () => {
         console.log('Abort signal received, unsubscribing from RxJS stream');
         subscription.unsubscribe();
         reject(new Error('Aborted'));
@@ -152,10 +195,13 @@ export async function buildReport(
       
       abortSignal.addEventListener('abort', abortHandler);
       
-      // Clean up the event listener when the promise resolves
-      return () => {
-        abortSignal.removeEventListener('abort', abortHandler);
-      };
+      // Also check if already aborted
+      if (abortSignal.aborted) {
+        console.log('Abort signal already aborted, rejecting immediately');
+        subscription.unsubscribe();
+        reject(new Error('Aborted'));
+        return;
+      }
     }
   });
 

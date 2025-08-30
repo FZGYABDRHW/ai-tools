@@ -2,7 +2,7 @@
   "name": "wowworks-ai-tools",
   "productName": "Wowworks AI Tools",
   "version": "1.0.0",
-      "description": "Wowworks AI Tools - A modern Electron application for AI-powered task building and report generation",
+  "description": "Wowworks AI Tools - A modern Electron application for AI-powered task building and report generation",
   "main": ".webpack/main",
   "scripts": {
     "start": "electron-forge start",
@@ -50,6 +50,9 @@
     "openai": "^5.10.2",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "react-input-mask": "^2.0.4",
+    "react-markdown": "^10.1.0",
+    "react-phone-number-input": "^3.4.12",
     "react-router": "^6.26.1",
     "react-router-dom": "^6.26.1",
     "rxjs": "^7.8.2",

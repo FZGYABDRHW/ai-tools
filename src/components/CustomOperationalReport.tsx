@@ -1,12 +1,19 @@
 import React, { useEffect, useState, useContext, useRef, useCallback } from 'react';
-import { Card, Typography, Form, Input, Button, Space, Divider, Layout, Table, Row, Col, message } from 'antd';
-import { BarChartOutlined, LoadingOutlined, DownloadOutlined, StopOutlined, FullscreenOutlined, FullscreenExitOutlined } from '@ant-design/icons';
+import { Card, Typography, Form, Input, Button, Space, Divider, Layout, Table, Row, Col, message, Tabs, Modal } from 'antd';
+import { BarChartOutlined, LoadingOutlined, DownloadOutlined, StopOutlined, FullscreenOutlined, FullscreenExitOutlined, HistoryOutlined, PlayCircleOutlined, EditOutlined, ReloadOutlined, CheckCircleOutlined } from '@ant-design/icons';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../contexts/AuthContext';
 import { SidebarContext } from '../contexts/SidebarContext';
 import { buildServiceInitializer } from '../serviceInit';
 import { buildReport } from '../reportBuilder';
 import builder from '../builder';
 import MilkdownEditor from './MilkdownEditor';
+import { reportLogService } from '../services/reportLogService';
+import { reportService } from '../services/reportService';
+import { reportGenerationService } from '../services/reportGenerationService';
+import { reportCheckpointService } from '../services/reportCheckpointService';
+import ReportLogsList from './ReportLogsList';
+import ReportLogViewer from './ReportLogViewer';
 
 const { Title } = Typography;
 const { TextArea } = Input;
@@ -15,6 +22,16 @@ const { Content } = Layout;
 const CustomOperationalReport: React.FC = () => {
     const { authToken, user } = useContext(AuthContext);
     const { hideSidebar, showSidebar } = useContext(SidebarContext);
+    const location = useLocation();
+    const navigate = useNavigate();
+    
+    // Get initial tab from URL or default to 'editor'
+    const getInitialTab = () => {
+        const searchParams = new URLSearchParams(location.search);
+        const tab = searchParams.get('tab');
+        return tab === 'logs' ? 'logs' : 'editor';
+    };
+    
     const [reportText, setReportText] = useState<string>(() => {
         return localStorage.getItem('customOperationalReport') || '';
     });
@@ -30,12 +47,90 @@ const CustomOperationalReport: React.FC = () => {
     } | null>(null);
     const [isTableFullScreen, setIsTableFullScreen] = useState<boolean>(false);
     const [dynamicPageSize, setDynamicPageSize] = useState<number>(20);
+    const [activeTab, setActiveTab] = useState<string>(getInitialTab);
+    const [selectedLogId, setSelectedLogId] = useState<string | null>(null);
+    const [logsRefreshKey, setLogsRefreshKey] = useState<number>(0);
     const tableContainerRef = useRef<HTMLDivElement>(null);
     const abortControllerRef = useRef<AbortController | null>(null);
 
     useEffect(() => {
         localStorage.setItem('customOperationalReport', reportText);
     }, [reportText]);
+
+    // Load report and restore generation state when reportId is provided in URL
+    useEffect(() => {
+        const searchParams = new URLSearchParams(location.search);
+        const reportId = searchParams.get('reportId');
+        
+        console.log('Loading report with ID:', reportId);
+        
+        if (reportId) {
+            const report = reportService.getReportById(reportId);
+            console.log('Found report:', report);
+            if (report) {
+                setReportText(report.prompt);
+                if (report.tableData) {
+                    setTableData(report.tableData);
+                }
+            }
+
+            // Restore generation state if report is currently generating
+            const generationState = reportGenerationService.getGenerationState(reportId);
+            if (generationState) {
+                console.log('Restoring generation state:', generationState);
+                const isCurrentlyGenerating = generationState.status === 'in_progress';
+                setIsGenerating(isCurrentlyGenerating);
+                setProgressInfo(generationState.progress);
+                if (generationState.tableData) {
+                    setTableData(generationState.tableData);
+                }
+
+                // Reconnect to ongoing generation for live updates
+                if (isCurrentlyGenerating) {
+                    console.log('Reconnecting to ongoing generation');
+                    reportGenerationService.reconnectToGeneration(reportId, {
+                        onProgress: (progress) => {
+                            console.log('Received progress update:', progress);
+                            setTableData(progress);
+                            setProgressInfo({
+                                processed: progress.results.length,
+                                total: progress.results.length
+                            });
+                        },
+                        onComplete: (result) => {
+                            console.log('Generation completed:', result);
+                            setTableData(result);
+                            setIsGenerating(false);
+                            message.success('Custom report generated successfully! Report saved and log created.');
+                        },
+                        onError: (error) => {
+                            console.log('Generation error:', error);
+                            setIsGenerating(false);
+                            if (error.message !== 'Aborted') {
+                                message.error('Failed to generate custom report');
+                            }
+                        }
+                    });
+                }
+            }
+        }
+    }, [location.search]);
+
+    // Auto-save report text changes when editing existing report
+    useEffect(() => {
+        const searchParams = new URLSearchParams(location.search);
+        const reportId = searchParams.get('reportId');
+        
+        if (reportId && reportText.trim()) {
+            const report = reportService.getReportById(reportId);
+            if (report && report.prompt !== reportText) {
+                console.log('Auto-saving report text changes');
+                reportService.updateReport(reportId, { prompt: reportText });
+            }
+        }
+    }, [reportText, location.search]);
+
+
 
     // Calculate dynamic page size based on available container height
     const calculateDynamicPageSize = useCallback(() => {
@@ -83,46 +178,84 @@ const CustomOperationalReport: React.FC = () => {
             return;
         }
 
+        // Get or create report ID
+        const searchParams = new URLSearchParams(location.search);
+        let reportId = searchParams.get('reportId');
+        
+        if (!reportId) {
+            // Create new report
+            const newReport = reportService.createReport({
+                name: 'Custom Operational Report',
+                prompt: reportText
+            });
+            reportId = newReport.id;
+            // Update URL with the new report ID
+            navigate(`/custom-report?reportId=${reportId}`, { replace: true });
+        }
+
         setIsGenerating(true);
         setTableData(null); // Clear previous data
         setProgressInfo(null); // Clear progress info
-        
-        // Create abort controller for cancellation
-        abortControllerRef.current = new AbortController();
-        
+
         try {
-            const si = buildServiceInitializer(authToken);
-            const result = await buildReport(
-                reportText, 
-                si, 
-                (taskId) => builder(taskId, authToken),
+            await reportGenerationService.startGeneration(
+                reportId,
+                reportText,
+                authToken,
                 (progress) => {
-                    // Update table data in real-time
+                    // Progress callback - update UI in real-time
                     setTableData(progress);
                     setProgressInfo({
                         processed: progress.results.length,
-                        total: progress.results.length // We'll update this when we know the total
+                        total: progress.results.length
                     });
                 },
-                abortControllerRef.current?.signal
+                (result) => {
+                    // Complete callback
+                    setTableData(result);
+                    setIsGenerating(false);
+                    message.success('Custom report generated successfully! Report saved and log created.');
+                },
+                (error) => {
+                    // Error callback
+                    setIsGenerating(false);
+                    if (error.message !== 'Aborted') {
+                        message.error('Failed to generate custom report');
+                    }
+                }
             );
-            setTableData(result);
-            message.success('Custom report generated successfully!');
-        } catch (error: any) {
-            if (error.message === 'Aborted') {
-                console.log('Report generation was cancelled');
-                message.info('Report generation was stopped');
-            } else {
-                console.error('Error generating report:', error);
-                message.error('Failed to generate custom report');
-            }
-        } finally {
+        } catch (error) {
             setIsGenerating(false);
-            abortControllerRef.current = null;
+            message.error('Failed to start report generation');
         }
     };
 
+    const handleViewLog = (logId: string) => {
+        setSelectedLogId(logId);
+        setActiveTab('logs');
+        // Update URL with tab parameter
+        const searchParams = new URLSearchParams(location.search);
+        searchParams.set('tab', 'logs');
+        navigate(`${location.pathname}?${searchParams.toString()}`, { replace: true });
+    };
 
+    const handleBackToList = () => {
+        setSelectedLogId(null);
+    };
+
+    const handleTabChange = (key: string) => {
+        setActiveTab(key);
+        // Update URL with tab parameter while preserving reportId
+        const searchParams = new URLSearchParams(location.search);
+        searchParams.set('tab', key);
+        
+        // Preserve reportId if it exists in state
+        if (location.state?.reportId && !searchParams.get('reportId')) {
+            searchParams.set('reportId', location.state.reportId);
+        }
+        
+        navigate(`${location.pathname}?${searchParams.toString()}`, { replace: true });
+    };
 
     const handleDownloadCSV = () => {
         if (!tableData) return;
@@ -150,298 +283,695 @@ const CustomOperationalReport: React.FC = () => {
     };
 
     const handleStopReport = () => {
-        if (abortControllerRef.current) {
+        const searchParams = new URLSearchParams(location.search);
+        const reportId = searchParams.get('reportId');
+        
+        if (reportId && reportGenerationService.stopGeneration(reportId)) {
             console.log('Aborting report generation...');
-            abortControllerRef.current.abort();
             setIsGenerating(false);
             setProgressInfo(null);
-            message.info('Report generation stopped');
+            message.info('Report generation stopped. Report log created.');
         }
+    };
+
+    const handleResumeReport = async () => {
+        console.log('handleResumeReport called');
+        const searchParams = new URLSearchParams(location.search);
+        const reportId = searchParams.get('reportId');
+        console.log('Report ID from URL:', reportId);
+        
+        if (!reportId) {
+            message.error('No report ID found');
+            return;
+        }
+
+        if (!authToken.trim()) {
+            message.error('Please login first');
+            return;
+        }
+
+        // Get existing data before starting
+        const existingData = reportService.getReportById(reportId)?.tableData;
+        console.log('Existing table data before resume:', existingData?.results?.length || 0, 'results');
+
+        setIsGenerating(true);
+        // Don't clear table data - preserve existing results
+        setProgressInfo(null);
+
+        try {
+            await reportGenerationService.resumeGeneration(
+                reportId,
+                authToken,
+                (progress) => {
+                    // Progress callback - update UI in real-time
+                    console.log('Resume progress callback received:', progress.results.length, 'results');
+                    setTableData(progress);
+                    setProgressInfo({
+                        processed: progress.results.length,
+                        total: progress.results.length
+                    });
+                },
+                (result) => {
+                    // Complete callback
+                    setTableData(result);
+                    setIsGenerating(false);
+                    message.success('Report generation resumed and completed successfully!');
+                },
+                (error) => {
+                    // Error callback
+                    setIsGenerating(false);
+                    if (error.message !== 'Aborted') {
+                        message.error('Failed to resume report generation');
+                    }
+                }
+            );
+        } catch (error) {
+            setIsGenerating(false);
+            message.error('Failed to resume report generation');
+        }
+    };
+
+    const handleResetToReady = () => {
+        const searchParams = new URLSearchParams(location.search);
+        const reportId = searchParams.get('reportId');
+        
+        if (!reportId) {
+            message.error('No report ID found');
+            return;
+        }
+
+        Modal.confirm({
+            title: 'Reset Report to Ready State',
+            content: 'This will clear all generation progress and checkpoint data. The report will be ready for a fresh start. Are you sure?',
+            okText: 'Reset',
+            okType: 'default',
+            cancelText: 'Cancel',
+            onOk: () => {
+                if (reportGenerationService.resetToReady(reportId)) {
+                    message.success('Report reset to ready state');
+                    // Clear local state
+                    setIsGenerating(false);
+                    setTableData(null);
+                    setProgressInfo(null);
+                } else {
+                    message.error('Failed to reset report');
+                }
+            }
+        });
+    };
+
+    const handleRerunFromCompleted = () => {
+        const searchParams = new URLSearchParams(location.search);
+        const reportId = searchParams.get('reportId');
+        
+        if (!reportId) {
+            message.error('No report ID found');
+            return;
+        }
+
+        Modal.confirm({
+            title: 'Rerun Report Generation',
+            content: 'This will clear the completed state and allow new generation. Are you sure?',
+            okText: 'Rerun',
+            okType: 'default',
+            cancelText: 'Cancel',
+            onOk: () => {
+                if (reportGenerationService.rerunFromCompleted(reportId)) {
+                    message.success('Report ready for rerun');
+                    // Clear local state
+                    setIsGenerating(false);
+                    setTableData(null);
+                    setProgressInfo(null);
+                } else {
+                    message.error('Failed to prepare report for rerun');
+                }
+            }
+        });
+    };
+
+    const handleRestartFromFailed = () => {
+        const searchParams = new URLSearchParams(location.search);
+        const reportId = searchParams.get('reportId');
+        
+        if (!reportId) {
+            message.error('No report ID found');
+            return;
+        }
+
+        Modal.confirm({
+            title: 'Restart Report Generation',
+            content: 'This will clear the failed state and allow new generation. Are you sure?',
+            okText: 'Restart',
+            okType: 'default',
+            cancelText: 'Cancel',
+            onOk: () => {
+                if (reportGenerationService.restartFromFailed(reportId)) {
+                    message.success('Report ready for restart');
+                    // Clear local state
+                    setIsGenerating(false);
+                    setTableData(null);
+                    setProgressInfo(null);
+                } else {
+                    message.error('Failed to prepare report for restart');
+                }
+            }
+        });
+    };
+
+    const handleCompleteGeneration = () => {
+        const searchParams = new URLSearchParams(location.search);
+        const reportId = searchParams.get('reportId');
+        
+        if (!reportId) {
+            message.error('No report ID found');
+            return;
+        }
+
+        Modal.confirm({
+            title: 'Complete Report Generation',
+            content: 'This will stop the current generation, create a report log with current results, and reset the report to ready state. Are you sure?',
+            okText: 'Complete',
+            okType: 'primary',
+            cancelText: 'Cancel',
+            onOk: async () => {
+                try {
+                    // Get current report data
+                    const report = reportService.getReportById(reportId);
+                    if (!report) {
+                        message.error('Report not found');
+                        return;
+                    }
+
+                    // Get current table data
+                    const currentTableData = tableData;
+                    if (!currentTableData || currentTableData.results.length === 0) {
+                        message.error('No data to save to report log');
+                        return;
+                    }
+
+                    // Create report log with current results
+                    await reportLogService.createFromReportGeneration(
+                        reportId,
+                        report.name,
+                        reportText,
+                        currentTableData,
+                        currentTableData.results.length,
+                        currentTableData.results.length,
+                        Date.now(),
+                        'completed'
+                    );
+
+                    // Stop generation first if it's in progress
+                    if (isGenerating) {
+                        reportGenerationService.stopGeneration(reportId);
+                    }
+                    
+                    // Reset to ready
+                    if (reportGenerationService.resetToReady(reportId)) {
+                        message.success('Report generation completed and log created successfully!');
+                        // Clear local state
+                        setIsGenerating(false);
+                        setTableData(null);
+                        setProgressInfo(null);
+                        // Refresh logs list to show the new log
+                        setLogsRefreshKey(prev => prev + 1);
+                    } else {
+                        message.error('Failed to reset report to ready state');
+                    }
+                } catch (error) {
+                    console.error('Error completing generation:', error);
+                    message.error('Failed to complete report generation');
+                }
+            }
+        });
     };
 
     return (
         <div style={{ width: '100%', boxSizing: 'border-box', height: '100%', overflow: 'hidden' }}>
-            {/* Control Bar */}
-            <div style={{
-                background: 'linear-gradient(135deg, #fff 0%, #f8f9fa 100%)',
-                padding: '8px 20px',
-                borderRadius: '8px',
-                marginBottom: '20px',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-                border: '1px solid #ff8c69'
-            }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <BarChartOutlined style={{ fontSize: '20px', color: '#ff8c69' }} />
-                    <div>
-                        <div style={{ color: '#333', fontSize: '16px', fontWeight: 600 }}>
-                            Report Generation Control
-                        </div>
-                        <div style={{ color: '#666', fontSize: '12px' }}>
-                            {isGenerating ? 'Processing tasks...' : 'Ready to generate report'}
-                        </div>
-                    </div>
-                </div>
-                
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    {!isGenerating ? (
-                        <Button
-                            type="primary"
-                            size="middle"
-                            onClick={handleCustomReport}
-                            icon={<BarChartOutlined />}
-                            disabled={!reportText.trim() || !authToken.trim() || !user}
-                            style={{
-                                fontSize: '14px',
-                                fontWeight: 600,
-                                height: '36px',
-                                padding: '0 16px',
-                                background: '#ff8c69',
-                                borderColor: '#ff8c69'
-                            }}
-                        >
-                            ▶️ Start Report
-                        </Button>
-                    ) : (
-                        <Button
-                            danger
-                            size="middle"
-                            onClick={handleStopReport}
-                            icon={<StopOutlined />}
-                            style={{
-                                fontSize: '14px',
-                                fontWeight: 600,
-                                height: '36px',
-                                padding: '0 16px',
-                                backgroundColor: '#ff7875',
-                                borderColor: '#ff7875',
-                                color: '#ffffff'
-                            }}
-                        >
-                            ⏹️ Stop Report
-                        </Button>
-                    )}
-                    
-                    {progressInfo && (
-                        <div style={{
-                            background: 'rgba(255, 140, 105, 0.1)',
-                            padding: '6px 12px',
-                            borderRadius: '6px',
-                            color: '#ff8c69',
-                            fontSize: '12px',
-                            fontWeight: 500,
-                            border: '1px solid rgba(255, 140, 105, 0.3)'
-                        }}>
-                            {isGenerating ? '🔄 Processing' : '✅ Complete'}: {progressInfo.processed} items
-                        </div>
-                    )}
-                </div>
-            </div>
-            
-            <Row gutter={24} style={{ height: 'calc(100% - 80px)' }}>
-                <Col xs={24} lg={isTableFullScreen ? 0 : 12}>
-                    <div style={{ 
-                        height: '100%',
-                        background: 'linear-gradient(135deg, #fff 0%, #f8f9fa 100%)',
-                        borderRadius: '12px',
-                        boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
-                        border: '1px solid #ff8c69',
-                        overflow: 'hidden',
-                        position: 'relative'
-                    }}>
-                        {/* Header for the editor */}
-                        <div style={{
-                            background: 'linear-gradient(135deg, #ff8c69 0%, #ff9f7f 100%)',
-                            padding: '12px 20px',
-                            borderBottom: '1px solid rgba(255, 140, 105, 0.2)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '8px'
-                        }}>
-                            <BarChartOutlined style={{ color: '#fff', fontSize: '16px' }} />
-                            <span style={{ 
-                                color: '#fff', 
-                                fontSize: '14px', 
-                                fontWeight: 600,
-                                letterSpacing: '0.5px'
-                            }}>
+            {/* Tabs */}
+            <Tabs
+                activeKey={activeTab}
+                onChange={handleTabChange}
+                style={{ height: '100%' }}
+                items={[
+                    {
+                        key: 'editor',
+                        label: (
+                            <span>
+                                <BarChartOutlined style={{ marginRight: 8 }} />
                                 Report Editor
                             </span>
-                        </div>
-                        
-                        {/* Editor container */}
-                        <div style={{ 
-                            height: 'calc(100% - 48px)',
-                            background: '#fff',
-                            overflow: 'hidden'
-                        }}>
-                            <MilkdownEditor
-                                value={reportText}
-                                onChange={setReportText}
-                                placeholder="Write your prompt here..."
-                            />
-                        </div>
-                    </div>
-                </Col>
-                
-                <Col xs={24} lg={isTableFullScreen ? 24 : 12}>
-                    <div style={{ 
-                        height: '100%', 
-                        display: 'flex', 
-                        flexDirection: 'column',
-                        background: 'linear-gradient(135deg, #fff 0%, #f8f9fa 100%)',
-                        borderRadius: '12px',
-                        boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
-                        border: '1px solid #ff8c69',
-                        overflow: 'hidden',
-                        position: 'relative'
-                    }}>
-                        {/* Header for the table */}
-                        <div style={{
-                            background: 'linear-gradient(135deg, #ff8c69 0%, #ff9f7f 100%)',
-                            padding: '12px 20px',
-                            borderBottom: '1px solid rgba(255, 140, 105, 0.2)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between'
-                        }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <BarChartOutlined style={{ color: '#fff', fontSize: '16px' }} />
-                                <span style={{ 
-                                    color: '#fff', 
-                                    fontSize: '14px', 
-                                    fontWeight: 600,
-                                    letterSpacing: '0.5px'
+                        ),
+                        children: (
+                            <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+                                {/* Control Bar */}
+                                <div style={{
+                                    background: 'linear-gradient(135deg, #fff 0%, #f8f9fa 100%)',
+                                    padding: '8px 20px',
+                                    borderRadius: '8px',
+                                    marginBottom: '20px',
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                                    border: '1px solid #ff8c69'
                                 }}>
-                                    Generated Results
-                                </span>
-                            </div>
-                            
-                            {/* Action buttons in header */}
-                            {tableData && (
-                                <div style={{ display: 'flex', gap: '8px' }}>
-                                    <Button
-                                        type="default"
-                                        icon={isTableFullScreen ? <FullscreenExitOutlined /> : <FullscreenOutlined />}
-                                        onClick={toggleTableFullScreen}
-                                        size="small"
-                                        title={isTableFullScreen ? "Exit Full Screen" : "Full Screen"}
-                                        style={{
-                                            background: 'rgba(255, 255, 255, 0.2)',
-                                            border: '1px solid rgba(255, 255, 255, 0.3)',
-                                            color: '#fff'
-                                        }}
-                                    >
-                                        {isTableFullScreen ? "Exit Full Screen" : "Full Screen"}
-                                    </Button>
-                                    <Button
-                                        type="default"
-                                        icon={<DownloadOutlined />}
-                                        onClick={handleDownloadCSV}
-                                        size="small"
-                                        style={{
-                                            background: 'rgba(255, 255, 255, 0.2)',
-                                            border: '1px solid rgba(255, 255, 255, 0.3)',
-                                            color: '#fff'
-                                        }}
-                                    >
-                                        Download CSV
-                                    </Button>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                        <BarChartOutlined style={{ fontSize: '20px', color: '#ff8c69' }} />
+                                        <div>
+                                            <div style={{ color: '#333', fontSize: '16px', fontWeight: 600 }}>
+                                                Report Generation Control
+                                            </div>
+                                            <div style={{ color: '#666', fontSize: '12px' }}>
+                                                {(() => {
+                                                    const searchParams = new URLSearchParams(location.search);
+                                                    const reportId = searchParams.get('reportId');
+                                                    const status = reportId ? reportGenerationService.getGenerationStatus(reportId) : null;
+                                                    
+                                                    switch (status) {
+                                                        case 'in_progress':
+                                                            return '🔄 Processing tasks...';
+                                                        case 'paused':
+                                                            return '⏸️ Generation paused';
+                                                        case 'failed':
+                                                            return '❌ Generation failed';
+                                                        case 'completed':
+                                                            return '✅ Generation completed';
+                                                        case 'ready':
+                                                            return '🚀 Ready to generate';
+                                                        default:
+                                                            return 'Ready to generate report';
+                                                    }
+                                                })()}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        {!isGenerating ? (
+                                            <>
+                                                {(() => {
+                                                    const searchParams = new URLSearchParams(location.search);
+                                                    const reportId = searchParams.get('reportId');
+                                                    const status = reportId ? reportGenerationService.getGenerationStatus(reportId) : null;
+                                                    const canResume = reportId && reportCheckpointService.canResume(reportId);
+                                                    console.log('Resume button check:', { reportId, canResume, status });
+                                                    
+                                                    return (status === 'paused' || status === 'failed') && canResume ? (
+                                                        <Button
+                                                            type="default"
+                                                            size="middle"
+                                                            onClick={handleResumeReport}
+                                                            icon={<PlayCircleOutlined />}
+                                                            style={{
+                                                                fontSize: '14px',
+                                                                fontWeight: 600,
+                                                                height: '36px',
+                                                                padding: '0 16px',
+                                                                background: '#52c41a',
+                                                                borderColor: '#52c41a',
+                                                                color: '#fff'
+                                                            }}
+                                                        >
+                                                            🔄 Resume Report
+                                                        </Button>
+                                                    ) : null;
+                                                })()}
+                                                {(() => {
+                                                    const searchParams = new URLSearchParams(location.search);
+                                                    const reportId = searchParams.get('reportId');
+                                                    const status = reportId ? reportGenerationService.getGenerationStatus(reportId) : null;
+                                                    
+                                                    return status === 'paused' ? (
+                                                        <Button
+                                                            type="default"
+                                                            size="middle"
+                                                            onClick={handleResetToReady}
+                                                            icon={<EditOutlined />}
+                                                            style={{
+                                                                fontSize: '14px',
+                                                                fontWeight: 600,
+                                                                height: '36px',
+                                                                padding: '0 16px',
+                                                                background: '#722ed1',
+                                                                borderColor: '#722ed1',
+                                                                color: '#fff'
+                                                            }}
+                                                        >
+                                                            🔄 Reset to Ready
+                                                        </Button>
+                                                    ) : null;
+                                                })()}
+                                                {(() => {
+                                                    const searchParams = new URLSearchParams(location.search);
+                                                    const reportId = searchParams.get('reportId');
+                                                    const status = reportId ? reportGenerationService.getGenerationStatus(reportId) : null;
+                                                    
+                                                    return status === 'completed' ? (
+                                                        <Button
+                                                            type="default"
+                                                            size="middle"
+                                                            onClick={handleRerunFromCompleted}
+                                                            icon={<ReloadOutlined />}
+                                                            style={{
+                                                                fontSize: '14px',
+                                                                fontWeight: 600,
+                                                                height: '36px',
+                                                                padding: '0 16px',
+                                                                background: '#1890ff',
+                                                                borderColor: '#1890ff',
+                                                                color: '#fff'
+                                                            }}
+                                                        >
+                                                            🔄 Rerun
+                                                        </Button>
+                                                    ) : null;
+                                                })()}
+                                                {(() => {
+                                                    const searchParams = new URLSearchParams(location.search);
+                                                    const reportId = searchParams.get('reportId');
+                                                    const status = reportId ? reportGenerationService.getGenerationStatus(reportId) : null;
+                                                    
+                                                    return status === 'failed' ? (
+                                                        <Button
+                                                            type="default"
+                                                            size="middle"
+                                                            onClick={handleRestartFromFailed}
+                                                            icon={<ReloadOutlined />}
+                                                            style={{
+                                                                fontSize: '14px',
+                                                                fontWeight: 600,
+                                                                height: '36px',
+                                                                padding: '0 16px',
+                                                                background: '#fa8c16',
+                                                                borderColor: '#fa8c16',
+                                                                color: '#fff'
+                                                            }}
+                                                        >
+                                                            🔄 Restart
+                                                        </Button>
+                                                    ) : null;
+                                                })()}
+                                                {(() => {
+                                                    const searchParams = new URLSearchParams(location.search);
+                                                    const reportId = searchParams.get('reportId');
+                                                    const status = reportId ? reportGenerationService.getGenerationStatus(reportId) : null;
+                                                    
+                                                    // Only show Start Report button when status is 'ready' or null (no status)
+                                                    return (status === 'ready' || status === null) ? (
+                                                        <Button
+                                                            type="primary"
+                                                            size="middle"
+                                                            onClick={handleCustomReport}
+                                                            icon={<BarChartOutlined />}
+                                                            disabled={!reportText.trim() || !authToken.trim() || !user}
+                                                            style={{
+                                                                fontSize: '14px',
+                                                                fontWeight: 600,
+                                                                height: '36px',
+                                                                padding: '0 16px',
+                                                                background: '#ff8c69',
+                                                                borderColor: '#ff8c69'
+                                                            }}
+                                                        >
+                                                            ▶️ Start Report
+                                                        </Button>
+                                                    ) : null;
+                                                })()}
+                                            </>
+                                        ) : (
+                                            <div style={{ display: 'flex', gap: '8px' }}>
+                                                <Button
+                                                    danger
+                                                    size="middle"
+                                                    onClick={handleStopReport}
+                                                    icon={<StopOutlined />}
+                                                    style={{
+                                                        fontSize: '14px',
+                                                        fontWeight: 600,
+                                                        height: '36px',
+                                                        padding: '0 16px',
+                                                        backgroundColor: '#ff7875',
+                                                        borderColor: '#ff7875',
+                                                        color: '#ffffff'
+                                                    }}
+                                                >
+                                                    ⏹️ Stop Report
+                                                </Button>
+                                                <Button
+                                                    type="primary"
+                                                    size="middle"
+                                                    onClick={handleCompleteGeneration}
+                                                    icon={<CheckCircleOutlined />}
+                                                    style={{
+                                                        fontSize: '14px',
+                                                        fontWeight: 600,
+                                                        height: '36px',
+                                                        padding: '0 16px',
+                                                        backgroundColor: '#52c41a',
+                                                        borderColor: '#52c41a',
+                                                        color: '#ffffff'
+                                                    }}
+                                                >
+                                                    ✅ Complete Generation
+                                                </Button>
+                                            </div>
+                                        )}
+                                        
+                                        {progressInfo && (
+                                            <div style={{
+                                                background: 'rgba(255, 140, 105, 0.1)',
+                                                padding: '6px 12px',
+                                                borderRadius: '6px',
+                                                color: '#ff8c69',
+                                                fontSize: '12px',
+                                                fontWeight: 500,
+                                                border: '1px solid rgba(255, 140, 105, 0.3)'
+                                            }}>
+                                                {isGenerating ? '🔄 Processing' : '✅ Complete'}: {progressInfo.processed} items
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
-                            )}
-                        </div>
-                        
-                        {/* Table container */}
-                        <div 
-                            ref={tableContainerRef}
-                            style={{ 
-                                flex: 1,
-                                padding: '16px',
-                                background: '#fff',
-                                overflow: 'hidden'
-                            }}
-                        >
-                            {!tableData && isGenerating ? (
-                            <div style={{ 
-                                display: 'flex', 
-                                justifyContent: 'center', 
-                                alignItems: 'center', 
-                                height: 200,
-                                flexDirection: 'column',
-                                gap: 16
-                            }}>
-                                <LoadingOutlined style={{ fontSize: 32, color: '#1890ff' }} />
-                                <div>Initializing report generation...</div>
-                                <div style={{ fontSize: 12, color: '#666' }}>
-                                    Setting up schema and preparing tasks
-                                </div>
-                            </div>
-                        ) : tableData ? (
-                            <div style={{ 
-                                flex: 1,
-                                display: 'flex',
-                                flexDirection: 'column',
-                                height: '100%',
-                                width: '100%'
-                            }}>
 
-                                <div style={{ flex: 1, overflow: 'hidden', height: '100%' }}>
-                                    <Table
-                                        dataSource={tableData.results.map((row, index) => ({
-                                            ...row,
-                                            key: row.taskId || index
-                                        }))}
-                                        columns={tableData.columns.map(col => ({
-                                            title: col,
-                                            dataIndex: col,
-                                            key: col,
-                                            width: 150,
-                                            ellipsis: true,
-                                            render: (value: any) => {
-                                                if (typeof value === 'object' && value !== null) {
-                                                    return JSON.stringify(value);
-                                                }
-                                                return String(value || '');
-                                            }
-                                        }))}
-                                        pagination={{
-                                            pageSize: dynamicPageSize,
-                                            showSizeChanger: false,
-                                            showQuickJumper: true,
-                                            showTotal: (total, range) => 
-                                                `${range[0]}-${range[1]} of ${total} items`,
-                                            size: 'small'
-                                        }}
-                                        scroll={{ 
-                                            x: 'max-content',
-                                            y: '100%'
-                                        }}
-                                        size="small"
-                                        style={{ 
-                                            height: '100%',
-                                            width: '100%'
-                                        }}
-                                    />
+                                <Row gutter={24} style={{ flex: 1, minHeight: 0 }}>
+                                    <Col xs={24} lg={isTableFullScreen ? 0 : 12}>
+                                    <div style={{ 
+                                        height: '100%',
+                                        background: 'linear-gradient(135deg, #fff 0%, #f8f9fa 100%)',
+                                        borderRadius: '12px',
+                                        boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+                                        border: '1px solid #ff8c69',
+                                        overflow: 'hidden',
+                                        position: 'relative'
+                                    }}>
+                                        {/* Header for the editor */}
+                                        <div style={{
+                                            background: 'linear-gradient(135deg, #ff8c69 0%, #ff9f7f 100%)',
+                                            padding: '12px 20px',
+                                            borderBottom: '1px solid rgba(255, 140, 105, 0.2)',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '8px'
+                                        }}>
+                                            <BarChartOutlined style={{ color: '#fff', fontSize: '16px' }} />
+                                            <span style={{ 
+                                                color: '#fff', 
+                                                fontSize: '14px', 
+                                                fontWeight: 600,
+                                                letterSpacing: '0.5px'
+                                            }}>
+                                                Report Editor
+                                            </span>
+                                        </div>
+                                        
+                                        {/* Editor container */}
+                                        <div style={{ 
+                                            height: 'calc(100% - 48px)',
+                                            background: '#fff',
+                                            overflow: 'hidden'
+                                        }}>
+                                            <MilkdownEditor
+                                                value={reportText}
+                                                onChange={setReportText}
+                                                placeholder="Write your prompt here..."
+                                            />
+                                        </div>
+                                    </div>
+                                </Col>
+                                
+                                <Col xs={24} lg={isTableFullScreen ? 24 : 12}>
+                                    <div style={{ 
+                                        height: '100%',
+                                        background: 'linear-gradient(135deg, #fff 0%, #f8f9fa 100%)',
+                                        borderRadius: '12px',
+                                        boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+                                        border: '1px solid #ff8c69',
+                                        overflow: 'hidden',
+                                        position: 'relative'
+                                    }}>
+                                        {/* Header for the results */}
+                                        <div style={{
+                                            background: 'linear-gradient(135deg, #ff8c69 0%, #ff9f7f 100%)',
+                                            padding: '12px 20px',
+                                            borderBottom: '1px solid rgba(255, 140, 105, 0.2)',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'space-between'
+                                        }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                <BarChartOutlined style={{ color: '#fff', fontSize: '16px' }} />
+                                                <span style={{ 
+                                                    color: '#fff', 
+                                                    fontSize: '14px', 
+                                                    fontWeight: 600,
+                                                    letterSpacing: '0.5px'
+                                                }}>
+                                                    Report Results
+                                                </span>
+                                            </div>
+                                            
+                                            {tableData && (
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                    <Button
+                                                        type="text"
+                                                        size="small"
+                                                        icon={<DownloadOutlined />}
+                                                        onClick={handleDownloadCSV}
+                                                        style={{ color: '#fff', borderColor: 'rgba(255,255,255,0.3)' }}
+                                                    >
+                                                        Download CSV
+                                                    </Button>
+                                                    <Button
+                                                        type="text"
+                                                        size="small"
+                                                        icon={isTableFullScreen ? <FullscreenExitOutlined /> : <FullscreenOutlined />}
+                                                        onClick={toggleTableFullScreen}
+                                                        style={{ color: '#fff', borderColor: 'rgba(255,255,255,0.3)' }}
+                                                    />
+                                                </div>
+                                            )}
+                                        </div>
+                                        
+                                        {/* Table container */}
+                                        <div 
+                                            ref={tableContainerRef}
+                                            style={{ 
+                                                height: 'calc(100% - 48px)',
+                                                padding: '16px',
+                                                background: '#fff',
+                                                overflow: 'hidden'
+                                            }}
+                                        >
+                                            {!tableData && isGenerating ? (
+                                            <div style={{ 
+                                                display: 'flex', 
+                                                justifyContent: 'center', 
+                                                alignItems: 'center', 
+                                                height: 200,
+                                                flexDirection: 'column',
+                                                gap: 16
+                                            }}>
+                                                <LoadingOutlined style={{ fontSize: 32, color: '#1890ff' }} />
+                                                <div>Initializing report generation...</div>
+                                                <div style={{ fontSize: 12, color: '#666' }}>
+                                                    Setting up schema and preparing tasks
+                                                </div>
+                                            </div>
+                                        ) : tableData ? (
+                                            <div style={{ 
+                                                flex: 1,
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                height: '100%',
+                                                width: '100%'
+                                            }}>
+
+                                                <div style={{ flex: 1, overflow: 'hidden', height: '100%' }}>
+                                                    <Table
+                                                        dataSource={tableData.results.map((row, index) => ({
+                                                            ...row,
+                                                            key: row.taskId || index
+                                                        }))}
+                                                        columns={tableData.columns.map(col => ({
+                                                            title: col,
+                                                            dataIndex: col,
+                                                            key: col,
+                                                            width: 150,
+                                                            ellipsis: true,
+                                                            render: (value: any) => {
+                                                                if (typeof value === 'object' && value !== null) {
+                                                                    return JSON.stringify(value);
+                                                                }
+                                                                return String(value || '');
+                                                            }
+                                                        }))}
+                                                        pagination={{
+                                                            pageSize: dynamicPageSize,
+                                                            showSizeChanger: false,
+                                                            showQuickJumper: true,
+                                                            showTotal: (total, range) => 
+                                                                `${range[0]}-${range[1]} of ${total} items`,
+                                                            size: 'small'
+                                                        }}
+                                                        scroll={{ 
+                                                            x: 'max-content',
+                                                            y: '100%'
+                                                        }}
+                                                        size="small"
+                                                        style={{ 
+                                                            height: '100%',
+                                                            width: '100%'
+                                                        }}
+                                                    />
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div style={{ 
+                                                display: 'flex', 
+                                                justifyContent: 'center', 
+                                                alignItems: 'center', 
+                                                height: 200,
+                                                color: '#666',
+                                                fontSize: 16
+                                            }}>
+                                                Generate a report to see the table here
+                                            </div>
+                                        )}
+                                        </div>
+                                    </div>
+                                </Col>
+                            </Row>
                                 </div>
+                        )
+                    },
+                    {
+                        key: 'logs',
+                        label: (
+                            <span>
+                                <HistoryOutlined style={{ marginRight: 8 }} />
+                                Report Logs
+                            </span>
+                        ),
+                        children: (
+                            <div style={{ height: '100%', overflow: 'auto' }}>
+                                {selectedLogId ? (
+                                    <ReportLogViewer 
+                                        reportLogId={selectedLogId} 
+                                        onBack={handleBackToList}
+                                    />
+                                ) : (
+                                    <ReportLogsList 
+                                        onViewLog={handleViewLog} 
+                                        selectedReportId={new URLSearchParams(location.search).get('reportId') || undefined}
+                                        refreshKey={logsRefreshKey}
+                                    />
+                                )}
                             </div>
-                        ) : (
-                            <div style={{ 
-                                display: 'flex', 
-                                justifyContent: 'center', 
-                                alignItems: 'center', 
-                                height: 200,
-                                color: '#666',
-                                fontSize: 16
-                            }}>
-                                Generate a report to see the table here
-                            </div>
-                        )}
-                        </div>
-                    </div>
-                </Col>
-            </Row>
+                        )
+                    }
+                ]}
+            />
         </div>
     );
 };

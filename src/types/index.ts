@@ -33,8 +33,35 @@ export interface Report {
     };
 }
 
+export interface ReportLog {
+    id: string;
+    reportId: string;
+    reportName: string;
+    prompt: string;
+    generatedAt: string;
+    completedAt: string;
+    status: 'completed' | 'failed';
+    totalTasks: number;
+    processedTasks: number;
+    tableData: {
+        columns: string[];
+        results: Array<Record<string, unknown>>;
+        csv: string;
+    };
+    metadata?: {
+        duration: number; // in milliseconds
+        errorMessage?: string;
+        userAgent?: string;
+        version?: string;
+    };
+}
+
 export interface ReportList {
     reports: Report[];
+}
+
+export interface ReportLogList {
+    reportLogs: ReportLog[];
 }
 
 export interface CreateReportRequest {
