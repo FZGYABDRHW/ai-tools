@@ -81,7 +81,9 @@ class ReportGenerationService {
                     progress: state.progress,
                     tableData: state.tableData,
                     startTime: state.startTime,
-                    errorMessage: state.errorMessage
+                    errorMessage: state.errorMessage,
+                    parameters: state.parameters,
+                    extractedParameters: state.extractedParameters
                 };
             });
             localStorage.setItem(this.getStorageKey(), JSON.stringify(generations));
@@ -154,7 +156,7 @@ class ReportGenerationService {
 
     setToPaused(reportId: string): boolean {
         const state = this.activeGenerations.get(reportId);
-        if (state && state.status === 'in_progress') {
+        if (state && (state.status === 'in_progress' || state.status === 'failed')) {
             this.updateGenerationStatus(reportId, 'paused');
             return true;
         }
@@ -163,7 +165,7 @@ class ReportGenerationService {
 
     setToCompleted(reportId: string): boolean {
         const state = this.activeGenerations.get(reportId);
-        if (state && state.status === 'in_progress') {
+        if (state && (state.status === 'in_progress' || state.status === 'paused')) {
             this.updateGenerationStatus(reportId, 'completed');
             return true;
         }
@@ -171,22 +173,40 @@ class ReportGenerationService {
     }
 
     rerunFromCompleted(reportId: string): boolean {
+        // Validate that the report exists
+        const report = reportService.getReportById(reportId);
+        if (!report) {
+            console.error(`Report ${reportId} not found for rerun`);
+            return false;
+        }
+
         const state = this.activeGenerations.get(reportId);
         if (state && state.status === 'completed') {
             // Clear the completed state to allow new generation
             this.clearGeneration(reportId);
-            console.log(`Report ${reportId} ready for rerun`);
+            // Clear report table data to ensure fresh start
+            reportService.clearReportData(reportId);
+            console.log(`Report ${reportId} ready for rerun - cleared generation state and report data`);
             return true;
         }
         return false;
     }
 
     restartFromFailed(reportId: string): boolean {
+        // Validate that the report exists
+        const report = reportService.getReportById(reportId);
+        if (!report) {
+            console.error(`Report ${reportId} not found for restart`);
+            return false;
+        }
+
         const state = this.activeGenerations.get(reportId);
         if (state && state.status === 'failed') {
             // Clear the failed state to allow new generation
             this.clearGeneration(reportId);
-            console.log(`Report ${reportId} ready for restart from failed state`);
+            // Clear report table data to ensure fresh start
+            reportService.clearReportData(reportId);
+            console.log(`Report ${reportId} ready for restart from failed state - cleared generation state and report data`);
             return true;
         }
         return false;
@@ -414,6 +434,23 @@ class ReportGenerationService {
             state.extractedParameters = undefined;
             this.saveActiveGenerations();
         }
+    }
+
+    /**
+     * Clear all data for a report (generation state, checkpoints, report data)
+     * This ensures a completely fresh start
+     */
+    clearAllReportData(reportId: string): void {
+        // Clear generation state
+        this.clearGeneration(reportId);
+        
+        // Clear checkpoint data
+        reportCheckpointService.clearCheckpoint(reportId);
+        
+        // Clear report table data
+        reportService.clearReportData(reportId);
+        
+        console.log(`Cleared all data for report ${reportId}`);
     }
 
     clearAllGenerations(): void {

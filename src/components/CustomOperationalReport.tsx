@@ -171,6 +171,20 @@ const CustomOperationalReport: React.FC = () => {
         }
     }, [location.search]);
 
+    // Sync table data with report service when report changes
+    useEffect(() => {
+        const searchParams = new URLSearchParams(location.search);
+        const reportId = searchParams.get('reportId');
+        
+        if (reportId) {
+            const report = reportService.getReportById(reportId);
+            if (report?.tableData && !isGenerating) {
+                // Only update if we're not currently generating to avoid conflicts
+                setTableData(report.tableData);
+            }
+        }
+    }, [location.search, isGenerating]);
+
     // Auto-save report text changes when editing existing report
     useEffect(() => {
         const searchParams = new URLSearchParams(location.search);
@@ -455,7 +469,7 @@ const CustomOperationalReport: React.FC = () => {
             onOk: () => {
                 if (reportGenerationService.rerunFromCompleted(reportId)) {
                     message.success('Report ready for rerun');
-                    // Clear local state
+                    // Clear local state - table data is cleared by the service
                     setIsGenerating(false);
                     setTableData(null);
                     setProgressInfo(null);
@@ -486,7 +500,7 @@ const CustomOperationalReport: React.FC = () => {
             onOk: () => {
                 if (reportGenerationService.restartFromFailed(reportId)) {
                     message.success('Report ready for restart');
-                    // Clear local state
+                    // Clear local state - table data is cleared by the service
                     setIsGenerating(false);
                     setTableData(null);
                     setProgressInfo(null);
