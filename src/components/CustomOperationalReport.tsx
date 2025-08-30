@@ -88,6 +88,12 @@ const CustomOperationalReport: React.FC = () => {
             const currentStatus = reportId ? reportGenerationService.getGenerationStatus(reportId) : null;
             if (currentStatus !== status) {
                 setCurrentGenerationStatus(currentStatus);
+                
+                // Clear extracted parameters when status changes to 'ready'
+                if (currentStatus === 'ready' && reportId) {
+                    reportGenerationService.clearExtractedParameters(reportId);
+                    console.log('Cleared extracted parameters for ready status');
+                }
             }
         }, 1000);
         

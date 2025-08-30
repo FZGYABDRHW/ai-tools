@@ -408,6 +408,14 @@ class ReportGenerationService {
         this.saveActiveGenerations();
     }
 
+    clearExtractedParameters(reportId: string): void {
+        const state = this.activeGenerations.get(reportId);
+        if (state) {
+            state.extractedParameters = undefined;
+            this.saveActiveGenerations();
+        }
+    }
+
     clearAllGenerations(): void {
         this.activeGenerations.clear();
         this.saveActiveGenerations();
