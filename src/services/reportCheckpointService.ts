@@ -163,14 +163,20 @@ class ReportCheckpointService {
 
     resumeCheckpoint(reportId: string): ReportCheckpoint | null {
         const checkpoint = this.getCheckpoint(reportId);
-        if (checkpoint && checkpoint.status === 'paused') {
+        console.log(`Resume checkpoint called for ${reportId}:`, checkpoint);
+        
+        if (checkpoint && (checkpoint.status === 'paused' || checkpoint.status === 'in_progress')) {
+            console.log(`Resuming checkpoint ${reportId} from status: ${checkpoint.status}`);
             checkpoint.status = 'in_progress';
             checkpoint.lastCheckpointTime = Date.now();
             const checkpoints = this.getCheckpoints();
             checkpoints[reportId] = checkpoint;
             this.saveCheckpoints(checkpoints);
+            console.log(`Checkpoint ${reportId} resumed successfully`);
             return checkpoint;
         }
+        
+        console.log(`Cannot resume checkpoint ${reportId}:`, checkpoint ? `status is ${checkpoint.status}` : 'checkpoint not found');
         return null;
     }
 

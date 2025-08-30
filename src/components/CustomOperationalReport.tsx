@@ -50,12 +50,31 @@ const CustomOperationalReport: React.FC = () => {
     const [activeTab, setActiveTab] = useState<string>(getInitialTab);
     const [selectedLogId, setSelectedLogId] = useState<string | null>(null);
     const [logsRefreshKey, setLogsRefreshKey] = useState<number>(0);
+    const [currentGenerationStatus, setCurrentGenerationStatus] = useState<string | null>(null);
     const tableContainerRef = useRef<HTMLDivElement>(null);
     const abortControllerRef = useRef<AbortController | null>(null);
 
     useEffect(() => {
         localStorage.setItem('customOperationalReport', reportText);
     }, [reportText]);
+
+    // Update generation status for UI updates
+    useEffect(() => {
+        const searchParams = new URLSearchParams(location.search);
+        const reportId = searchParams.get('reportId');
+        const status = reportId ? reportGenerationService.getGenerationStatus(reportId) : null;
+        setCurrentGenerationStatus(status);
+        
+        // Set up interval to check for status changes
+        const interval = setInterval(() => {
+            const currentStatus = reportId ? reportGenerationService.getGenerationStatus(reportId) : null;
+            if (currentStatus !== status) {
+                setCurrentGenerationStatus(currentStatus);
+            }
+        }, 1000);
+        
+        return () => clearInterval(interval);
+    }, [location.search]);
 
     // Load report and restore generation state when reportId is provided in URL
     useEffect(() => {
@@ -78,15 +97,27 @@ const CustomOperationalReport: React.FC = () => {
             const generationState = reportGenerationService.getGenerationState(reportId);
             if (generationState) {
                 console.log('Restoring generation state:', generationState);
+                
+                // Check if the generation was actually interrupted by app reload
                 const isCurrentlyGenerating = generationState.status === 'in_progress';
-                setIsGenerating(isCurrentlyGenerating);
+                const wasInterrupted = isCurrentlyGenerating && !generationState.abortController;
+                
+                if (wasInterrupted) {
+                    console.log('Generation was interrupted by app reload, setting status to paused');
+                    // If generation was interrupted, set it to paused state
+                    reportGenerationService.updateGenerationStatus(reportId, 'paused');
+                    setIsGenerating(false);
+                } else {
+                    setIsGenerating(isCurrentlyGenerating);
+                }
+                
                 setProgressInfo(generationState.progress);
                 if (generationState.tableData) {
                     setTableData(generationState.tableData);
                 }
 
                 // Reconnect to ongoing generation for live updates
-                if (isCurrentlyGenerating) {
+                if (isCurrentlyGenerating && !wasInterrupted) {
                     console.log('Reconnecting to ongoing generation');
                     reportGenerationService.reconnectToGeneration(reportId, {
                         onProgress: (progress) => {
@@ -589,12 +620,12 @@ const CustomOperationalReport: React.FC = () => {
                                                                 fontWeight: 600,
                                                                 height: '36px',
                                                                 padding: '0 16px',
-                                                                background: '#52c41a',
-                                                                borderColor: '#52c41a',
+                                                                background: '#ff8c69',
+                                                                borderColor: '#ff8c69',
                                                                 color: '#fff'
                                                             }}
                                                         >
-                                                            🔄 Resume Report
+                                                            Continue
                                                         </Button>
                                                     ) : null;
                                                 })()}
@@ -604,23 +635,42 @@ const CustomOperationalReport: React.FC = () => {
                                                     const status = reportId ? reportGenerationService.getGenerationStatus(reportId) : null;
                                                     
                                                     return status === 'paused' ? (
-                                                        <Button
-                                                            type="default"
-                                                            size="middle"
-                                                            onClick={handleResetToReady}
-                                                            icon={<EditOutlined />}
-                                                            style={{
-                                                                fontSize: '14px',
-                                                                fontWeight: 600,
-                                                                height: '36px',
-                                                                padding: '0 16px',
-                                                                background: '#722ed1',
-                                                                borderColor: '#722ed1',
-                                                                color: '#fff'
-                                                            }}
-                                                        >
-                                                            🔄 Reset to Ready
-                                                        </Button>
+                                                        <>
+                                                            <Button
+                                                                type="default"
+                                                                size="middle"
+                                                                onClick={handleCompleteGeneration}
+                                                                icon={<CheckCircleOutlined />}
+                                                                style={{
+                                                                    fontSize: '14px',
+                                                                    fontWeight: 600,
+                                                                    height: '36px',
+                                                                    padding: '0 16px',
+                                                                    background: '#73d13d',
+                                                                    borderColor: '#73d13d',
+                                                                    color: '#fff'
+                                                                }}
+                                                            >
+                                                                Save & Finish
+                                                            </Button>
+                                                            <Button
+                                                                type="default"
+                                                                size="middle"
+                                                                onClick={handleResetToReady}
+                                                                icon={<ReloadOutlined />}
+                                                                style={{
+                                                                    fontSize: '14px',
+                                                                    fontWeight: 600,
+                                                                    height: '36px',
+                                                                    padding: '0 16px',
+                                                                    background: '#ffa940',
+                                                                    borderColor: '#ffa940',
+                                                                    color: '#fff'
+                                                                }}
+                                                            >
+                                                                Start Over
+                                                            </Button>
+                                                        </>
                                                     ) : null;
                                                 })()}
                                                 {(() => {
@@ -639,12 +689,12 @@ const CustomOperationalReport: React.FC = () => {
                                                                 fontWeight: 600,
                                                                 height: '36px',
                                                                 padding: '0 16px',
-                                                                background: '#1890ff',
-                                                                borderColor: '#1890ff',
+                                                                background: '#ff8c69',
+                                                                borderColor: '#ff8c69',
                                                                 color: '#fff'
                                                             }}
                                                         >
-                                                            🔄 Rerun
+                                                            Generate Again
                                                         </Button>
                                                     ) : null;
                                                 })()}
@@ -664,12 +714,12 @@ const CustomOperationalReport: React.FC = () => {
                                                                 fontWeight: 600,
                                                                 height: '36px',
                                                                 padding: '0 16px',
-                                                                background: '#fa8c16',
-                                                                borderColor: '#fa8c16',
+                                                                background: '#ffa940',
+                                                                borderColor: '#ffa940',
                                                                 color: '#fff'
                                                             }}
                                                         >
-                                                            🔄 Restart
+                                                            Try Again
                                                         </Button>
                                                     ) : null;
                                                 })()}
@@ -695,7 +745,7 @@ const CustomOperationalReport: React.FC = () => {
                                                                 borderColor: '#ff8c69'
                                                             }}
                                                         >
-                                                            ▶️ Start Report
+                                                            Generate Report
                                                         </Button>
                                                     ) : null;
                                                 })()}
@@ -712,12 +762,12 @@ const CustomOperationalReport: React.FC = () => {
                                                         fontWeight: 600,
                                                         height: '36px',
                                                         padding: '0 16px',
-                                                        backgroundColor: '#ff7875',
-                                                        borderColor: '#ff7875',
+                                                        backgroundColor: '#ff9c6e',
+                                                        borderColor: '#ff9c6e',
                                                         color: '#ffffff'
                                                     }}
                                                 >
-                                                    ⏹️ Stop Report
+                                                    Pause
                                                 </Button>
                                                 <Button
                                                     type="primary"
@@ -729,12 +779,12 @@ const CustomOperationalReport: React.FC = () => {
                                                         fontWeight: 600,
                                                         height: '36px',
                                                         padding: '0 16px',
-                                                        backgroundColor: '#52c41a',
-                                                        borderColor: '#52c41a',
+                                                        backgroundColor: '#73d13d',
+                                                        borderColor: '#73d13d',
                                                         color: '#ffffff'
                                                     }}
                                                 >
-                                                    ✅ Complete Generation
+                                                    Save & Finish
                                                 </Button>
                                             </div>
                                         )}
@@ -785,6 +835,15 @@ const CustomOperationalReport: React.FC = () => {
                                                 letterSpacing: '0.5px'
                                             }}>
                                                 Report Editor
+                                                {(currentGenerationStatus === 'in_progress' || currentGenerationStatus === 'paused') && (
+                                                        <span style={{ 
+                                                            fontSize: '12px', 
+                                                            marginLeft: '8px',
+                                                            opacity: 0.8
+                                                        }}>
+                                                            (Read Only)
+                                                        </span>
+                                                    )}
                                             </span>
                                         </div>
                                         
@@ -798,6 +857,7 @@ const CustomOperationalReport: React.FC = () => {
                                                 value={reportText}
                                                 onChange={setReportText}
                                                 placeholder="Write your prompt here..."
+                                                readOnly={currentGenerationStatus === 'in_progress' || currentGenerationStatus === 'paused'}
                                             />
                                         </div>
                                     </div>

@@ -412,24 +412,31 @@ class ReportGenerationService {
         console.log('Checkpoint found:', checkpoint);
         
         if (!checkpoint) {
+            console.error('No checkpoint found for this report');
             throw new Error('No checkpoint found for this report');
         }
         
+        console.log(`Checkpoint status: ${checkpoint.status}`);
         if (checkpoint.status !== 'paused' && checkpoint.status !== 'in_progress') {
+            console.error(`Checkpoint status is ${checkpoint.status}, cannot resume`);
             throw new Error(`Checkpoint status is ${checkpoint.status}, cannot resume`);
         }
 
         // Resume the checkpoint
+        console.log('Attempting to resume checkpoint...');
         const resumedCheckpoint = reportCheckpointService.resumeCheckpoint(reportId);
         if (!resumedCheckpoint) {
+            console.error('Failed to resume checkpoint');
             throw new Error('Failed to resume checkpoint');
         }
+        console.log('Checkpoint resumed successfully:', resumedCheckpoint);
 
         // Calculate the correct offset for resuming
         const startOffset = reportCheckpointService.getResumeOffset(reportId);
         console.log(`Resuming report ${reportId} from offset ${startOffset} with ${checkpoint.currentTaskIndex} completed tasks`);
 
         // Start generation from where it left off
+        console.log('Starting generation with startOffset:', startOffset);
         await this.startGeneration(
             reportId,
             checkpoint.prompt,

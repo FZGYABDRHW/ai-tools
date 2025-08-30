@@ -27,6 +27,8 @@ const MilkdownEditor: React.FC<MilkdownEditorProps> = ({
         }
     }, [value]);
 
+
+
     const handleChange = () => {
         if (editorRef.current) {
             const editorInstance = editorRef.current.getInstance();
@@ -40,14 +42,14 @@ const MilkdownEditor: React.FC<MilkdownEditorProps> = ({
             <Editor
                 ref={editorRef}
                 initialValue={value}
-                onChange={handleChange}
+                onChange={readOnly ? undefined : handleChange}
                 placeholder={placeholder}
                 previewStyle="vertical"
                 height="100%"
                 initialEditType="wysiwyg"
-                useCommandShortcut={true}
-                hideModeSwitch={false}
-                toolbarItems={[
+                useCommandShortcut={!readOnly}
+                hideModeSwitch={readOnly}
+                toolbarItems={readOnly ? [] : [
                     ['heading', 'bold', 'italic', 'strike'],
                     ['hr', 'quote'],
                     ['ul', 'ol', 'task', 'indent', 'outdent'],
