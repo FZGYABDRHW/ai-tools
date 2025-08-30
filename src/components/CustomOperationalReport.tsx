@@ -459,6 +459,8 @@ const CustomOperationalReport: React.FC = () => {
                     setIsGenerating(false);
                     setTableData(null);
                     setProgressInfo(null);
+                    // Force refresh of generation status
+                    setCurrentGenerationStatus('ready');
                 } else {
                     message.error('Failed to prepare report for rerun');
                 }
@@ -488,6 +490,8 @@ const CustomOperationalReport: React.FC = () => {
                     setIsGenerating(false);
                     setTableData(null);
                     setProgressInfo(null);
+                    // Force refresh of generation status
+                    setCurrentGenerationStatus('ready');
                 } else {
                     message.error('Failed to prepare report for restart');
                 }
