@@ -828,13 +828,13 @@ const CustomOperationalReport: React.FC = () => {
                                             gap: '8px'
                                         }}>
                                             <BarChartOutlined style={{ color: '#fff', fontSize: '16px' }} />
-                                            <span style={{ 
-                                                color: '#fff', 
-                                                fontSize: '14px', 
-                                                fontWeight: 600,
-                                                letterSpacing: '0.5px'
-                                            }}>
-                                                Report Editor
+                                                                                         <span style={{ 
+                                                 color: '#fff', 
+                                                 fontSize: '14px', 
+                                                 fontWeight: 600,
+                                                 letterSpacing: '0.5px'
+                                             }}>
+                                                 Editor
                                                 {(currentGenerationStatus === 'in_progress' || currentGenerationStatus === 'paused') && (
                                                         <span style={{ 
                                                             fontSize: '12px', 
@@ -886,13 +886,13 @@ const CustomOperationalReport: React.FC = () => {
                                         }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                                 <BarChartOutlined style={{ color: '#fff', fontSize: '16px' }} />
-                                                <span style={{ 
-                                                    color: '#fff', 
-                                                    fontSize: '14px', 
-                                                    fontWeight: 600,
-                                                    letterSpacing: '0.5px'
-                                                }}>
-                                                    Report Results
+                                                                                                 <span style={{ 
+                                                     color: '#fff', 
+                                                     fontSize: '14px', 
+                                                     fontWeight: 600,
+                                                     letterSpacing: '0.5px'
+                                                 }}>
+                                                     Results
                                                 </span>
                                             </div>
                                             
