@@ -24,6 +24,10 @@ export interface ReportGenerationState {
     abortController: AbortController | null;
     errorMessage?: string;
     parameters?: TaskListParameters;
+    extractedParameters?: {
+        parameters: TaskListParameters;
+        humanReadable: string[];
+    };
 }
 
 interface GenerationCallbacks {
@@ -308,6 +312,13 @@ class ReportGenerationService {
             }
 
             generationState.tableData = finalResult;
+            
+            // Store extracted parameters if available
+            if (result.extractedParameters) {
+                generationState.extractedParameters = result.extractedParameters;
+                console.log('Stored extracted parameters:', result.extractedParameters);
+            }
+            
             this.updateGenerationStatus(reportId, 'completed');
 
             // Save to report service

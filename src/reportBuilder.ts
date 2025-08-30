@@ -42,9 +42,79 @@ export async function buildReport(
   abortSignal?: AbortSignal,
   startOffset: number = 0,
   parameters?: TaskListParameters,
-): Promise<{ columns: string[]; results: Array<Record<string, unknown>>; csv: string }> {
+): Promise<{ 
+  columns: string[]; 
+  results: Array<Record<string, unknown>>; 
+  csv: string;
+  extractedParameters?: {
+    parameters: TaskListParameters;
+    humanReadable: string[];
+  };
+}> {
 
   const openai = new OpenAI({dangerouslyAllowBrowser: true, apiKey: "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"});
+
+  // 0) Extract parameters from the prompt using OpenAI if not provided
+  let extractedParameters = parameters;
+  if (!extractedParameters) {
+    // Check for abort signal before making the parameter extraction call
+    if (abortSignal?.aborted) {
+      throw new Error('Aborted');
+    }
+    
+    const parameterCompletion = await openai.chat.completions.create({
+      model: 'o3',
+      messages: [
+        { 
+          role: 'system', 
+          content: `You are a parameter extraction specialist. From the user prompt, extract task list parameters and return ONLY a JSON object with the following structure:
+{
+  "limit": number (optional, maximum number of tasks to process, default 30),
+  "taskStatus": string (optional, one of: "new", "done", "canceled", "in-work", "on-moderation", "awaiting-approve", "on-payment", "in-queue", default "in-work"),
+  "timeRangeFrom": string (optional, ISO date string YYYY-MM-DD),
+  "timeRangeTo": string (optional, ISO date string YYYY-MM-DD)
+}
+
+Rules:
+- If user mentions "only first X tasks" or "limit to X tasks", set limit to X
+- If user mentions task status keywords, map them appropriately:
+  * "new", "fresh", "recent" → "new"
+  * "completed", "done", "finished" → "done"
+  * "canceled", "cancelled" → "canceled"
+  * "in work", "in progress", "working" → "in-work"
+  * "on moderation", "moderating" → "on-moderation"
+  * "awaiting approval", "pending approval" → "awaiting-approve"
+  * "on payment", "paid" → "on-payment"
+  * "in queue", "queued", "waiting" → "in-queue"
+- If user mentions time ranges, convert to ISO dates:
+  * "last X days" → timeRangeFrom = X days ago, timeRangeTo = today
+  * "this week" → timeRangeFrom = start of week, timeRangeTo = today
+  * "this month" → timeRangeFrom = start of month, timeRangeTo = today
+  * "yesterday" → timeRangeFrom = yesterday, timeRangeTo = yesterday
+  * "today" → timeRangeFrom = today, timeRangeTo = today
+
+Return only the JSON object, no additional text.` 
+        },
+        { role: 'user', content: rawPrompt },
+      ],
+    });
+    
+    console.log('Parameter extraction result:', parameterCompletion.choices[0].message.content);
+    
+    try {
+      const extracted = JSON.parse(parameterCompletion.choices[0].message.content ?? '{}');
+      extractedParameters = {
+        limit: extracted.limit,
+        taskStatus: extracted.taskStatus,
+        timeRangeFrom: extracted.timeRangeFrom,
+        timeRangeTo: extracted.timeRangeTo
+      };
+      console.log('Extracted parameters:', extractedParameters);
+    } catch (err) {
+      console.warn('Could not parse parameters from OpenAI, using defaults:', err);
+      extractedParameters = {};
+    }
+  }
 
   // 1) Derive the tabular schema (column names) from the raw prompt
   // Check for abort signal before making the initial OpenAI call
@@ -102,7 +172,7 @@ export async function buildReport(
   await new Promise<void>((resolve, reject) => {
     let abortHandler: (() => void) | null = null;
     
-    const subscription = taskIterator(si, startOffset, parameters).pipe(
+    const subscription = taskIterator(si, startOffset, extractedParameters).pipe(
       // We only care about concrete "content" events (those carry the task ID).
       filter((ev): ev is TaskEvent & { taskId: number } => ev.type === 'content'),
       // Add abort check to the stream
@@ -217,7 +287,47 @@ export async function buildReport(
 
   const csvContent = `${header}\n${body}`;
 
+  // Convert extracted parameters to human-readable format
+  const humanReadable: string[] = [];
+  if (extractedParameters) {
+    if (extractedParameters.limit) {
+      humanReadable.push(`Limit: ${extractedParameters.limit} tasks`);
+    }
+    if (extractedParameters.taskStatus) {
+      const statusDisplayNames: Record<string, string> = {
+        'new': 'New Tasks',
+        'done': 'Completed Tasks',
+        'canceled': 'Canceled Tasks',
+        'in-work': 'Tasks In Work',
+        'on-moderation': 'Tasks On Moderation',
+        'awaiting-approve': 'Tasks Awaiting Approval',
+        'on-payment': 'Tasks On Payment',
+        'in-queue': 'Tasks In Queue'
+      };
+      humanReadable.push(`Status: ${statusDisplayNames[extractedParameters.taskStatus] || extractedParameters.taskStatus}`);
+    }
+    if (extractedParameters.timeRangeFrom && extractedParameters.timeRangeTo) {
+      const fromDate = new Date(extractedParameters.timeRangeFrom);
+      const toDate = new Date(extractedParameters.timeRangeTo);
+      const fromStr = fromDate.toLocaleDateString();
+      const toStr = toDate.toLocaleDateString();
+      if (fromStr === toStr) {
+        humanReadable.push(`Date: ${fromStr}`);
+      } else {
+        humanReadable.push(`Date Range: ${fromStr} to ${toStr}`);
+      }
+    }
+  }
+
   // Automatically download the CSV in renderer contexts
   downloadCsv(csvContent);
-  return { columns, results, csv: csvContent };
+  return { 
+    columns, 
+    results, 
+    csv: csvContent,
+    extractedParameters: extractedParameters ? {
+      parameters: extractedParameters,
+      humanReadable
+    } : undefined
+  };
 }

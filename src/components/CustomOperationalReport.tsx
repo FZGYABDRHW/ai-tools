@@ -12,7 +12,7 @@ import { reportLogService } from '../services/reportLogService';
 import { reportService } from '../services/reportService';
 import { reportGenerationService } from '../services/reportGenerationService';
 import { reportCheckpointService } from '../services/reportCheckpointService';
-import { ParameterExtractionService, ExtractedParameters } from '../services/parameterExtractionService';
+
 import ReportLogsList from './ReportLogsList';
 import ReportLogViewer from './ReportLogViewer';
 
@@ -52,28 +52,22 @@ const CustomOperationalReport: React.FC = () => {
     const [selectedLogId, setSelectedLogId] = useState<string | null>(null);
     const [logsRefreshKey, setLogsRefreshKey] = useState<number>(0);
     const [currentGenerationStatus, setCurrentGenerationStatus] = useState<string | null>(null);
-    const [extractedParameters, setExtractedParameters] = useState<ExtractedParameters | null>(null);
+    // Get extracted parameters from generation state
+    const getExtractedParameters = () => {
+        const searchParams = new URLSearchParams(location.search);
+        const reportId = searchParams.get('reportId');
+        if (reportId) {
+            const generationState = reportGenerationService.getGenerationState(reportId);
+            return generationState?.extractedParameters || null;
+        }
+        return null;
+    };
     const tableContainerRef = useRef<HTMLDivElement>(null);
     const abortControllerRef = useRef<AbortController | null>(null);
 
     useEffect(() => {
         localStorage.setItem('customOperationalReport', reportText);
-        
-        // Extract parameters from the prompt
-        if (reportText.trim()) {
-            const extracted = ParameterExtractionService.extractParameters(reportText);
-            console.log('Extracted parameters:', extracted);
-            setExtractedParameters(extracted);
-        } else {
-            console.log('No report text, clearing extracted parameters');
-            setExtractedParameters(null);
-        }
     }, [reportText]);
-
-    // Debug extracted parameters
-    useEffect(() => {
-        console.log('Extracted parameters state changed:', extractedParameters);
-    }, [extractedParameters]);
 
     // Update generation status for UI updates
     useEffect(() => {
@@ -272,7 +266,7 @@ const CustomOperationalReport: React.FC = () => {
                     }
                 },
                 0, // startOffset
-                extractedParameters?.parameters
+                getExtractedParameters()?.parameters
             );
         } catch (error) {
             setIsGenerating(false);
@@ -624,9 +618,9 @@ const CustomOperationalReport: React.FC = () => {
                             fontSize: '10px',
                             color: 'blue'
                         }}>
-                            Debug: extractedParameters = {JSON.stringify(extractedParameters)}
+                            Debug: extractedParameters = {JSON.stringify(getExtractedParameters())}
                         </div>
-                        {extractedParameters && extractedParameters.humanReadable.length > 0 && (
+                        {getExtractedParameters() && getExtractedParameters()!.humanReadable.length > 0 && (
                             <div style={{ 
                                 marginTop: '8px', 
                                 padding: '8px 12px', 
@@ -637,19 +631,15 @@ const CustomOperationalReport: React.FC = () => {
                                 <div style={{ color: '#ff8c69', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>
                                     🔍 Extracted Parameters:
                                 </div>
-                                {extractedParameters.humanReadable.map((param, index) => (
+                                {getExtractedParameters()!.humanReadable.map((param, index) => (
                                     <div key={index} style={{ color: '#333', fontSize: '11px', marginBottom: '2px' }}>
                                         • {param}
                                     </div>
                                 ))}
-                                {extractedParameters.errors.length > 0 && (
-                                    <div style={{ color: '#ff4d4f', fontSize: '11px', marginTop: '4px' }}>
-                                        ⚠️ {extractedParameters.errors.join(', ')}
-                                    </div>
-                                )}
+
                             </div>
                         )}
-                        {extractedParameters && extractedParameters.humanReadable.length === 0 && (
+                        {getExtractedParameters() && getExtractedParameters()!.humanReadable.length === 0 && (
                             <div style={{ 
                                 marginTop: '8px', 
                                 padding: '4px 8px', 
