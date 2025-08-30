@@ -42,6 +42,11 @@ const Breadcrumbs: React.FC = () => {
                 ),
             });
         } else if (pathname === '/custom-report') {
+            // Get report ID and tab from URL parameters
+            const searchParams = new URLSearchParams(location.search);
+            const reportId = searchParams.get('reportId');
+            const tab = searchParams.get('tab');
+            
             items.push({
                 title: (
                     <Link to="/reports">
@@ -52,13 +57,39 @@ const Breadcrumbs: React.FC = () => {
             });
             items.push({
                 title: (
-                    <span>
+                    <Link to={`/custom-report?reportId=${reportId}`}>
                         <BarChartOutlined style={{ marginRight: 4 }} />
-                        Report Editor
-                    </span>
+                        Report
+                    </Link>
                 ),
             });
+            
+            // Add report ID if available
+            if (reportId) {
+                items.push({
+                    title: (
+                        <span>
+                            ID: {reportId}
+                        </span>
+                    ),
+                });
+            }
+            
+            // Add tab if available
+            if (tab) {
+                items.push({
+                    title: (
+                        <span>
+                            {tab === 'logs' ? 'Logs' : 'Editor'}
+                        </span>
+                    ),
+                });
+            }
         } else if (pathname === '/report-logs') {
+            // Get report ID from URL parameters
+            const searchParams = new URLSearchParams(location.search);
+            const reportId = searchParams.get('reportId');
+            
             items.push({
                 title: (
                     <Link to="/reports">
@@ -67,14 +98,43 @@ const Breadcrumbs: React.FC = () => {
                     </Link>
                 ),
             });
-            items.push({
-                title: (
-                    <span>
-                        <HistoryOutlined style={{ marginRight: 4 }} />
-                        Report Logs
-                    </span>
-                ),
-            });
+            
+            if (reportId) {
+                // If viewing logs for a specific report
+                items.push({
+                    title: (
+                        <Link to={`/custom-report?reportId=${reportId}`}>
+                            <BarChartOutlined style={{ marginRight: 4 }} />
+                            Report
+                        </Link>
+                    ),
+                });
+                items.push({
+                    title: (
+                        <span>
+                            ID: {reportId}
+                        </span>
+                    ),
+                });
+                items.push({
+                    title: (
+                        <span>
+                            <HistoryOutlined style={{ marginRight: 4 }} />
+                            Logs
+                        </span>
+                    ),
+                });
+            } else {
+                // If viewing all logs
+                items.push({
+                    title: (
+                        <span>
+                            <HistoryOutlined style={{ marginRight: 4 }} />
+                            Report Logs
+                        </span>
+                    ),
+                });
+            }
         }
 
         return items;

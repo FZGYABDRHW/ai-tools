@@ -190,7 +190,7 @@ const ReportsPage: React.FC = () => {
     };
 
     const handleViewReportLogs = (report: Report) => {
-        navigate('/report-logs', { state: { selectedReportId: report.id } });
+        navigate(`/report-logs?reportId=${report.id}`, { state: { selectedReportId: report.id } });
     };
 
     const handleStopGeneration = (reportId: string) => {
