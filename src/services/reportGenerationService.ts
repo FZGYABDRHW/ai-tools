@@ -252,6 +252,8 @@ class ReportGenerationService {
 
         try {
             const si = buildServiceInitializer(authToken);
+            
+            // Start the build process and get parameters immediately
             const result = await buildReport(
                 reportText,
                 si,

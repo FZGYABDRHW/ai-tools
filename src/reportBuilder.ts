@@ -69,7 +69,7 @@ export async function buildReport(
           role: 'system', 
           content: `You are a parameter extraction specialist. From the user prompt, extract task list parameters and return ONLY a JSON object with the following structure:
 {
-  "limit": number (optional, maximum number of tasks to process, default 30),
+  "limit": number (optional, maximum number of tasks to process, default is undefined),
   "taskStatus": string (optional, one of: "new", "done", "canceled", "in-work", "on-moderation", "awaiting-approve", "on-payment", "in-queue", default "in-work"),
   "timeRangeFrom": string (optional, ISO date string YYYY-MM-DD),
   "timeRangeTo": string (optional, ISO date string YYYY-MM-DD)
@@ -117,6 +117,44 @@ Calculate dates dynamically using the current date provided above. Return only t
       extractedParameters = {};
     }
   }
+
+  // Convert extracted parameters to human-readable format for immediate display
+  const humanReadableParams: string[] = [];
+  if (extractedParameters) {
+    if (extractedParameters.limit) {
+      humanReadableParams.push(`Limit: ${extractedParameters.limit} tasks`);
+    }
+    if (extractedParameters.taskStatus) {
+      const statusDisplayNames: Record<string, string> = {
+        'new': 'New Tasks',
+        'done': 'Completed Tasks',
+        'canceled': 'Canceled Tasks',
+        'in-work': 'Tasks In Work',
+        'on-moderation': 'Tasks On Moderation',
+        'awaiting-approve': 'Tasks Awaiting Approval',
+        'on-payment': 'Tasks On Payment',
+        'in-queue': 'Tasks In Queue'
+      };
+      humanReadableParams.push(`Status: ${statusDisplayNames[extractedParameters.taskStatus] || extractedParameters.taskStatus}`);
+    }
+    if (extractedParameters.timeRangeFrom && extractedParameters.timeRangeTo) {
+      const fromDate = new Date(extractedParameters.timeRangeFrom);
+      const toDate = new Date(extractedParameters.timeRangeTo);
+      const fromStr = fromDate.toLocaleDateString();
+      const toStr = toDate.toLocaleDateString();
+      if (fromStr === toStr) {
+        humanReadableParams.push(`Date: ${fromStr}`);
+      } else {
+        humanReadableParams.push(`Date Range: ${fromStr} to ${toStr}`);
+      }
+    }
+  }
+
+  // Store parameters in generation state immediately for UI display
+  const extractedParamsForUI = extractedParameters ? {
+    parameters: extractedParameters,
+    humanReadable: humanReadableParams
+  } : undefined;
 
   // 1) Derive the tabular schema (column names) from the raw prompt
   // Check for abort signal before making the initial OpenAI call

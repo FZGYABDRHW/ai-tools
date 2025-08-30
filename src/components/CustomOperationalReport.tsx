@@ -588,13 +588,13 @@ const CustomOperationalReport: React.FC = () => {
                 boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
                 border: '1px solid #ff8c69'
             }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <BarChartOutlined style={{ fontSize: '20px', color: '#ff8c69' }} />
-                    <div>
-                        <div style={{ color: '#333', fontSize: '16px', fontWeight: 600 }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', flex: 1 }}>
+                    <BarChartOutlined style={{ fontSize: '20px', color: '#ff8c69', marginTop: '2px' }} />
+                    <div style={{ flex: 1 }}>
+                        <div style={{ color: '#333', fontSize: '16px', fontWeight: 600, marginBottom: '4px' }}>
                             Report Generation Control
                         </div>
-                        <div style={{ color: '#666', fontSize: '12px' }}>
+                        <div style={{ color: '#666', fontSize: '12px', marginBottom: '6px' }}>
                             {(() => {
                                 const searchParams = new URLSearchParams(location.search);
                                 const reportId = searchParams.get('reportId');
@@ -617,36 +617,44 @@ const CustomOperationalReport: React.FC = () => {
                             })()}
                         </div>
 
+                        {/* Compact Parameters Display */}
                         {getExtractedParameters() && getExtractedParameters()!.humanReadable.length > 0 && (
                             <div style={{ 
-                                marginTop: '8px', 
-                                padding: '8px 12px', 
-                                background: 'rgba(255, 140, 105, 0.15)', 
-                                borderRadius: '6px',
-                                border: '2px solid rgba(255, 140, 105, 0.4)'
+                                display: 'flex',
+                                flexWrap: 'wrap',
+                                gap: '6px',
+                                alignItems: 'center'
                             }}>
-                                <div style={{ color: '#ff8c69', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>
-                                    🔍 Extracted Parameters:
-                                </div>
+                                <span style={{ 
+                                    color: '#ff8c69', 
+                                    fontSize: '10px', 
+                                    fontWeight: 600,
+                                    marginRight: '4px'
+                                }}>
+                                    🔍 Parameters:
+                                </span>
                                 {getExtractedParameters()!.humanReadable.map((param, index) => (
-                                    <div key={index} style={{ color: '#333', fontSize: '11px', marginBottom: '2px' }}>
-                                        • {param}
-                                    </div>
+                                    <span key={index} style={{ 
+                                        color: '#333', 
+                                        fontSize: '10px',
+                                        background: 'rgba(255, 140, 105, 0.15)',
+                                        padding: '2px 6px',
+                                        borderRadius: '4px',
+                                        border: '1px solid rgba(255, 140, 105, 0.3)',
+                                        whiteSpace: 'nowrap'
+                                    }}>
+                                        {param}
+                                    </span>
                                 ))}
-
                             </div>
                         )}
                         {getExtractedParameters() && getExtractedParameters()!.humanReadable.length === 0 && (
                             <div style={{ 
-                                marginTop: '8px', 
-                                padding: '4px 8px', 
-                                background: 'rgba(128, 128, 128, 0.1)', 
-                                borderRadius: '4px',
-                                border: '1px solid rgba(128, 128, 128, 0.3)'
+                                color: '#666', 
+                                fontSize: '10px',
+                                fontStyle: 'italic'
                             }}>
-                                <div style={{ color: '#666', fontSize: '10px' }}>
-                                    No parameters detected in prompt
-                                </div>
+                                No parameters detected in prompt
                             </div>
                         )}
                     </div>
