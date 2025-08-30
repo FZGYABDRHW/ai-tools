@@ -298,6 +298,12 @@ class ReportGenerationService {
                     const callbacks = this.getCallbacks(reportId);
                     callbacks?.onProgress?.(mergedProgress);
                 },
+                (extractedParams) => {
+                    // Store extracted parameters immediately for UI display
+                    generationState.extractedParameters = extractedParams;
+                    this.saveActiveGenerations();
+                    console.log('Parameters extracted and stored immediately:', extractedParams);
+                },
                 abortController.signal,
                 startOffset,
                 parameters

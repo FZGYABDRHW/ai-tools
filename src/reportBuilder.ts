@@ -39,6 +39,7 @@ export async function buildReport(
   si: ServiceInitializer,
   taskPlotGenerator: (taskId: number) => Promise<string>,
   onProgress?: (update: { columns: string[]; results: Array<Record<string, unknown>>; csv: string }) => void,
+  onParametersExtracted?: (parameters: { parameters: TaskListParameters; humanReadable: string[] }) => void,
   abortSignal?: AbortSignal,
   startOffset: number = 0,
   parameters?: TaskListParameters,
@@ -155,6 +156,11 @@ Calculate dates dynamically using the current date provided above. Return only t
     parameters: extractedParameters,
     humanReadable: humanReadableParams
   } : undefined;
+
+  // Call the callback immediately when parameters are extracted
+  if (extractedParamsForUI && onParametersExtracted) {
+    onParametersExtracted(extractedParamsForUI);
+  }
 
   // 1) Derive the tabular schema (column names) from the raw prompt
   // Check for abort signal before making the initial OpenAI call
