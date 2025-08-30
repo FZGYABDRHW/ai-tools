@@ -52,11 +52,18 @@ const CustomOperationalReport: React.FC = () => {
     const [selectedLogId, setSelectedLogId] = useState<string | null>(null);
     const [logsRefreshKey, setLogsRefreshKey] = useState<number>(0);
     const [currentGenerationStatus, setCurrentGenerationStatus] = useState<string | null>(null);
-    // Get extracted parameters from generation state
+    // Get extracted parameters from report data or generation state
     const getExtractedParameters = () => {
         const searchParams = new URLSearchParams(location.search);
         const reportId = searchParams.get('reportId');
         if (reportId) {
+            // First try to get from report data (persistent)
+            const report = reportService.getReportById(reportId);
+            if (report?.extractedParameters) {
+                return report.extractedParameters;
+            }
+            
+            // Fallback to generation state (temporary)
             const generationState = reportGenerationService.getGenerationState(reportId);
             return generationState?.extractedParameters || null;
         }

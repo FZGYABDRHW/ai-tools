@@ -278,6 +278,30 @@ const ReportLogViewer: React.FC<ReportLogViewerProps> = ({ reportLogId, onBack }
                     </div>
                 </Card>
 
+                {/* Extracted Parameters */}
+                {reportLog.extractedParameters && reportLog.extractedParameters.humanReadable.length > 0 && (
+                    <Card style={{ marginBottom: '12px' }}>
+                        <Title level={5} style={{ marginBottom: '8px' }}>Extracted Parameters</Title>
+                        <div style={{ 
+                            padding: '8px 12px', 
+                            background: 'rgba(255, 140, 105, 0.15)', 
+                            borderRadius: '6px',
+                            border: '2px solid rgba(255, 140, 105, 0.4)'
+                        }}>
+                            {reportLog.extractedParameters.humanReadable.map((param, index) => (
+                                <div key={index} style={{ 
+                                    color: '#333', 
+                                    fontSize: '12px', 
+                                    marginBottom: '4px',
+                                    padding: '2px 0'
+                                }}>
+                                    • {param}
+                                </div>
+                            ))}
+                        </div>
+                    </Card>
+                )}
+
                 {/* Results Table */}
                 <Card 
                     title={

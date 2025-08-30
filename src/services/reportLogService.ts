@@ -93,7 +93,16 @@ class ReportLogService {
         processedTasks: number,
         startTime: number,
         status: 'completed' | 'failed' = 'completed',
-        errorMessage?: string
+        errorMessage?: string,
+        extractedParameters?: {
+            parameters: {
+                limit?: number;
+                taskStatus?: 'new' | 'done' | 'canceled' | 'in-work' | 'on-moderation' | 'awaiting-approve' | 'on-payment' | 'in-queue';
+                timeRangeFrom?: string;
+                timeRangeTo?: string;
+            };
+            humanReadable: string[];
+        }
     ): ReportLog {
         const completedAt = new Date().toISOString();
         const duration = Date.now() - startTime;
@@ -108,6 +117,7 @@ class ReportLogService {
             totalTasks,
             processedTasks,
             tableData,
+            extractedParameters,
             metadata: {
                 duration,
                 errorMessage,

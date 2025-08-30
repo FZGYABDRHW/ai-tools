@@ -113,6 +113,14 @@ class ReportService {
         columns: string[];
         results: Array<Record<string, unknown>>;
         csv: string;
+    }, extractedParameters?: {
+        parameters: {
+            limit?: number;
+            taskStatus?: 'new' | 'done' | 'canceled' | 'in-work' | 'on-moderation' | 'awaiting-approve' | 'on-payment' | 'in-queue';
+            timeRangeFrom?: string;
+            timeRangeTo?: string;
+        };
+        humanReadable: string[];
     }): Report | null {
         const reports = this.getReportsFromStorage();
         const index = reports.findIndex(report => report.id === id);
@@ -122,6 +130,7 @@ class ReportService {
         reports[index] = {
             ...reports[index],
             tableData,
+            extractedParameters,
             lastGeneratedAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
         };

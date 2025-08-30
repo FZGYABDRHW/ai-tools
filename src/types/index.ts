@@ -31,6 +31,15 @@ export interface Report {
         results: Array<Record<string, unknown>>;
         csv: string;
     };
+    extractedParameters?: {
+        parameters: {
+            limit?: number;
+            taskStatus?: 'new' | 'done' | 'canceled' | 'in-work' | 'on-moderation' | 'awaiting-approve' | 'on-payment' | 'in-queue';
+            timeRangeFrom?: string;
+            timeRangeTo?: string;
+        };
+        humanReadable: string[];
+    };
 }
 
 export interface ReportLog {
@@ -47,6 +56,15 @@ export interface ReportLog {
         columns: string[];
         results: Array<Record<string, unknown>>;
         csv: string;
+    };
+    extractedParameters?: {
+        parameters: {
+            limit?: number;
+            taskStatus?: 'new' | 'done' | 'canceled' | 'in-work' | 'on-moderation' | 'awaiting-approve' | 'on-payment' | 'in-queue';
+            timeRangeFrom?: string;
+            timeRangeTo?: string;
+        };
+        humanReadable: string[];
     };
     metadata?: {
         duration: number; // in milliseconds

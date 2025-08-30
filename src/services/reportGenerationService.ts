@@ -321,10 +321,10 @@ class ReportGenerationService {
             
             this.updateGenerationStatus(reportId, 'completed');
 
-            // Save to report service
-            reportService.saveReportData(reportId, finalResult);
+            // Save to report service with extracted parameters
+            reportService.saveReportData(reportId, finalResult, result.extractedParameters);
 
-            // Create report log
+            // Create report log with extracted parameters
             reportLogService.createFromReportGeneration(
                 reportId,
                 report.name,
@@ -333,7 +333,9 @@ class ReportGenerationService {
                 finalResult.results.length,
                 finalResult.results.length,
                 startTime,
-                'completed'
+                'completed',
+                undefined,
+                result.extractedParameters
             );
 
             // Mark checkpoint as completed
