@@ -35,8 +35,8 @@ const createWindow = (): void => {
   // and load the index.html of the app.
   mainWindow.loadURL(MAIN_WINDOW_WEBPACK_ENTRY);
 
-  // Open the DevTools.
-  mainWindow.webContents.openDevTools();
+  // DevTools are not opened by default
+  // To open DevTools manually, use: mainWindow.webContents.openDevTools();
 };
 
 // This method will be called when Electron has finished
