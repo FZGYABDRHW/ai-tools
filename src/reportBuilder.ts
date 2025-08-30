@@ -75,10 +75,12 @@ export async function buildReport(
   "timeRangeTo": string (optional, ISO date string YYYY-MM-DD)
 }
 
+IMPORTANT: Current date is ${new Date().toISOString().split('T')[0]} (YYYY-MM-DD format).
+
 Rules:
 - If user mentions "only first X tasks" or "limit to X tasks", set limit to X
 - If user mentions task status keywords, map them appropriately:
-  * "new", "fresh", "recent" → "new"
+  * "new", "fresh", "recent", "новое" → "new"
   * "completed", "done", "finished" → "done"
   * "canceled", "cancelled" → "canceled"
   * "in work", "in progress", "working" → "in-work"
@@ -86,14 +88,14 @@ Rules:
   * "awaiting approval", "pending approval" → "awaiting-approve"
   * "on payment", "paid" → "on-payment"
   * "in queue", "queued", "waiting" → "in-queue"
-- If user mentions time ranges, convert to ISO dates:
-  * "last X days" → timeRangeFrom = X days ago, timeRangeTo = today
-  * "this week" → timeRangeFrom = start of week, timeRangeTo = today
-  * "this month" → timeRangeFrom = start of month, timeRangeTo = today
-  * "yesterday" → timeRangeFrom = yesterday, timeRangeTo = yesterday
-  * "today" → timeRangeFrom = today, timeRangeTo = today
+- If user mentions time ranges, calculate based on CURRENT DATE:
+  * "last X days" or "последние X дней" → timeRangeFrom = (current date - X days), timeRangeTo = current date
+  * "this week" → timeRangeFrom = start of current week, timeRangeTo = current date
+  * "this month" → timeRangeFrom = start of current month, timeRangeTo = current date
+  * "yesterday" → timeRangeFrom = (current date - 1 day), timeRangeTo = (current date - 1 day)
+  * "today" → timeRangeFrom = current date, timeRangeTo = current date
 
-Return only the JSON object, no additional text.` 
+Calculate dates dynamically using the current date provided above. Return only the JSON object, no additional text.` 
         },
         { role: 'user', content: rawPrompt },
       ],
