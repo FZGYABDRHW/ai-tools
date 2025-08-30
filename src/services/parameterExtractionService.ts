@@ -101,14 +101,14 @@ export class ParameterExtractionService {
     return null;
   }
 
-  private static extractTaskStatus(prompt: string): { value: string; displayName: string } | null {
+  private static extractTaskStatus(prompt: string): { value: TaskListParameters['taskStatus']; displayName: string } | null {
     for (const [status, keywords] of Object.entries(this.STATUS_KEYWORDS)) {
-      for (const keyword of keywords) {
-        if (prompt.includes(keyword)) {
-          const displayName = this.getStatusDisplayName(status);
-          return { value: status, displayName };
+              for (const keyword of keywords) {
+          if (prompt.includes(keyword)) {
+            const displayName = this.getStatusDisplayName(status);
+            return { value: status as TaskListParameters['taskStatus'], displayName };
+          }
         }
-      }
     }
     return null;
   }

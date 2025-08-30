@@ -51,7 +51,7 @@ export function taskIterator(
     from(service[serviceMethod](queryParams)),
   ).pipe(
     // Fetch subsequent pages until a final short page is returned.
-    expand((tasks, idx) => {
+    expand((tasks: Task[], idx) => {
       if (tasks.length < limit) {
         return EMPTY;
       }
