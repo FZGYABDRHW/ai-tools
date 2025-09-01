@@ -41,7 +41,7 @@ const MultiCountryPhoneInput = ({ value, onChange, placeholder }: {
         'US': '+1 (999) 999-9999',
         'CA': '+1 (999) 999-9999',
         'UK': '+44 9999 999999',
-        'DE': '+49 999 99999999',
+        'DE': '+49 999 9999999',
         'FR': '+33 9 99 99 99 99',
         'IT': '+39 999 999 9999',
         'ES': '+34 999 999 999',
@@ -246,7 +246,12 @@ const LoginScreen: React.FC = () => {
     const circleRadius = isLoading ? 100 : 0; // Circle radius when loading
 
     const handleLogin = async (values: { phone: string; password: string }) => {
-        const success = await login(values);
+        // Normalize phone number by removing all non-digit characters except the plus sign
+        const normalizedPhone = values.phone.replace(/[^\d+]/g, '');
+        console.log('Original phone:', values.phone);
+        console.log('Normalized phone:', normalizedPhone);
+        
+        const success = await login({ ...values, phone: normalizedPhone });
         if (success) {
             form.resetFields();
         }
@@ -602,7 +607,20 @@ const LoginScreen: React.FC = () => {
                             name="phone"
                             rules={[
                                 { required: true, message: 'Please enter your phone number' },
-                                { pattern: /^\+?[\d\s\-\(\)]+$/, message: 'Please enter a valid phone number' }
+                                { 
+                                    pattern: /^\+?[\d\s\-\(\)]+$/, 
+                                    message: 'Please enter a valid phone number' 
+                                },
+                                {
+                                    validator: (_, value) => {
+                                        if (!value) return Promise.resolve();
+                                        const digits = value.replace(/\D/g, '');
+                                        if (digits.length < 10) {
+                                            return Promise.reject(new Error('Phone number must have at least 10 digits'));
+                                        }
+                                        return Promise.resolve();
+                                    }
+                                }
                             ]}
                         >
                             <MultiCountryPhoneInput

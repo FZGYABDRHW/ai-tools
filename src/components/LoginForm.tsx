@@ -51,9 +51,39 @@ const AntPhoneInput = React.forwardRef<HTMLDivElement, {
 
     const formatPhoneNumber = (value: string) => {
         const digits = value.replace(/\D/g, '');
-        if (digits.length <= 3) return digits;
-        if (digits.length <= 6) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
-        return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6, 10)}`;
+        
+        // Handle different country formats
+        switch (selectedCountry) {
+            case 'DE':
+                // German format: +49 172 1727748
+                if (digits.length <= 3) return digits;
+                if (digits.length <= 6) return `${digits.slice(0, 3)} ${digits.slice(3)}`;
+                return `${digits.slice(0, 3)} ${digits.slice(3, 6)}${digits.slice(6)}`;
+            case 'RU':
+                // Russian format: +7 (999) 999-99-99
+                if (digits.length <= 3) return digits;
+                if (digits.length <= 6) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
+                if (digits.length <= 8) return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+                return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6, 8)}-${digits.slice(8)}`;
+            case 'GB':
+                // UK format: +44 9999 999999
+                if (digits.length <= 4) return digits;
+                if (digits.length <= 8) return `${digits.slice(0, 4)} ${digits.slice(4)}`;
+                return `${digits.slice(0, 4)} ${digits.slice(4, 8)} ${digits.slice(8)}`;
+            case 'FR':
+                // French format: +33 9 99 99 99 99
+                if (digits.length <= 1) return digits;
+                if (digits.length <= 3) return `${digits.slice(0, 1)} ${digits.slice(1)}`;
+                if (digits.length <= 5) return `${digits.slice(0, 1)} ${digits.slice(1, 3)} ${digits.slice(3)}`;
+                if (digits.length <= 7) return `${digits.slice(0, 1)} ${digits.slice(1, 3)} ${digits.slice(3, 5)} ${digits.slice(5)}`;
+                if (digits.length <= 9) return `${digits.slice(0, 1)} ${digits.slice(1, 3)} ${digits.slice(3, 5)} ${digits.slice(5, 7)} ${digits.slice(7)}`;
+                return `${digits.slice(0, 1)} ${digits.slice(1, 3)} ${digits.slice(3, 5)} ${digits.slice(5, 7)} ${digits.slice(7, 9)} ${digits.slice(9)}`;
+            default:
+                // US/Canada format: XXX-XXX-XXXX
+                if (digits.length <= 3) return digits;
+                if (digits.length <= 6) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+                return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6, 10)}`;
+        }
     };
 
     return (
@@ -114,7 +144,12 @@ const LoginForm: React.FC = () => {
     const [form] = Form.useForm();
 
     const handleLogin = async (values: { phone: string; password: string }) => {
-        const success = await login(values);
+        // Normalize phone number by removing all non-digit characters except the plus sign
+        const normalizedPhone = values.phone.replace(/[^\d+]/g, '');
+        console.log('Original phone:', values.phone);
+        console.log('Normalized phone:', normalizedPhone);
+        
+        const success = await login({ ...values, phone: normalizedPhone });
         if (success) {
             form.resetFields();
         }
