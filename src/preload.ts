@@ -6,21 +6,21 @@ import { contextBridge, ipcRenderer } from 'electron';
 // Expose protected methods that allow the renderer process to use
 // the ipcRenderer without exposing the entire object
 contextBridge.exposeInMainWorld('electronAPI', {
-  // Auto-updater APIs - temporarily disabled
-  checkForUpdates: () => Promise.resolve({ updateInfo: null }),
-  downloadUpdate: () => Promise.resolve({ updateInfo: null }),
-  installUpdate: () => Promise.resolve(),
-  getAppVersion: () => Promise.resolve('1.0.1'),
+  // Auto-updater APIs
+  checkForUpdates: () => ipcRenderer.invoke('auto-updater:check-for-updates'),
+  downloadUpdate: () => ipcRenderer.invoke('auto-updater:download-update'),
+  installUpdate: () => ipcRenderer.invoke('auto-updater:install-update'),
+  getAppVersion: () => ipcRenderer.invoke('auto-updater:get-app-version'),
   
-  // Auto-updater event listeners - temporarily disabled
+  // Auto-updater event listeners
   onAutoUpdaterStatus: (callback: (status: any) => void) => {
-    // No-op for now
+    ipcRenderer.on('auto-updater:status', (_, status) => callback(status));
   },
   onAutoUpdaterShowUpdateDialog: (callback: (info: any) => void) => {
-    // No-op for now
+    ipcRenderer.on('auto-updater:show-update-dialog', (_, info) => callback(info));
   },
   onAutoUpdaterShowInstallDialog: (callback: (info: any) => void) => {
-    // No-op for now
+    ipcRenderer.on('auto-updater:show-install-dialog', (_, info) => callback(info));
   },
   
   // Remove event listeners
