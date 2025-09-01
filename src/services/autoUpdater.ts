@@ -20,12 +20,13 @@ export class AutoUpdaterService {
     autoUpdater.autoInstallOnAppQuit = true;
     
     // Set the update server URL (GitHub releases)
-    // For private repos, we need to include the token
+    // Repository is now public, so no token needed
+    console.log('Setting up auto-updater for public repository');
+    
     autoUpdater.setFeedURL({
       provider: 'github',
       owner: 'FZGYABDRHW',
       repo: 'ai-tools',
-      token: process.env.GITHUB_TOKEN, // Add token for private repo access
     });
 
     // Check for updates on startup (but don't notify automatically)
