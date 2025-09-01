@@ -16,12 +16,12 @@ export class AutoUpdaterService {
 
   private setupAutoUpdater() {
     // Configure auto-updater
-    autoUpdater.autoDownload = false;
+    autoUpdater.autoDownload = true;
     autoUpdater.autoInstallOnAppQuit = true;
     
     // Set the update server URL (GitHub releases)
     // Repository is now public, so no token needed
-    console.log('Setting up auto-updater for public repository');
+    console.log('Setting up Smart Automatic auto-updater for public repository');
     console.log('Current app version:', app.getVersion());
     
     autoUpdater.setFeedURL({
@@ -43,7 +43,7 @@ export class AutoUpdaterService {
 
     autoUpdater.on('update-available', (info) => {
       console.log('Update available:', info);
-      this.sendStatusToWindow('update-available', 'Update available!', info);
+      this.sendStatusToWindow('update-available', 'Update available! Starting background download...', info);
       this.showUpdateDialog(info);
     });
 
@@ -59,12 +59,12 @@ export class AutoUpdaterService {
 
     autoUpdater.on('download-progress', (progressObj) => {
       console.log('Download progress:', progressObj);
-      this.sendStatusToWindow('download-progress', 'Downloading update...', progressObj);
+      this.sendStatusToWindow('download-progress', 'Downloading update in background...', progressObj);
     });
 
     autoUpdater.on('update-downloaded', (info) => {
       console.log('Update downloaded:', info);
-      this.sendStatusToWindow('update-downloaded', 'Update downloaded! Will install on restart.', info);
+      this.sendStatusToWindow('update-downloaded', 'Update ready! Click to install or it will install on quit.', info);
       this.showInstallDialog(info);
     });
   }
@@ -137,7 +137,7 @@ export class AutoUpdaterService {
 
   async downloadUpdate() {
     try {
-      console.log('Downloading update...');
+      console.log('Downloading update in background...');
       return await autoUpdater.downloadUpdate();
     } catch (error) {
       console.error('Error downloading update:', error);

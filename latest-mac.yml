@@ -1,8 +1,11 @@
-version: 1.0.7
+version: 1.0.8
 files:
-  - url: Wowworks AI Tools-1.0.7-arm64.dmg
-    sha512: f063177d0e4211048c1eb7bb9b2635a6a19604dda323a4bfbb3ab5660710fcb62f88af18afcc52fa721ec2fcd426fcb91c971755721cecb39fb7128f01a2ec3a
-    size: 104160379
-path: Wowworks AI Tools-1.0.7-arm64.dmg
-sha512: f063177d0e4211048c1eb7bb9b2635a6a19604dda323a4bfbb3ab5660710fcb62f88af18afcc52fa721ec2fcd426fcb91c971755721cecb39fb7128f01a2ec3a
-releaseDate: '2025-09-01T17:41:00.000Z'
+  - url: Wowworks AI Tools-1.0.8-arm64.dmg
+    sha512: 4a5370bf48068a77f1e31cd6b3e2a8a0e6b6c636cfd590212b2e19e98183dd3732a0f92b87adb9222866f50a30d8fa2276e2da1c6df1b30522133d5fa12dca72
+    size: 104160595
+  - url: Wowworks AI Tools-darwin-arm64-1.0.8.zip
+    sha512: 87971b17b279eef003a02e75fca0b32585466a18a004e7fb4ab4f0f5f2b41fc7e265e4a6f532abbf3252e405b96473620f675b6010bd9d85c58d75956dc1d8f0
+    size: 101677592
+path: Wowworks AI Tools-darwin-arm64-1.0.8.zip
+sha512: 87971b17b279eef003a02e75fca0b32585466a18a004e7fb4ab4f0f5f2b41fc7e265e4a6f532abbf3252e405b96473620f675b6010bd9d85c58d75956dc1d8f0
+releaseDate: '2025-09-01T17:48:00.000Z'
