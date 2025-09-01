@@ -36,8 +36,6 @@ const config: ForgeConfig = {
         owner: 'FZGYABDRHW',
         name: 'ai-tools',
       },
-      // Optional: Use private repo (requires GitHub token)
-      token: process.env.GITHUB_TOKEN,
     }),
   ],
   plugins: [

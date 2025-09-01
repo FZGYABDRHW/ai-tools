@@ -1,0 +1,8 @@
+version: 1.0.6
+files:
+  - url: Wowworks AI Tools-1.0.6-arm64.dmg
+    sha512: aaa06f43a04adb75449150ba8b12790f719090b7f44ebeec692df4aeae73610f6cb8609b5a006f73dc505483313e9b7df2eb3a5353898cd45d6da331bb42c065
+    size: 104160499
+path: Wowworks AI Tools-1.0.6-arm64.dmg
+sha512: aaa06f43a04adb75449150ba8b12790f719090b7f44ebeec692df4aeae73610f6cb8609b5a006f73dc505483313e9b7df2eb3a5353898cd45d6da331bb42c065
+releaseDate: '2025-09-01T17:34:00.000Z'
