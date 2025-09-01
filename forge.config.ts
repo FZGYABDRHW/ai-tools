@@ -33,11 +33,11 @@ const config: ForgeConfig = {
   publishers: [
     new PublisherGithub({
       repository: {
-        owner: 'vn-ww',
-        name: 'task-text-builder',
+        owner: 'FZGYABDRHW',
+        name: 'ai-tools',
       },
       // Optional: Use private repo (requires GitHub token)
-      // token: process.env.GITHUB_TOKEN,
+      token: process.env.GITHUB_TOKEN,
     }),
   ],
   plugins: [

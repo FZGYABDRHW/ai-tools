@@ -23,8 +23,8 @@ export class AutoUpdaterService {
     // This will be configured in forge.config.ts
     autoUpdater.setFeedURL({
       provider: 'github',
-      owner: 'vn-ww',
-      repo: 'task-text-builder',
+      owner: 'FZGYABDRHW',
+      repo: 'ai-tools',
       // For private repos, you'd add: token: process.env.GITHUB_TOKEN
     });
 
