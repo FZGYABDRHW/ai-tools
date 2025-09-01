@@ -20,12 +20,12 @@ export class AutoUpdaterService {
     autoUpdater.autoInstallOnAppQuit = true;
     
     // Set the update server URL (GitHub releases)
-    // This will be configured in forge.config.ts
+    // For private repos, we need to include the token
     autoUpdater.setFeedURL({
       provider: 'github',
       owner: 'FZGYABDRHW',
       repo: 'ai-tools',
-      // For private repos, you'd add: token: process.env.GITHUB_TOKEN
+      token: process.env.GITHUB_TOKEN, // Add token for private repo access
     });
 
     // Check for updates on startup (but don't notify automatically)
