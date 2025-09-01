@@ -3,6 +3,7 @@ import { Layout, Typography, Button } from 'antd';
 import { FileTextOutlined, LogoutOutlined, UserOutlined, MenuFoldOutlined, MenuUnfoldOutlined } from '@ant-design/icons';
 import { AuthContext } from '../contexts/AuthContext';
 import { SidebarContext } from '../contexts/SidebarContext';
+import VersionDisplay from './VersionDisplay';
 
 const { Header } = Layout;
 const { Text } = Typography;
@@ -48,6 +49,9 @@ const AppHeader: React.FC = () => {
                         borderRadius: '6px'
                     }}
                 />
+                
+                {/* Version Display */}
+                <VersionDisplay compact />
             </div>
             
             <div style={{ 

@@ -1,5 +1,5 @@
-import React, { useContext } from 'react';
-import { Layout, ConfigProvider, theme } from 'antd';
+import React, { useContext, useState, useEffect } from 'react';
+import { Layout, ConfigProvider, theme, message } from 'antd';
 import { HashRouter, Routes, Route } from 'react-router-dom';
 import { AuthContext } from '../contexts/AuthContext';
 import { SidebarProvider } from '../contexts/SidebarContext';
@@ -11,13 +11,76 @@ import CustomOperationalReport from './CustomOperationalReport';
 import ReportsPage from './ReportsPage';
 import ReportLogsPage from './ReportLogsPage';
 import LoginScreen from './LoginScreen';
+import UpdateNotification from './UpdateNotification';
+import VersionDisplay from './VersionDisplay';
 
 const { Content } = Layout;
 
 const App: React.FC = () => {
     const { authToken, user, isInitializing } = useContext(AuthContext);
+    const [updateVisible, setUpdateVisible] = useState(false);
+    const [updateInfo, setUpdateInfo] = useState<any>(null);
+    const [downloading, setDownloading] = useState(false);
+    const [downloadProgress, setDownloadProgress] = useState(0);
+    const [currentVersion, setCurrentVersion] = useState<string>('');
 
     console.log('App: authToken:', authToken, 'user:', user, 'isInitializing:', isInitializing);
+
+    useEffect(() => {
+        // Get current app version
+        if (window.electronAPI) {
+            window.electronAPI.getAppVersion().then((version: string) => {
+                setCurrentVersion(version);
+            });
+        }
+
+        // Listen for auto-updater events
+        if (window.electronAPI) {
+            window.electronAPI.onAutoUpdaterStatus((status: any) => {
+                console.log('Auto-updater status:', status);
+                
+                if (status.status === 'update-available') {
+                    setUpdateInfo(status.data);
+                    setUpdateVisible(true);
+                } else if (status.status === 'download-progress') {
+                    setDownloading(true);
+                    setDownloadProgress(status.data.percent || 0);
+                } else if (status.status === 'update-downloaded') {
+                    setDownloading(false);
+                    setDownloadProgress(100);
+                    message.success('Update downloaded! The app will restart to install the update.');
+                }
+            });
+
+            window.electronAPI.onAutoUpdaterShowUpdateDialog((info: any) => {
+                setUpdateInfo(info);
+                setUpdateVisible(true);
+            });
+
+            window.electronAPI.onAutoUpdaterShowInstallDialog((info: any) => {
+                message.success('Update downloaded! The app will restart to install the update.');
+            });
+        }
+
+        // Clean up listeners on unmount
+        return () => {
+            if (window.electronAPI) {
+                window.electronAPI.removeAllListeners('auto-updater:status');
+                window.electronAPI.removeAllListeners('auto-updater:show-update-dialog');
+                window.electronAPI.removeAllListeners('auto-updater:show-install-dialog');
+            }
+        };
+    }, []);
+
+    const handleUpdate = async () => {
+        try {
+            setDownloading(true);
+            await window.electronAPI.downloadUpdate();
+        } catch (error) {
+            setDownloading(false);
+            throw error;
+        }
+    };
 
     // Show loading screen while initializing
     if (isInitializing) {
@@ -40,6 +103,7 @@ const App: React.FC = () => {
                     <div style={{ textAlign: 'center', color: '#333' }}>
                         <h2>Loading Wowworks AI Tools...</h2>
                         <p>Please wait while we restore your session</p>
+                        <VersionDisplay compact showUpdateButton={false} />
                     </div>
                 </div>
             </ConfigProvider>
@@ -49,16 +113,16 @@ const App: React.FC = () => {
     // If not authenticated, show login screen
     if (!authToken || !user) {
         return (
-                    <ConfigProvider
-            theme={{
-                algorithm: theme.defaultAlgorithm,
-                token: {
-                    colorPrimary: '#ff6b35',
-                },
-            }}
-        >
-            <LoginScreen />
-        </ConfigProvider>
+            <ConfigProvider
+                theme={{
+                    algorithm: theme.defaultAlgorithm,
+                    token: {
+                        colorPrimary: '#ff6b35',
+                    },
+                }}
+            >
+                <LoginScreen />
+            </ConfigProvider>
         );
     }
 
@@ -99,6 +163,17 @@ const App: React.FC = () => {
                     </Layout>
                 </SidebarProvider>
             </HashRouter>
+            
+            {/* Update Notification Modal */}
+            <UpdateNotification
+                visible={updateVisible}
+                onClose={() => setUpdateVisible(false)}
+                updateInfo={updateInfo}
+                onUpdate={handleUpdate}
+                downloading={downloading}
+                downloadProgress={downloadProgress}
+                currentVersion={currentVersion}
+            />
         </ConfigProvider>
     );
 };

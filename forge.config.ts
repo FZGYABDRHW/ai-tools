@@ -7,6 +7,7 @@ import { MakerDMG } from '@electron-forge/maker-dmg';
 import { AutoUnpackNativesPlugin } from '@electron-forge/plugin-auto-unpack-natives';
 import { WebpackPlugin } from '@electron-forge/plugin-webpack';
 import { FusesPlugin } from '@electron-forge/plugin-fuses';
+import { PublisherGithub } from '@electron-forge/publisher-github';
 import { FuseV1Options, FuseVersion } from '@electron/fuses';
 
 import { mainConfig } from './webpack.main.config';
@@ -28,6 +29,16 @@ const config: ForgeConfig = {
       background: './icons/icon.png',
       format: 'ULFO'
     })
+  ],
+  publishers: [
+    new PublisherGithub({
+      repository: {
+        owner: 'vn-ww',
+        name: 'task-text-builder',
+      },
+      // Optional: Use private repo (requires GitHub token)
+      // token: process.env.GITHUB_TOKEN,
+    }),
   ],
   plugins: [
     new AutoUnpackNativesPlugin({}),
