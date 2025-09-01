@@ -107,7 +107,7 @@ const Navigation: React.FC = () => {
                     color: '#666',
                     fontWeight: 500
                 }}>
-                    Powered by Wowworks
+                    Powered by Vlad
                 </div>
             </div>
         </Sider>
