@@ -22,11 +22,14 @@ export class AutoUpdaterService {
     // Set the update server URL (GitHub releases)
     // Repository is now public, so no token needed
     console.log('Setting up auto-updater for public repository');
+    console.log('Current app version:', app.getVersion());
     
     autoUpdater.setFeedURL({
       provider: 'github',
       owner: 'FZGYABDRHW',
       repo: 'ai-tools',
+      // Add explicit version to help with debugging
+      updaterCacheDirName: 'ai-tools-updater',
     });
 
     // Check for updates on startup (but don't notify automatically)
