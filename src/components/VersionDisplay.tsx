@@ -19,19 +19,36 @@ const VersionDisplay: React.FC<VersionDisplayProps> = ({
   const [checkingForUpdates, setCheckingForUpdates] = useState(false);
   const [updateAvailable, setUpdateAvailable] = useState(false);
   const [lastChecked, setLastChecked] = useState<Date | null>(null);
+  const [error, setError] = useState<string>('');
 
   useEffect(() => {
+    console.log('VersionDisplay: Component mounted');
+    console.log('VersionDisplay: window.electronAPI available?', !!window.electronAPI);
+    
     // Get current app version
     if (window.electronAPI) {
-      window.electronAPI.getAppVersion().then((version: string) => {
-        setCurrentVersion(version);
-      });
+      console.log('VersionDisplay: Getting app version...');
+      window.electronAPI.getAppVersion()
+        .then((version: string) => {
+          console.log('VersionDisplay: Got version:', version);
+          setCurrentVersion(version);
+        })
+        .catch((err: any) => {
+          console.error('VersionDisplay: Error getting version:', err);
+          setError('Failed to get version');
+          // Fallback to package.json version
+          setCurrentVersion('1.0.0');
+        });
+    } else {
+      console.log('VersionDisplay: electronAPI not available, using fallback');
+      // Fallback to package.json version
+      setCurrentVersion('1.0.0');
     }
 
     // Set up auto-updater event listeners
     if (window.electronAPI) {
       window.electronAPI.onAutoUpdaterStatus((status: any) => {
-        console.log('Auto-updater status:', status);
+        console.log('VersionDisplay: Auto-updater status:', status);
         
         if (status.status === 'checking') {
           setCheckingForUpdates(true);
@@ -68,12 +85,13 @@ const VersionDisplay: React.FC<VersionDisplayProps> = ({
     }
   };
 
+  // Always show version, even if there's an error
   if (compact) {
     return (
       <div className={className}>
         <Space size="small">
           <Text type="secondary" style={{ fontSize: '12px' }}>
-            v{currentVersion}
+            v{currentVersion || '1.0.0'}
           </Text>
           {showUpdateButton && (
             <Tooltip title="Check for updates">
@@ -107,7 +125,7 @@ const VersionDisplay: React.FC<VersionDisplayProps> = ({
             }}
           >
             <Text code style={{ fontSize: '14px' }}>
-              v{currentVersion}
+              v{currentVersion || '1.0.0'}
             </Text>
           </Badge>
         </Space>

@@ -24,10 +24,10 @@ const createWindow = (): void => {
     height: 600,
     width: 800,
     webPreferences: {
-      nodeIntegration: true,       // Allows Node.js integration
-      contextIsolation: false,
+      nodeIntegration: false,       // Disable for security
+      contextIsolation: true,        // Enable for security
       additionalArguments: [`--csp-string=default-src 'self'; connect-src 'self' https://api.wowworks.ru;`],
-      webSecurity: false,
+      webSecurity: true,
       preload: MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY,
     },
   });
@@ -38,8 +38,8 @@ const createWindow = (): void => {
   // and load the index.html of the app.
   mainWindow.loadURL(MAIN_WINDOW_WEBPACK_ENTRY);
 
-  // DevTools are not opened by default
-  // To open DevTools manually, use: mainWindow.webContents.openDevTools();
+  // Open DevTools for debugging
+  mainWindow.webContents.openDevTools();
 };
 
 // This method will be called when Electron has finished
