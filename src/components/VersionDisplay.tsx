@@ -15,7 +15,7 @@ const VersionDisplay: React.FC<VersionDisplayProps> = ({
   showUpdateButton = true,
   compact = false 
 }) => {
-  const [currentVersion, setCurrentVersion] = useState<string>('');
+  const [currentVersion, setCurrentVersion] = useState<string>('1.0.0');
   const [checkingForUpdates, setCheckingForUpdates] = useState(false);
   const [updateAvailable, setUpdateAvailable] = useState(false);
   const [lastChecked, setLastChecked] = useState<Date | null>(null);
@@ -36,13 +36,10 @@ const VersionDisplay: React.FC<VersionDisplayProps> = ({
         .catch((err: any) => {
           console.error('VersionDisplay: Error getting version:', err);
           setError('Failed to get version');
-          // Fallback to package.json version
-          setCurrentVersion('1.0.0');
+          // Keep the default version
         });
     } else {
-      console.log('VersionDisplay: electronAPI not available, using fallback');
-      // Fallback to package.json version
-      setCurrentVersion('1.0.0');
+      console.log('VersionDisplay: electronAPI not available, using default version');
     }
 
     // Set up auto-updater event listeners
@@ -85,27 +82,38 @@ const VersionDisplay: React.FC<VersionDisplayProps> = ({
     }
   };
 
-  // Always show version, even if there's an error
+  // Always show version
   if (compact) {
     return (
-      <div className={className}>
-        <Space size="small">
-          <Text type="secondary" style={{ fontSize: '12px' }}>
-            v{currentVersion || '1.0.0'}
-          </Text>
-          {showUpdateButton && (
-            <Tooltip title="Check for updates">
-              <Button
-                type="text"
-                size="small"
-                icon={<ReloadOutlined />}
-                loading={checkingForUpdates}
-                onClick={handleCheckForUpdates}
-                style={{ padding: '4px 8px', height: 'auto' }}
-              />
-            </Tooltip>
-          )}
-        </Space>
+      <div className={className} style={{ 
+        display: 'flex', 
+        alignItems: 'center', 
+        gap: '8px',
+        padding: '4px 8px',
+        borderRadius: '4px',
+        backgroundColor: 'rgba(255, 140, 105, 0.1)',
+        border: '1px solid rgba(255, 140, 105, 0.3)'
+      }}>
+        <Text type="secondary" style={{ fontSize: '12px', color: '#ff8c69', fontWeight: 500 }}>
+          v{currentVersion}
+        </Text>
+        {showUpdateButton && (
+          <Tooltip title="Check for updates">
+            <Button
+              type="text"
+              size="small"
+              icon={<ReloadOutlined />}
+              loading={checkingForUpdates}
+              onClick={handleCheckForUpdates}
+              style={{ 
+                padding: '2px 4px', 
+                height: 'auto',
+                color: '#ff8c69',
+                fontSize: '10px'
+              }}
+            />
+          </Tooltip>
+        )}
       </div>
     );
   }
@@ -125,7 +133,7 @@ const VersionDisplay: React.FC<VersionDisplayProps> = ({
             }}
           >
             <Text code style={{ fontSize: '14px' }}>
-              v{currentVersion || '1.0.0'}
+              v{currentVersion}
             </Text>
           </Badge>
         </Space>
