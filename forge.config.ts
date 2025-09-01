@@ -14,6 +14,10 @@ import { mainConfig } from './webpack.main.config';
 import { rendererConfig } from './webpack.renderer.config';
 
 const config: ForgeConfig = {
+  repository: {
+    owner: "FZGYABDRHW",
+    name: "ai-tools",
+  },
   packagerConfig: {
     asar: true,
     icon: './icons/icon.icns',
