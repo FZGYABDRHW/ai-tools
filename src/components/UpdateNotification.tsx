@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Modal, Button, Progress, Typography, Space, message, Tag } from 'antd';
-import { DownloadOutlined, ReloadOutlined, InfoCircleOutlined, CheckCircleOutlined } from '@ant-design/icons';
+import { DownloadOutlined, InfoCircleOutlined, CheckCircleOutlined } from '@ant-design/icons';
+import ManualUpdateInstructions from './ManualUpdateInstructions';
 
 const { Text, Title } = Typography;
 
@@ -35,6 +36,8 @@ const UpdateNotification: React.FC<UpdateNotificationProps> = ({
   currentVersion,
 }) => {
   const [installing, setInstalling] = useState(false);
+  const [showManualInstructions, setShowManualInstructions] = useState(false);
+  const [manualUpdateInfo, setManualUpdateInfo] = useState<any>(null);
 
   const handleUpdate = async () => {
     try {
@@ -43,6 +46,35 @@ const UpdateNotification: React.FC<UpdateNotificationProps> = ({
       message.success('Update downloaded! The app will restart to install the update.');
     } catch (error) {
       message.error('Failed to download update. Please try again.');
+      setInstalling(false);
+    }
+  };
+
+  const handleDownloadToDisk = async () => {
+    try {
+      if (!updateInfo || !window.electronAPI) {
+        message.error('Update information not available');
+        return;
+      }
+
+      setInstalling(true);
+      const result = await window.electronAPI.downloadToDisk({
+        version: updateInfo.version,
+        releaseDate: updateInfo.releaseDate,
+        releaseNotes: updateInfo.releaseNotes
+      });
+
+      if (result.success) {
+        message.success(result.message);
+        setManualUpdateInfo(result);
+        setShowManualInstructions(true);
+      } else {
+        message.error('Failed to download update to disk');
+      }
+    } catch (error) {
+      console.error('Download to disk error:', error);
+      message.error('Failed to download update to disk. Please try again.');
+    } finally {
       setInstalling(false);
     }
   };
@@ -63,126 +95,161 @@ const UpdateNotification: React.FC<UpdateNotificationProps> = ({
   };
 
   return (
-    <Modal
-      title={
-        <Space>
-          <DownloadOutlined style={{ color: '#1890ff' }} />
-          <span>Update Available</span>
-          {currentVersion && (
-            <Tag color="blue">v{currentVersion}</Tag>
-          )}
-        </Space>
-      }
-      open={visible}
-      onCancel={onClose}
-      footer={null}
-      width={600}
-      centered
-    >
-      <Space direction="vertical" style={{ width: '100%' }} size="large">
-        <div>
-          <Title level={4}>
-            Version {updateInfo?.version} is available
+    <>
+      <Modal
+        title={
+          <Space>
+            <DownloadOutlined style={{ color: '#1890ff' }} />
+            <span>Update Available</span>
             {currentVersion && (
-              <Text type="secondary" style={{ fontSize: '14px', marginLeft: 8 }}>
-                (Current: v{currentVersion})
+              <Tag color="blue">v{currentVersion}</Tag>
+            )}
+          </Space>
+        }
+        open={visible}
+        onCancel={onClose}
+        footer={null}
+        width={600}
+        centered
+      >
+        <Space direction="vertical" style={{ width: '100%' }} size="large">
+          <div>
+            <Title level={4}>
+              Version {updateInfo?.version} is available
+              {currentVersion && (
+                <Text type="secondary" style={{ fontSize: '14px', marginLeft: 8 }}>
+                  (Current: v{currentVersion})
+                </Text>
+              )}
+            </Title>
+            {updateInfo?.releaseDate && (
+              <Text type="secondary">
+                Released on {new Date(updateInfo.releaseDate).toLocaleDateString()}
               </Text>
             )}
-          </Title>
-          {updateInfo?.releaseDate && (
-            <Text type="secondary">
-              Released on {new Date(updateInfo.releaseDate).toLocaleDateString()}
-            </Text>
+          </div>
+
+          {updateInfo?.releaseNotes && (
+            <div>
+              <Text strong>What's new:</Text>
+              <div style={{ 
+                maxHeight: 150, 
+                overflowY: 'auto', 
+                marginTop: 8,
+                padding: 12,
+                backgroundColor: '#f8f9fa',
+                borderRadius: 6,
+                border: '1px solid #e8e8e8'
+              }}>
+                <Text>{updateInfo.releaseNotes}</Text>
+              </div>
+            </div>
           )}
-        </div>
 
-        {updateInfo?.releaseNotes && (
-          <div>
-            <Text strong>What's new:</Text>
-            <div style={{ 
-              maxHeight: 150, 
-              overflowY: 'auto', 
-              marginTop: 8,
-              padding: 12,
-              backgroundColor: '#f8f9fa',
-              borderRadius: 6,
-              border: '1px solid #e8e8e8'
-            }}>
-              <Text>{updateInfo.releaseNotes}</Text>
+          {updateInfo?.files && updateInfo.files.length > 0 && (
+            <div>
+              <Text strong>Update size:</Text>
+              <div style={{ marginTop: 4 }}>
+                <Tag color="green">
+                  {formatFileSize(updateInfo.files[0].size)}
+                </Tag>
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {updateInfo?.files && updateInfo.files.length > 0 && (
-          <div>
-            <Text strong>Update size:</Text>
-            <div style={{ marginTop: 4 }}>
-              <Tag color="green">
-                {formatFileSize(updateInfo.files[0].size)}
-              </Tag>
+          {downloading && (
+            <div>
+              <Space direction="vertical" style={{ width: '100%' }}>
+                <Text>Downloading update...</Text>
+                <Progress 
+                  percent={Math.round(downloadProgress)} 
+                  status="active"
+                  strokeColor="#1890ff"
+                />
+                <Text type="secondary">
+                  {Math.round(downloadProgress)}% complete
+                </Text>
+              </Space>
             </div>
-          </div>
-        )}
+          )}
 
-        {downloading && (
-          <div>
-            <Space direction="vertical" style={{ width: '100%' }}>
-              <Text>Downloading update...</Text>
-              <Progress 
-                percent={Math.round(downloadProgress)} 
-                status="active"
-                strokeColor="#1890ff"
-              />
+          <div style={{ 
+            padding: 12, 
+            backgroundColor: '#f6ffed', 
+            borderRadius: 6,
+            border: '1px solid #b7eb8f'
+          }}>
+            <Space>
+              <InfoCircleOutlined style={{ color: '#52c41a' }} />
               <Text type="secondary">
-                {Math.round(downloadProgress)}% complete
+                Updates are downloaded and installed automatically. Your data will be preserved.
               </Text>
             </Space>
           </div>
-        )}
 
-        <div style={{ 
-          padding: 12, 
-          backgroundColor: '#f6ffed', 
-          borderRadius: 6,
-          border: '1px solid #b7eb8f'
-        }}>
-          <Space>
-            <InfoCircleOutlined style={{ color: '#52c41a' }} />
-            <Text type="secondary">
-              Updates are downloaded and installed automatically. Your data will be preserved.
-            </Text>
+          <div style={{ 
+            padding: 12, 
+            backgroundColor: '#fff7e6', 
+            borderRadius: 6,
+            border: '1px solid #ffd591'
+          }}>
+            <Space>
+              <InfoCircleOutlined style={{ color: '#fa8c16' }} />
+              <Text type="secondary">
+                Having issues with auto-update? Try the "Download to Disk" option below.
+              </Text>
+            </Space>
+          </div>
+
+          <Space style={{ width: '100%', justifyContent: 'flex-end' }}>
+            {!downloading && !installing && (
+              <>
+                <Button 
+                  type="primary" 
+                  icon={<DownloadOutlined />}
+                  onClick={handleUpdate}
+                  size="large"
+                >
+                  Download Update
+                </Button>
+                <Button 
+                  type="default" 
+                  icon={<DownloadOutlined />}
+                  onClick={handleDownloadToDisk}
+                  size="large"
+                  style={{ marginRight: 8 }}
+                >
+                  Download to Disk
+                </Button>
+              </>
+            )}
+            
+            {downloading && downloadProgress === 100 && (
+              <Button 
+                type="primary" 
+                icon={<CheckCircleOutlined />}
+                onClick={handleInstall}
+                size="large"
+              >
+                Install & Restart
+              </Button>
+            )}
+            
+            <Button onClick={onClose} size="large">
+              {downloading ? 'Cancel' : 'Remind Me Later'}
+            </Button>
           </Space>
-        </div>
-
-        <Space style={{ width: '100%', justifyContent: 'flex-end' }}>
-          {!downloading && !installing && (
-            <Button 
-              type="primary" 
-              icon={<DownloadOutlined />}
-              onClick={handleUpdate}
-              size="large"
-            >
-              Download Update
-            </Button>
-          )}
-          
-          {downloading && downloadProgress === 100 && (
-            <Button 
-              type="primary" 
-              icon={<CheckCircleOutlined />}
-              onClick={handleInstall}
-              size="large"
-            >
-              Install & Restart
-            </Button>
-          )}
-          
-          <Button onClick={onClose} size="large">
-            {downloading ? 'Cancel' : 'Remind Me Later'}
-          </Button>
         </Space>
-      </Space>
-    </Modal>
+      </Modal>
+
+      <ManualUpdateInstructions
+        visible={showManualInstructions}
+        onClose={() => setShowManualInstructions(false)}
+        version={manualUpdateInfo?.version || ""}
+        fileName={manualUpdateInfo?.fileName || ""}
+        filePath={manualUpdateInfo?.filePath || ""}
+      />
+    </>
   );
 };
 

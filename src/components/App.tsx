@@ -42,13 +42,24 @@ const App: React.FC = () => {
                 if (status.status === 'update-available') {
                     setUpdateInfo(status.data);
                     setUpdateVisible(true);
+                    message.info('🎉 New version available!', 5);
                 } else if (status.status === 'download-progress') {
                     setDownloading(true);
                     setDownloadProgress(status.data.percent || 0);
+                    // Show progress notification
+                    if (status.data.percent === 100) {
+                        message.success('📥 Update download complete!', 3);
+                    }
                 } else if (status.status === 'update-downloaded') {
                     setDownloading(false);
                     setDownloadProgress(100);
-                    message.success('Update downloaded! The app will restart to install the update.');
+                    message.success('🎯 Update ready! The app will restart to install the update.', 5);
+                } else if (status.status === 'checking') {
+                    message.loading('🔍 Checking for updates...', 2);
+                } else if (status.status === 'update-not-available') {
+                    message.success('✅ You have the latest version!', 3);
+                } else if (status.status === 'error') {
+                    message.error('❌ Update check failed. Please try again.', 5);
                 }
             });
 

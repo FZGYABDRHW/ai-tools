@@ -11,9 +11,14 @@ if (require('electron-squirrel-startup')) {
   app.quit();
 }
 
+// Disable CORS and security restrictions for development
+app.commandLine.appendSwitch('disable-web-security');
+app.commandLine.appendSwitch('disable-features', 'VizDisplayCompositor');
+app.commandLine.appendSwitch('disable-site-isolation-trials');
+
 protocol.registerSchemesAsPrivileged([
-  { scheme: 'http', privileges: { standard: true, bypassCSP: true, allowServiceWorkers: true, supportFetchAPI: true, corsEnabled: true, stream: true } },
-  { scheme: 'https', privileges: { standard: true, bypassCSP: true, allowServiceWorkers: true, supportFetchAPI: true, corsEnabled: true, stream: true } },
+  { scheme: 'http', privileges: { standard: true, bypassCSP: true, allowServiceWorkers: true, supportFetchAPI: true, corsEnabled: false, stream: true } },
+  { scheme: 'https', privileges: { standard: true, bypassCSP: true, allowServiceWorkers: true, supportFetchAPI: true, corsEnabled: false, stream: true } },
   { scheme: 'mailto', privileges: { standard: true } },
 ]);
 
@@ -26,8 +31,8 @@ const createWindow = (): void => {
     webPreferences: {
       nodeIntegration: false,       // Disable for security
       contextIsolation: true,        // Enable for security
-      additionalArguments: [`--csp-string=default-src 'self'; connect-src 'self' https://api.wowworks.ru;`],
-      webSecurity: true,
+      additionalArguments: [`--csp-string=default-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src 'self' https://*.wowworks.org https://*.wowworks.ru http://localhost:*; script-src 'self' 'unsafe-inline' 'unsafe-eval';`],
+      webSecurity: false,           // Disable CORS for development
       preload: MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY,
     },
   });

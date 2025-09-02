@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Button, Typography, Space, Tooltip, Badge } from 'antd';
-import { ReloadOutlined, InfoCircleOutlined, DownloadOutlined } from '@ant-design/icons';
+import { Button, Typography, Space, Tooltip, Badge, Dropdown, message } from 'antd';
+import { ReloadOutlined, InfoCircleOutlined, DownloadOutlined, MoreOutlined } from '@ant-design/icons';
+import type { MenuProps } from 'antd';
 
 const { Text } = Typography;
 
@@ -71,16 +72,125 @@ const VersionDisplay: React.FC<VersionDisplayProps> = ({
   }, []);
 
   const handleCheckForUpdates = async () => {
-    if (!window.electronAPI) return;
+    console.log('🔍 VersionDisplay: Check for updates button clicked!');
+    console.log('🔍 VersionDisplay: window.electronAPI available?', !!window.electronAPI);
+    
+    if (!window.electronAPI) {
+      console.error('❌ VersionDisplay: electronAPI not available!');
+      message.error('Electron API not available');
+      return;
+    }
     
     try {
+      console.log('🔍 VersionDisplay: Calling checkForUpdates...');
       setCheckingForUpdates(true);
-      await window.electronAPI.checkForUpdates();
+      const result = await window.electronAPI.checkForUpdates();
+      console.log('🔍 VersionDisplay: checkForUpdates result:', result);
+      message.success('Update check completed');
     } catch (error) {
-      console.error('Error checking for updates:', error);
-      setCheckingForUpdates(false);
+      console.error('❌ VersionDisplay: Error checking for updates:', error);
+      message.error('Failed to check for updates: ' + (error as any)?.message || 'Unknown error');
+    } finally {
+      setCheckingForUpdates(false); // Always reset the loading state
     }
   };
+
+  const handleForceCheckForUpdates = async () => {
+    console.log('🔄 VersionDisplay: Force check for updates button clicked!');
+    console.log('🔄 VersionDisplay: window.electronAPI available?', !!window.electronAPI);
+    
+    if (!window.electronAPI) {
+      console.error('❌ VersionDisplay: electronAPI not available!');
+      message.error('Electron API not available');
+      return;
+    }
+    
+    try {
+      console.log('🔄 VersionDisplay: Calling forceCheckForUpdates...');
+      setCheckingForUpdates(true);
+      const result = await window.electronAPI.forceCheckForUpdates();
+      console.log('🔄 VersionDisplay: forceCheckForUpdates result:', result);
+      message.success('Force update check completed');
+    } catch (error) {
+      console.error('❌ VersionDisplay: Error in force update check:', error);
+      message.error('Force update check failed: ' + (error as any)?.message || 'Unknown error');
+    } finally {
+      setCheckingForUpdates(false); // Always reset the loading state
+    }
+  };
+
+  const handleTestIpc = async () => {
+    console.log('🧪 VersionDisplay: Test IPC button clicked!');
+    console.log('🧪 VersionDisplay: window.electronAPI available?', !!window.electronAPI);
+    
+    if (!window.electronAPI) {
+      console.error('❌ VersionDisplay: electronAPI not available!');
+      message.error('Electron API not available');
+      return;
+    }
+    
+    // Debug: Log all available methods
+    console.log('🧪 VersionDisplay: Available electronAPI methods:', Object.keys(window.electronAPI));
+    
+    try {
+      console.log('🧪 VersionDisplay: Calling testIpc...');
+      const result = await window.electronAPI.testIpc();
+      console.log('🧪 VersionDisplay: testIpc result:', result);
+      message.success('IPC test successful: ' + result.message);
+    } catch (error) {
+      console.error('❌ VersionDisplay: Test IPC error:', error);
+      message.error('IPC test failed: ' + (error as any)?.message || 'Unknown error');
+    }
+  };
+
+  const handleDebugElectronAPI = () => {
+    console.log('🔍 VersionDisplay: Debug button clicked!');
+    console.log('🔍 VersionDisplay: window object:', window);
+    console.log('🔍 VersionDisplay: window.electronAPI:', window.electronAPI);
+    
+    if (window.electronAPI) {
+      console.log('🔍 VersionDisplay: Available methods:', Object.keys(window.electronAPI));
+      console.log('🔍 VersionDisplay: getAppVersion method:', typeof window.electronAPI.getAppVersion);
+      console.log('🔍 VersionDisplay: checkForUpdates method:', typeof window.electronAPI.checkForUpdates);
+    } else {
+      console.error('❌ VersionDisplay: electronAPI is undefined!');
+      message.error('electronAPI is undefined - check preload script');
+    }
+  };
+
+  // Context menu items for update options
+  const updateMenuItems: MenuProps['items'] = [
+    {
+      key: 'check',
+      label: 'Check for Updates',
+      icon: <ReloadOutlined />,
+      onClick: handleCheckForUpdates,
+    },
+    {
+      key: 'force-check',
+      label: 'Force Check (Ignore Cache)',
+      icon: <ReloadOutlined />,
+      onClick: handleForceCheckForUpdates,
+    },
+    {
+      key: 'test-ipc',
+      label: 'Test IPC Communication',
+      icon: <InfoCircleOutlined />,
+      onClick: handleTestIpc,
+    },
+    {
+      key: 'debug',
+      label: 'Debug Electron API',
+      icon: <InfoCircleOutlined />,
+      onClick: handleDebugElectronAPI,
+    },
+    {
+      key: 'info',
+      label: 'Update Info',
+      icon: <InfoCircleOutlined />,
+      disabled: true,
+    },
+  ];
 
   // Always show version
   if (compact) {
@@ -98,21 +208,36 @@ const VersionDisplay: React.FC<VersionDisplayProps> = ({
           v{currentVersion}
         </Text>
         {showUpdateButton && (
-          <Tooltip title="Check for updates">
-            <Button
-              type="text"
-              size="small"
-              icon={<ReloadOutlined />}
-              loading={checkingForUpdates}
-              onClick={handleCheckForUpdates}
-              style={{ 
-                padding: '2px 4px', 
-                height: 'auto',
-                color: '#ff8c69',
-                fontSize: '10px'
-              }}
-            />
-          </Tooltip>
+          <Space>
+            <Tooltip title="Check for updates">
+              <Button
+                type="text"
+                size="small"
+                icon={<ReloadOutlined />}
+                loading={checkingForUpdates}
+                onClick={handleCheckForUpdates}
+                style={{ 
+                  padding: '2px 4px', 
+                  height: 'auto',
+                  color: '#ff8c69',
+                  fontSize: '10px'
+                }}
+              />
+            </Tooltip>
+            <Dropdown menu={{ items: updateMenuItems }} trigger={['click']}>
+              <Button
+                type="text"
+                size="small"
+                icon={<MoreOutlined />}
+                style={{ 
+                  padding: '2px 4px', 
+                  height: 'auto',
+                  color: '#ff8c69',
+                  fontSize: '10px'
+                }}
+              />
+            </Dropdown>
+          </Space>
         )}
       </div>
     );

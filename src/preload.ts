@@ -8,9 +8,13 @@ import { contextBridge, ipcRenderer } from 'electron';
 contextBridge.exposeInMainWorld('electronAPI', {
   // Auto-updater APIs
   checkForUpdates: () => ipcRenderer.invoke('auto-updater:check-for-updates'),
+  forceCheckForUpdates: () => ipcRenderer.invoke('auto-updater:force-check-for-updates'),
   downloadUpdate: () => ipcRenderer.invoke('auto-updater:download-update'),
+  downloadToDisk: (updateInfo: any) => ipcRenderer.invoke("auto-updater:download-to-disk", updateInfo),
+
   installUpdate: () => ipcRenderer.invoke('auto-updater:install-update'),
   getAppVersion: () => ipcRenderer.invoke('auto-updater:get-app-version'),
+  testIpc: () => ipcRenderer.invoke('auto-updater:test-ipc'),
   
   // Auto-updater event listeners
   onAutoUpdaterStatus: (callback: (status: any) => void) => {
