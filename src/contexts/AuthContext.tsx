@@ -5,6 +5,7 @@ import { buildAuthServiceInitializer } from '../authServiceInit';
 import { buildServiceInitializer } from '../serviceInit';
 import { AuthService } from '../api-client/src/services/v4/user/auth';
 import { LoginCredentials } from '../types';
+import LogRocketService from '../services/logRocketService';
 
 export const AuthContext = createContext<AuthContextType>({
     authToken: '',
@@ -106,11 +107,21 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                     thirdName: response.thirdName
                 });
                 
-                setUser({ 
+                const userData = { 
                     id: response.id, 
                     phone: response.phone || '',
                     name: fullName
+                };
+                
+                setUser(userData);
+                
+                // Identify user in LogRocket
+                LogRocketService.getInstance().identifyUser(response.id, {
+                    name: fullName,
+                    phone: response.phone || '',
+                    email: response.email || ''
                 });
+                
                 setIsInitializing(false);
             } else {
                 console.log('AuthContext: Failed to load user profile - invalid response');
@@ -154,6 +165,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                 setAuthToken(response.token);
                 setUserId(response.id);
                 localStorage.setItem('userId', response.id.toString());
+                
+                // Track login event in LogRocket
+                LogRocketService.getInstance().trackEvent('user_login', {
+                    userId: response.id,
+                    timestamp: new Date().toISOString()
+                });
+                
                 message.success('Login successful!');
                 console.log('Login successful, token set:', response.token, 'userId:', response.id);
                 return true;
@@ -187,6 +205,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             const si = buildServiceInitializer(authToken);
             const authService = si(AuthService);
             await authService.logout();
+            
+            // Track logout event in LogRocket before clearing user data
+            if (userId) {
+                LogRocketService.getInstance().trackEvent('user_logout', {
+                    userId: userId,
+                    timestamp: new Date().toISOString()
+                });
+            }
             
             setAuthToken('');
             setUserId(null);
