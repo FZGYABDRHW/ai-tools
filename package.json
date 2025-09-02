@@ -1,7 +1,7 @@
 {
   "name": "wowworks-ai-tools",
   "productName": "Wowworks AI Tools",
-  "version": "1.0.10",
+  "version": "1.0.11",
   "description": "Wowworks AI Tools - A modern Electron application for AI-powered task building and report generation",
   "homepage": "https://wowworks.ru",
   "author": "vn-ww",
