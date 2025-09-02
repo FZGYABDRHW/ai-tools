@@ -145,10 +145,38 @@ publish:
 
   private makeSerializable(obj: any): any {
     try {
+      // Handle null and undefined
+      if (obj === null || obj === undefined) {
+        return obj;
+      }
+      
+      // Handle primitive types
+      if (typeof obj === 'string' || typeof obj === 'number' || typeof obj === 'boolean') {
+        return obj;
+      }
+      
+      // Handle Date objects
+      if (obj instanceof Date) {
+        return obj.toISOString();
+      }
+      
+      // Handle Error objects specially
+      if (obj instanceof Error) {
+        return {
+          name: obj.name,
+          message: obj.message,
+          stack: obj.stack,
+          type: 'Error'
+        };
+      }
+      
       // Try to make the object serializable by converting to JSON and back
       return JSON.parse(JSON.stringify(obj));
     } catch (error) {
       console.log('Object not serializable, creating safe copy:', error);
+      console.log('Object type:', typeof obj);
+      console.log('Object constructor:', obj?.constructor?.name);
+      
       // If JSON serialization fails, create a safe copy with basic properties
       if (obj && typeof obj === 'object') {
         const safe: any = {};
@@ -159,16 +187,34 @@ publish:
               safe[key] = value;
             } else if (value === null || value === undefined) {
               safe[key] = value;
+            } else if (value instanceof Date) {
+              safe[key] = value.toISOString();
+            } else if (value instanceof Error) {
+              safe[key] = {
+                name: value.name,
+                message: value.message,
+                stack: value.stack,
+                type: 'Error'
+              };
             } else if (typeof value === 'object') {
               safe[key] = this.makeSerializable(value);
+            } else {
+              safe[key] = String(value);
             }
           } catch (e) {
+            console.log(`Failed to serialize property ${key}:`, e);
             safe[key] = '[Non-serializable value]';
           }
         }
         return safe;
       }
-      return { message: String(obj) };
+      
+      // Fallback for any other type
+      return { 
+        message: String(obj),
+        type: typeof obj,
+        constructor: obj?.constructor?.name || 'Unknown'
+      };
     }
   }
 
@@ -177,20 +223,33 @@ publish:
       try {
         console.log('Manual check for updates requested');
         const result = await autoUpdater.checkForUpdates();
-        return result;
+        console.log('Raw checkForUpdates result:', result);
+        // Make sure the result is serializable before returning
+        const serializableResult = this.makeSerializable(result);
+        console.log('Serializable result:', serializableResult);
+        return serializableResult;
       } catch (error) {
         console.error('Error checking for updates:', error);
-        throw error;
+        // Make sure the error is also serializable
+        const serializableError = this.makeSerializable(error);
+        throw serializableError;
       }
     });
 
     ipcMain.handle('auto-updater:download-update', async () => {
       try {
         console.log('Download update requested');
-        return await autoUpdater.downloadUpdate();
+        const result = await autoUpdater.downloadUpdate();
+        console.log('Raw downloadUpdate result:', result);
+        // Make sure the result is serializable before returning
+        const serializableResult = this.makeSerializable(result);
+        console.log('Serializable result:', serializableResult);
+        return serializableResult;
       } catch (error) {
         console.error('Error downloading update:', error);
-        throw error;
+        // Make sure the error is also serializable
+        const serializableError = this.makeSerializable(error);
+        throw serializableError;
       }
     });
 
@@ -231,20 +290,30 @@ publish:
   async checkForUpdates() {
     try {
       console.log('Checking for updates...');
-      return await autoUpdater.checkForUpdates();
+      const result = await autoUpdater.checkForUpdates();
+      console.log('Public checkForUpdates raw result:', result);
+      const serializableResult = this.makeSerializable(result);
+      console.log('Public checkForUpdates serializable result:', serializableResult);
+      return serializableResult;
     } catch (error) {
       console.error('Error checking for updates:', error);
-      throw error;
+      const serializableError = this.makeSerializable(error);
+      throw serializableError;
     }
   }
 
   async downloadUpdate() {
     try {
       console.log('Downloading update in background...');
-      return await autoUpdater.downloadUpdate();
+      const result = await autoUpdater.downloadUpdate();
+      console.log('Public downloadUpdate raw result:', result);
+      const serializableResult = this.makeSerializable(result);
+      console.log('Public downloadUpdate serializable result:', serializableResult);
+      return serializableResult;
     } catch (error) {
       console.error('Error downloading update:', error);
-      throw error;
+      const serializableError = this.makeSerializable(error);
+      throw serializableError;
     }
   }
 
