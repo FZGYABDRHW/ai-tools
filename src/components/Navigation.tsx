@@ -107,7 +107,7 @@ const Navigation: React.FC = () => {
                     color: '#666',
                     fontWeight: 500
                 }}>
-                    Powered by Vlad
+                    Powered by Vlad v2.0
                 </div>
             </div>
         </Sider>
