@@ -7,18 +7,8 @@ export class AutoUpdaterService {
   private mainWindow: BrowserWindow | null = null;
 
   constructor() {
-    console.log('🚀 AutoUpdaterService: Constructor called');
-    console.log('🚀 AutoUpdaterService: Setting up auto-updater...');
-    
-    try {
-      this.setupAutoUpdater();
-      console.log('🚀 AutoUpdaterService: Auto-updater setup completed');
-      
-      this.setupIpcHandlers();
-      console.log('🚀 AutoUpdaterService: IPC handlers setup completed');
-    } catch (error) {
-      console.error('❌ AutoUpdaterService: Error in constructor:', error);
-    }
+    this.setupAutoUpdater();
+    this.setupIpcHandlers();
   }
 
   setMainWindow(window: BrowserWindow) {
@@ -69,88 +59,54 @@ export class AutoUpdaterService {
     }
     
     // Set the feed URL with explicit configuration
-    console.log('🔧 Setting feed URL...');
-    console.log('🔧 Provider: github');
-    console.log('🔧 Owner: FZGYABDRHW');
-    console.log('🔧 Repo: ai-tools');
-    
     autoUpdater.setFeedURL({
       provider: 'github',
       owner: 'FZGYABDRHW',
       repo: 'ai-tools',
       updaterCacheDirName: 'ai-tools-updater',
     });
-    
-    console.log('🔧 Feed URL set successfully');
-    console.log('🔧 Current feed URL:', autoUpdater.getFeedURL());
-    console.log('🔧 Auto download enabled:', autoUpdater.autoDownload);
-    console.log('🔧 Auto install on quit:', autoUpdater.autoInstallOnAppQuit);
 
     // Check for updates on startup (but don't notify automatically)
     // autoUpdater.checkForUpdatesAndNotify();
-    
-    // Enable automatic update checking on startup
-    console.log('🔄 Enabling automatic update checking...');
-    this.scheduleUpdateChecks();
-    
-    // Check for updates immediately on startup
-    setTimeout(() => {
-      console.log('🚀 Performing initial update check...');
-      this.sendStatusToWindow('checking', 'Checking for updates on startup...');
-      this.checkForUpdates();
-    }, 5000); // Wait 5 seconds after startup
 
     // Auto-updater events
     autoUpdater.on('checking-for-update', () => {
-      console.log('🔍 Checking for updates...');
+      console.log('Checking for updates...');
       this.sendStatusToWindow('checking', 'Checking for updates...');
     });
 
     autoUpdater.on('update-available', (info) => {
-      console.log('🎉 Update available:', info);
+      console.log('Update available:', info);
       // Ensure the info object is serializable
       const serializableInfo = this.makeSerializable(info);
-      this.sendStatusToWindow('update-available', '🎉 New version available! Starting background download...', serializableInfo);
+      this.sendStatusToWindow('update-available', 'Update available! Starting background download...', serializableInfo);
       this.showUpdateDialog(serializableInfo);
     });
 
     autoUpdater.on('update-not-available', (info) => {
-      console.log('✅ No updates available:', info);
+      console.log('Update not available:', info);
       const serializableInfo = this.makeSerializable(info);
-      this.sendStatusToWindow('update-not-available', '✅ You have the latest version!', serializableInfo);
+      this.sendStatusToWindow('update-not-available', 'No updates available.', serializableInfo);
     });
 
     autoUpdater.on('error', (err) => {
-      console.error('❌ Error in auto-updater:', err);
+      console.error('Error in auto-updater:', err);
       const serializableError = this.makeSerializable(err);
-      this.sendStatusToWindow('error', '❌ Error checking for updates.', serializableError);
+      this.sendStatusToWindow('error', 'Error checking for updates.', serializableError);
     });
 
     autoUpdater.on('download-progress', (progressObj) => {
-      console.log('📥 Download progress:', progressObj);
+      console.log('Download progress:', progressObj);
       const serializableProgress = this.makeSerializable(progressObj);
-      this.sendStatusToWindow('download-progress', '📥 Downloading update in background...', serializableProgress);
+      this.sendStatusToWindow('download-progress', 'Downloading update in background...', serializableProgress);
     });
 
     autoUpdater.on('update-downloaded', (info) => {
-      console.log('🎯 Update downloaded:', info);
+      console.log('Update downloaded:', info);
       const serializableInfo = this.makeSerializable(info);
-      this.sendStatusToWindow('update-downloaded', '🎯 Update ready! Click to install or it will install on quit.', serializableInfo);
+      this.sendStatusToWindow('update-downloaded', 'Update ready! Click to install or it will install on quit.', serializableInfo);
       this.showInstallDialog(serializableInfo);
     });
-  }
-
-  // Schedule periodic update checks
-  private scheduleUpdateChecks() {
-    // Check for updates every 4 hours (4 * 60 * 60 * 1000 = 14,400,000 ms)
-    const UPDATE_CHECK_INTERVAL = 4 * 60 * 60 * 1000;
-    
-    setInterval(() => {
-      console.log('⏰ Scheduled update check...');
-      this.checkForUpdates();
-    }, UPDATE_CHECK_INTERVAL);
-    
-    console.log(`⏰ Scheduled update checks every ${UPDATE_CHECK_INTERVAL / (60 * 60 * 1000)} hours`);
   }
 
   private createAppUpdateYml(filePath: string) {
@@ -263,27 +219,17 @@ publish:
   }
 
   private setupIpcHandlers() {
-    console.log('🔧 AutoUpdaterService: Setting up IPC handlers...');
-    
-    try {
-      ipcMain.handle('auto-updater:check-for-updates', async () => {
+    ipcMain.handle('auto-updater:check-for-updates', async () => {
       try {
-        console.log('🔍 IPC: Manual check for updates requested');
-        console.log('🔍 IPC: autoUpdater object:', !!autoUpdater);
-        console.log('🔍 IPC: autoUpdater methods:', Object.getOwnPropertyNames(Object.getPrototypeOf(autoUpdater)));
-        
-        // Check if autoUpdater is properly configured
-        console.log('🔍 IPC: Current feed URL:', autoUpdater.getFeedURL());
-        console.log('🔍 IPC: Current app version:', app.getVersion());
-        
+        console.log('Manual check for updates requested');
         const result = await autoUpdater.checkForUpdates();
-        console.log('🔍 IPC: Raw checkForUpdates result:', result);
+        console.log('Raw checkForUpdates result:', result);
         // Make sure the result is serializable before returning
         const serializableResult = this.makeSerializable(result);
-        console.log('🔍 IPC: Serializable result:', serializableResult);
+        console.log('Serializable result:', serializableResult);
         return serializableResult;
       } catch (error) {
-        console.error('❌ IPC: Error checking for updates:', error);
+        console.error('Error checking for updates:', error);
         // Make sure the error is also serializable
         const serializableError = this.makeSerializable(error);
         throw serializableError;
@@ -316,9 +262,16 @@ publish:
       return app.getVersion();
     });
 
-    ipcMain.handle('auto-updater:test-ipc', () => {
-      console.log('🧪 Test IPC handler called successfully');
-      return { success: true, message: 'IPC communication working', timestamp: new Date().toISOString() };
+    ipcMain.handle('auto-updater:download-to-disk', async (event, updateInfo) => {
+      try {
+        console.log('Download to disk requested for:', updateInfo);
+        const result = await this.downloadUpdateToDisk(updateInfo);
+        return result;
+      } catch (error) {
+        console.error('Error downloading to disk:', error);
+        const serializableError = this.makeSerializable(error);
+        throw serializableError;
+      }
     });
 
     ipcMain.handle('auto-updater:force-check-for-updates', async () => {
@@ -333,23 +286,23 @@ publish:
       }
     });
 
-    ipcMain.handle('auto-updater:download-to-disk', async (event, updateInfo) => {
+    ipcMain.handle('auto-updater:test-ipc', () => {
+      console.log('Test IPC handler called successfully');
+      return { success: true, message: 'IPC communication working', timestamp: new Date().toISOString() };
+    });
+
+    ipcMain.handle('auto-updater:download-latest-version', async () => {
       try {
-        console.log('Download to disk requested for:', updateInfo);
-        const result = await this.downloadUpdateToDisk(updateInfo);
+        console.log('Download latest version requested via IPC');
+        const result = await this.downloadLatestVersion();
         return result;
       } catch (error) {
-        console.error('Error downloading to disk:', error);
+        console.error('Error in download latest version IPC:', error);
         const serializableError = this.makeSerializable(error);
         throw serializableError;
       }
     });
-    
-    console.log('🔧 AutoUpdaterService: IPC handlers registered successfully');
-  } catch (error) {
-    console.error('❌ AutoUpdaterService: Error setting up IPC handlers:', error);
   }
-}
 
   private sendStatusToWindow(status: string, message: string, data?: any) {
     if (this.mainWindow) {
@@ -377,105 +330,16 @@ publish:
   // Public methods for manual update checks
   async checkForUpdates() {
     try {
-      console.log('🔍 Public: Manual update check requested...');
-      console.log('🔍 Public: autoUpdater object:', !!autoUpdater);
-      console.log('🔍 Public: autoUpdater methods:', Object.getOwnPropertyNames(Object.getPrototypeOf(autoUpdater)));
-      
-      // Check if autoUpdater is properly configured
-      console.log('🔍 Public: Current feed URL:', autoUpdater.getFeedURL());
-      console.log('🔍 Public: Current app version:', app.getVersion());
-      
-      this.sendStatusToWindow('checking', '🔍 Checking for updates...');
-      
-      console.log('🔍 Public: About to call autoUpdater.checkForUpdates()...');
+      console.log('Checking for updates...');
       const result = await autoUpdater.checkForUpdates();
-      console.log('🔍 Public: Raw checkForUpdates result:', result);
-      
-      // Make sure the result is serializable before returning
+      console.log('Public checkForUpdates raw result:', result);
       const serializableResult = this.makeSerializable(result);
-      console.log('🔍 Public: Serializable result:', serializableResult);
+      console.log('Public checkForUpdates serializable result:', serializableResult);
       return serializableResult;
     } catch (error) {
-      console.error('❌ Public: Error checking for updates:', error);
+      console.error('Error checking for updates:', error);
       const serializableError = this.makeSerializable(error);
-      this.sendStatusToWindow('error', '❌ Failed to check for updates.', serializableError);
-      
-      // Try fallback method if auto-updater fails
-      console.log('🔄 Public: Trying fallback GitHub API check...');
-      try {
-        const fallbackResult = await this.checkGitHubForUpdates();
-        return fallbackResult;
-      } catch (fallbackError) {
-        console.error('❌ Public: Fallback also failed:', fallbackError);
-        throw serializableError; // Throw original error
-      }
-    }
-  }
-
-  // Fallback method to check GitHub API directly
-  private async checkGitHubForUpdates() {
-    try {
-      console.log('🔄 Fallback: Checking GitHub API for updates...');
-      
-      // Get current version
-      const currentVersion = app.getVersion();
-      console.log('🔄 Fallback: Current version:', currentVersion);
-      
-      // Check GitHub API for latest release
-      const response = await fetch('https://api.github.com/repos/FZGYABDRHW/ai-tools/releases/latest');
-      if (!response.ok) {
-        throw new Error(`GitHub API error: ${response.status}`);
-      }
-      
-      const release = await response.json();
-      const latestVersion = release.tag_name.replace('v', '');
-      console.log('🔄 Fallback: Latest version from GitHub:', latestVersion);
-      
-      // Compare versions
-      if (latestVersion === currentVersion) {
-        console.log('🔄 Fallback: No updates available');
-        this.sendStatusToWindow('update-not-available', '✅ You have the latest version! (GitHub API)');
-        return { updateAvailable: false, currentVersion, latestVersion };
-      } else {
-        console.log('🔄 Fallback: Update available!');
-        this.sendStatusToWindow('update-available', `🎉 New version available: v${latestVersion}!`, {
-          version: latestVersion,
-          currentVersion,
-          releaseNotes: release.body || 'No release notes available'
-        });
-        return { updateAvailable: true, currentVersion, latestVersion, releaseNotes: release.body };
-      }
-    } catch (error) {
-      console.error('❌ Fallback: GitHub API check failed:', error);
-      throw error;
-    }
-  }
-
-  // Force check for updates (ignores cache)
-  async forceCheckForUpdates() {
-    try {
-      console.log('🔄 Force: Force update check requested...');
-      this.sendStatusToWindow('checking', '🔄 Force checking for updates...');
-      
-      const result = await autoUpdater.checkForUpdates();
-      console.log('🔄 Force: Raw checkForUpdates result:', result);
-      const serializableResult = this.makeSerializable(result);
-      console.log('🔄 Force: Serializable result:', serializableResult);
-      return serializableResult;
-    } catch (error) {
-      console.error('❌ Force: Error in force update check:', error);
-      const serializableError = this.makeSerializable(error);
-      this.sendStatusToWindow('error', '❌ Force update check failed.', serializableError);
-      
-      // Try fallback method if auto-updater fails
-      console.log('🔄 Force: Trying fallback GitHub API check...');
-      try {
-        const fallbackResult = await this.checkGitHubForUpdates();
-        return fallbackResult;
-      } catch (fallbackError) {
-        console.error('❌ Force: Fallback also failed:', fallbackError);
-        throw serializableError; // Throw original error
-      }
+      throw serializableError;
     }
   }
 
@@ -494,6 +358,91 @@ publish:
     }
   }
 
+  async forceCheckForUpdates() {
+    try {
+      console.log('Force update check requested...');
+      this.sendStatusToWindow('checking', 'Force checking for updates...');
+      const result = await autoUpdater.checkForUpdates();
+      console.log('Force check result:', result);
+      const serializableResult = this.makeSerializable(result);
+      return serializableResult;
+    } catch (error) {
+      console.error('Error in force update check:', error);
+      const serializableError = this.makeSerializable(error);
+      this.sendStatusToWindow('error', 'Force update check failed.', serializableError);
+      throw serializableError;
+    }
+  }
+
+  async downloadLatestVersion() {
+    try {
+      console.log('Downloading latest version...');
+      this.sendStatusToWindow('checking', 'Checking for latest version...');
+      
+      // Get current version
+      const currentVersion = app.getVersion();
+      console.log('Current version:', currentVersion);
+      
+      // Check GitHub API for latest release
+      const response = await fetch('https://api.github.com/repos/FZGYABDRHW/ai-tools/releases/latest');
+      if (!response.ok) {
+        throw new Error(`GitHub API error: ${response.status}`);
+      }
+      
+      const release = await response.json();
+      const latestVersion = release.tag_name.replace('v', '');
+      console.log('Latest version from GitHub:', latestVersion);
+      
+      // Compare versions
+      if (latestVersion === currentVersion) {
+        console.log('Already have latest version');
+        this.sendStatusToWindow('update-not-available', 'You already have the latest version!');
+        return { 
+          updateAvailable: false, 
+          currentVersion, 
+          latestVersion,
+          message: 'You already have the latest version!'
+        };
+      }
+      
+      // Download the latest version
+      console.log('Downloading latest version:', latestVersion);
+      this.sendStatusToWindow('download-progress', 'Downloading latest version...');
+      
+      // Create download info
+      const downloadInfo = {
+        version: latestVersion,
+        releaseDate: release.published_at,
+        releaseNotes: release.body || 'No release notes available',
+        files: [
+          {
+            url: `https://github.com/FZGYABDRHW/ai-tools/releases/download/v${latestVersion}/Wowworks.AI.Tools-darwin-arm64-${latestVersion}.zip`,
+            size: 0, // Will be updated after download
+            sha512: ''
+          }
+        ]
+      };
+      
+      // Download to disk
+      const result = await this.downloadUpdateToDisk(downloadInfo);
+      
+      this.sendStatusToWindow('update-downloaded', 'Latest version downloaded successfully!', result);
+      return {
+        updateAvailable: true,
+        currentVersion,
+        latestVersion,
+        downloadResult: result,
+        message: 'Latest version downloaded successfully!'
+      };
+      
+    } catch (error) {
+      console.error('Error downloading latest version:', error);
+      const serializableError = this.makeSerializable(error);
+      this.sendStatusToWindow('error', 'Failed to download latest version.', serializableError);
+      throw serializableError;
+    }
+  }
+
   installUpdate() {
     console.log('Installing update...');
     autoUpdater.quitAndInstall();
@@ -503,37 +452,227 @@ publish:
     return app.getVersion();
   }
 
-  async downloadUpdateToDisk(updateInfo: any): Promise<any> {
+  // Helper method to format file sizes
+  private formatFileSize(bytes: number): string {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  }
+
+  // Helper method to validate Downloads folder access
+  private async validateDownloadsAccess(): Promise<void> {
     try {
-      console.log('Downloading update to disk:', updateInfo);
-      
-      // Get the download URL from the update info
-      const downloadUrl = `https://github.com/FZGYABDRHW/ai-tools/releases/download/v${updateInfo.version}/Wowworks.AI.Tools-darwin-arm64-${updateInfo.version}.zip`;
-      console.log('Download URL:', downloadUrl);
-      
-      // Get the user's Downloads folder
       const downloadsPath = app.getPath('downloads');
-      const fileName = `Wowworks-AI-Tools-${updateInfo.version}.zip`;
+      
+      // Check if Downloads folder exists
+      if (!fs.existsSync(downloadsPath)) {
+        throw new Error('Downloads folder not found');
+      }
+      
+      // Check write permissions by creating a test file
+      const testFile = path.join(downloadsPath, '.wowworks-test-write');
+      await fs.promises.writeFile(testFile, 'test');
+      await fs.promises.unlink(testFile);
+      
+      console.log('✅ Downloads folder access verified:', downloadsPath);
+    } catch (error) {
+      console.error('❌ Downloads folder access failed:', error);
+      throw new Error('Cannot write to Downloads folder. Please check permissions.');
+    }
+  }
+
+  // Helper method to check available disk space
+  private async checkDiskSpace(requiredBytes: number): Promise<void> {
+    try {
+      const downloadsPath = app.getPath('downloads');
+      const stats = fs.statSync(downloadsPath);
+      
+      // Note: This is a basic check. For more accurate disk space checking,
+      // we'd need a native module, but this provides basic validation
+      console.log('💾 Checking disk space for download...');
+      console.log('   Required:', this.formatFileSize(requiredBytes));
+      
+      // Basic validation - if we can't write a small test file, we probably don't have space
+      await this.validateDownloadsAccess();
+      
+    } catch (error) {
+      console.error('❌ Disk space check failed:', error);
+      throw new Error('Insufficient disk space or permission denied');
+    }
+  }
+
+  async downloadUpdateToDisk(updateInfo: any): Promise<any> {
+    let downloadStartTime = Date.now();
+    
+    try {
+      console.log('🔽 Starting download to disk:', updateInfo);
+      
+      // 1. Validate Downloads folder access first
+      await this.validateDownloadsAccess();
+      
+      // 2. Build download URL
+      const downloadUrl = `https://github.com/FZGYABDRHW/ai-tools/releases/download/v${updateInfo.version}/Wowworks.AI.Tools-darwin-arm64-${updateInfo.version}.zip`;
+      console.log('🔗 Download URL:', downloadUrl);
+      
+      // 3. Setup file paths
+      const downloadsPath = app.getPath('downloads');
+      const fileName = `Wowworks-AI.Tools-${updateInfo.version}.zip`;
       const filePath = path.join(downloadsPath, fileName);
       
-      console.log('Downloading to:', filePath);
+      console.log('📁 Target file path:', filePath);
+      console.log('📁 Downloads folder:', downloadsPath);
       
-      // Use electron-updater to download the file
-      const result = await autoUpdater.downloadUpdate();
+      // 4. Check if file already exists
+      if (fs.existsSync(filePath)) {
+        console.log('📄 File already exists, removing old version...');
+        fs.unlinkSync(filePath);
+      }
       
-      // Return the download information
+      // 5. Send progress update
+      this.sendStatusToWindow('download-progress', `Starting download of ${fileName}...`, {
+        percent: 0,
+        transferred: 0,
+        total: 0
+      });
+      
+      // 6. Download file with progress tracking
+      console.log('🌐 Fetching file from GitHub...');
+      const response = await fetch(downloadUrl);
+      
+      if (!response.ok) {
+        throw new Error(`Download failed: ${response.status} ${response.statusText}`);
+      }
+      
+      const contentLength = parseInt(response.headers.get('content-length') || '0');
+      console.log('📊 File size:', this.formatFileSize(contentLength));
+      
+      // 7. Check disk space before downloading
+      if (contentLength > 0) {
+        await this.checkDiskSpace(contentLength);
+      }
+      
+      // 8. Read response as stream and write to file
+      const reader = response.body?.getReader();
+      if (!reader) {
+        throw new Error('Failed to get response reader');
+      }
+      
+      let downloadedBytes = 0;
+      const chunks: Uint8Array[] = [];
+      
+      while (true) {
+        const { done, value } = await reader.read();
+        
+        if (done) break;
+        
+        if (value) {
+          chunks.push(value);
+          downloadedBytes += value.length;
+          
+          // Send progress update
+          const percent = contentLength > 0 ? (downloadedBytes / contentLength) * 100 : 0;
+          this.sendStatusToWindow('download-progress', `Downloading ${fileName}...`, {
+            percent: Math.round(percent),
+            transferred: downloadedBytes,
+            total: contentLength,
+            bytesPerSecond: downloadedBytes / ((Date.now() - downloadStartTime) / 1000),
+            formattedTransferred: this.formatFileSize(downloadedBytes),
+            formattedTotal: this.formatFileSize(contentLength)
+          });
+          
+          console.log(`📥 Progress: ${Math.round(percent)}% (${this.formatFileSize(downloadedBytes)}/${this.formatFileSize(contentLength)})`);
+        }
+      }
+      
+      // 9. Combine chunks and write to file
+      console.log('💾 Writing file to disk...');
+      const fileBuffer = Buffer.concat(chunks);
+      await fs.promises.writeFile(filePath, fileBuffer);
+      
+      // 10. Verify file was written correctly
+      const stats = fs.statSync(filePath);
+      console.log('✅ File written successfully:');
+      console.log('   - Size:', this.formatFileSize(stats.size));
+      console.log('   - Path:', filePath);
+      console.log('   - Download time:', ((Date.now() - downloadStartTime) / 1000).toFixed(2), 'seconds');
+      
+      // 11. Verify file size matches
+      if (contentLength > 0 && stats.size !== contentLength) {
+        throw new Error(`File size mismatch: expected ${this.formatFileSize(contentLength)}, got ${this.formatFileSize(stats.size)}`);
+      }
+      
+      // 12. Send completion status
+      this.sendStatusToWindow('download-complete', `Download complete: ${fileName}`, {
+        filePath,
+        fileName,
+        fileSize: stats.size,
+        formattedFileSize: this.formatFileSize(stats.size),
+        version: updateInfo.version,
+        downloadTime: ((Date.now() - downloadStartTime) / 1000).toFixed(2) + 's'
+      });
+      
+      // 13. Return success result
       return {
         success: true,
-        message: `Update downloaded to Downloads folder: ${fileName}`,
+        message: `Update v${updateInfo.version} downloaded successfully to Downloads folder`,
         filePath: filePath,
         fileName: fileName,
         version: updateInfo.version,
+        fileSize: stats.size,
+        formattedFileSize: this.formatFileSize(stats.size),
+        downloadTime: ((Date.now() - downloadStartTime) / 1000).toFixed(2) + 's',
         instructions: this.getUpdateInstructions(updateInfo.version)
       };
+      
     } catch (error) {
-      console.error('Failed to download to disk:', error);
+      console.error('❌ Download to disk failed:', error);
+      
+      // Send error status
+      this.sendStatusToWindow('download-error', 'Download failed', {
+        error: error.message,
+        version: updateInfo?.version
+      });
+      
       throw error;
     }
+  }
+
+  // Method to cancel ongoing downloads
+  private cancelDownload(): void {
+    console.log('🛑 Download cancellation requested');
+    // Note: In a more advanced implementation, we could store the AbortController
+    // and use it to actually cancel the fetch request
+    this.sendStatusToWindow('download-cancelled', 'Download was cancelled');
+  }
+
+  // Method to cleanup downloaded files (for testing/debugging)
+  async cleanupDownloadedFile(version: string): Promise<void> {
+    try {
+      const downloadsPath = app.getPath('downloads');
+      const fileName = `Wowworks-AI.Tools-${version}.zip`;
+      const filePath = path.join(downloadsPath, fileName);
+      
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+        console.log('🧹 Cleaned up downloaded file:', fileName);
+      } else {
+        console.log('📄 No file to clean up:', fileName);
+      }
+    } catch (error) {
+      console.error('❌ Failed to cleanup file:', error);
+    }
+  }
+
+  // Method to get download status and statistics
+  getDownloadStats(): any {
+    return {
+      downloadsPath: app.getPath('downloads'),
+      availableSpace: 'Unknown', // Would need native module for accurate disk space
+      lastDownload: 'Not available', // Could be stored in persistent storage
+      totalDownloads: 0 // Could be tracked in persistent storage
+    };
   }
 
   private getUpdateInstructions(version: string): string {
@@ -548,7 +687,7 @@ publish:
 
 3️⃣ Replace Application 🔄
    - Go to Downloads folder
-   - Find: Wowworks-AI-Tools-${version}.zip
+   - Find: Wowworks-AI.Tools-${version}.zip
    - Extract the ZIP file
    - Drag the new app to Applications folder
    - Replace the old version when prompted

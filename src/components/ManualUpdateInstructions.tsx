@@ -1,15 +1,8 @@
 import React from 'react';
-import { Modal, Typography, Steps, Space, Alert, Divider } from 'antd';
-import { 
-  DownloadOutlined, 
-  StopOutlined, 
-  SwapOutlined, 
-  RocketOutlined,
-  CheckCircleOutlined,
-  InfoCircleOutlined
-} from '@ant-design/icons';
+import { Modal, Typography, Space, Button, Divider, Alert } from 'antd';
+import { DownloadOutlined, InfoCircleOutlined, CheckCircleOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
 
-const { Title, Text, Paragraph } = Typography;
+const { Text, Title, Paragraph } = Typography;
 
 interface ManualUpdateInstructionsProps {
   visible: boolean;
@@ -26,164 +19,156 @@ const ManualUpdateInstructions: React.FC<ManualUpdateInstructionsProps> = ({
   fileName,
   filePath,
 }) => {
-  const steps = [
-    {
-      title: 'Download Complete',
-      description: 'Update file saved to Downloads',
-      icon: <DownloadOutlined style={{ color: '#52c41a' }} />,
-      content: (
-        <div>
-          <Alert
-            message="Download Successful!"
-            description={`File: ${fileName}\nLocation: ${filePath}`}
-            type="success"
-            showIcon
-            style={{ marginBottom: 16 }}
-          />
-          <Text>Your update has been downloaded to the Downloads folder.</Text>
-        </div>
-      ),
-    },
-    {
-      title: 'Quit Current App',
-      description: 'Close Wowworks AI Tools completely',
-      icon: <StopOutlined style={{ color: '#fa8c16' }} />,
-      content: (
-        <div>
-          <Alert
-            message="Important: Quit Completely"
-            description="Make sure the app is not running in the background"
-            type="warning"
-            showIcon
-            style={{ marginBottom: 16 }}
-          />
-          <Text>
-            • Close Wowworks AI Tools completely<br/>
-            • Check Dock for any running instances<br/>
-            • Use Force Quit if necessary (⌘+Option+Esc)
-          </Text>
-        </div>
-      ),
-    },
-    {
-      title: 'Replace Application',
-      description: 'Extract and replace the old version',
-      icon: <SwapOutlined style={{ color: '#1890ff' }} />,
-      content: (
-        <div>
-          <Alert
-            message="Replace Application"
-            description="Drag the new version to Applications folder"
-            type="info"
-            showIcon
-            style={{ marginBottom: 16 }}
-          />
-          <Text>
-            1. Go to Downloads folder<br/>
-            2. Find: <strong>{fileName}</strong><br/>
-            3. Double-click to extract the ZIP file<br/>
-            4. Drag the extracted app to Applications folder<br/>
-            5. Replace the old version when prompted
-          </Text>
-        </div>
-      ),
-    },
-    {
-      title: 'Launch New Version',
-      description: 'Open and verify the update',
-      icon: <RocketOutlined style={{ color: '#722ed1' }} />,
-      content: (
-        <div>
-          <Alert
-            message="Launch New Version"
-            description="Open from Applications and verify the update"
-            type="success"
-            showIcon
-            style={{ marginBottom: 16 }}
-          />
-          <Text>
-            • Open the new version from Applications folder<br/>
-            • Verify the version shows <strong>v{version}</strong><br/>
-            • Your data will be preserved<br/>
-            • You can delete the old version after confirming it works
-          </Text>
-        </div>
-      ),
-    },
-  ];
+  const handleClose = () => {
+    onClose();
+  };
 
   return (
     <Modal
       title={
         <Space>
-          <CheckCircleOutlined style={{ color: '#52c41a' }} />
+          <DownloadOutlined style={{ color: '#52c41a' }} />
           <span>Manual Update Instructions</span>
-          <Text type="secondary">v{version}</Text>
         </Space>
       }
       open={visible}
-      onCancel={onClose}
-      footer={null}
+      onCancel={handleClose}
+      footer={[
+        <Button key="close" onClick={handleClose}>
+          Got It
+        </Button>
+      ]}
       width={700}
       centered
     >
       <Space direction="vertical" style={{ width: '100%' }} size="large">
+        {/* Success Alert */}
         <Alert
-          message="Why Manual Update?"
-          description="This method bypasses auto-update issues and gives you full control over the update process."
-          type="info"
+          message="Download Complete!"
+          description={`Update package v${version} has been downloaded to your Downloads folder.`}
+          type="success"
           showIcon
+          icon={<CheckCircleOutlined />}
         />
 
-        <Steps
-          direction="vertical"
-          current={0}
-          items={steps}
-          style={{ marginTop: 24 }}
-        />
-
-        <Divider />
-
-        <div style={{ 
-          padding: 16, 
-          backgroundColor: '#f6ffed', 
+        {/* File Information */}
+        <div style={{
+          padding: 16,
+          backgroundColor: '#f6ffed',
           borderRadius: 6,
           border: '1px solid #b7eb8f'
         }}>
-          <Space>
-            <InfoCircleOutlined style={{ color: '#52c41a' }} />
-            <div>
-              <Text strong>Benefits of Manual Update:</Text>
-              <br />
-              <Text type="secondary">
-                • No code signature validation errors<br/>
-                • Full control over the update process<br/>
-                • Can verify the file before installation<br/>
-                • Works even if auto-updater has issues
-              </Text>
+          <Space direction="vertical" size="small" style={{ width: '100%' }}>
+            <Text strong>Downloaded File:</Text>
+            <Text code>{fileName}</Text>
+            <Text type="secondary">Location: Downloads folder</Text>
+          </Space>
+        </div>
+
+        {/* Step-by-Step Instructions */}
+        <div>
+          <Title level={4}>📱 Manual Update Steps</Title>
+          
+          <Space direction="vertical" size="large" style={{ width: '100%' }}>
+            {/* Step 1 */}
+            <div style={{
+              padding: 16,
+              backgroundColor: '#fff7e6',
+              borderRadius: 6,
+              border: '1px solid #ffd591'
+            }}>
+              <Space direction="vertical" size="small" style={{ width: '100%' }}>
+                <Text strong style={{ color: '#d46b08' }}>
+                  1️⃣ Quit Current Application
+                </Text>
+                <Text>• Close Wowworks AI Tools completely</Text>
+                <Text>• Make sure it's not running in the background</Text>
+                <Text>• Check Activity Monitor if needed</Text>
+              </Space>
+            </div>
+
+            {/* Step 2 */}
+            <div style={{
+              padding: 16,
+              backgroundColor: '#f6ffed',
+              borderRadius: 6,
+              border: '1px solid #b7eb8f'
+            }}>
+              <Space direction="vertical" size="small" style={{ width: '100%' }}>
+                <Text strong style={{ color: '#389e0d' }}>
+                  2️⃣ Extract Update Package
+                </Text>
+                <Text>• Go to Downloads folder</Text>
+                <Text>• Find: <Text code>{fileName}</Text></Text>
+                <Text>• Double-click to extract the ZIP file</Text>
+                <Text>• You'll get a new app folder</Text>
+              </Space>
+            </div>
+
+            {/* Step 3 */}
+            <div style={{
+              padding: 16,
+              backgroundColor: '#e6f7ff',
+              borderRadius: 6,
+              border: '1px solid #91d5ff'
+            }}>
+              <Space direction="vertical" size="small" style={{ width: '100%' }}>
+                <Text strong style={{ color: '#096dd9' }}>
+                  3️⃣ Replace Application
+                </Text>
+                <Text>• Drag the new app to Applications folder</Text>
+                <Text>• Replace the old version when prompted</Text>
+                <Text>• Enter your password if asked</Text>
+                <Text>• Wait for the copy to complete</Text>
+              </Space>
+            </div>
+
+            {/* Step 4 */}
+            <div style={{
+              padding: 16,
+              backgroundColor: '#fff0f6',
+              borderRadius: 6,
+              border: '1px solid #ffadd2'
+            }}>
+              <Space direction="vertical" size="small" style={{ width: '100%' }}>
+                <Text strong style={{ color: '#c41d7f' }}>
+                  4️⃣ Launch New Version
+                </Text>
+                <Text>• Open the new version from Applications</Text>
+                <Text>• Verify the version shows v{version}</Text>
+                <Text>• Your data and settings will be preserved</Text>
+                <Text>• Delete the old version after confirming it works</Text>
+              </Space>
             </div>
           </Space>
         </div>
 
-        <div style={{ 
-          padding: 16, 
-          backgroundColor: '#fff2e8', 
-          borderRadius: 6,
-          border: '1px solid #ffbb96'
-        }}>
-          <Space>
-            <InfoCircleOutlined style={{ color: '#fa8c16' }} />
-            <div>
-              <Text strong>Need Help?</Text>
-              <br />
-              <Text type="secondary">
-                If you encounter any issues during the manual update process,<br/>
-                you can always download the latest version directly from:<br/>
-                <a href="https://github.com/FZGYABDRHW/ai-tools/releases" target="_blank" rel="noopener noreferrer">
-                  GitHub Releases
-                </a>
-              </Text>
-            </div>
+        {/* Important Notes */}
+        <Divider />
+        <div>
+          <Title level={5}>
+            <ExclamationCircleOutlined style={{ color: '#faad14', marginRight: 8 }} />
+            Important Notes
+          </Title>
+          <Space direction="vertical" size="small">
+            <Text>• This method bypasses code signing requirements</Text>
+            <Text>• Your data and preferences will be preserved</Text>
+            <Text>• The old version will remain until you delete it</Text>
+            <Text>• If you encounter issues, you can revert to the old version</Text>
+          </Space>
+        </div>
+
+        {/* Troubleshooting */}
+        <div>
+          <Title level={5}>
+            <InfoCircleOutlined style={{ color: '#1890ff', marginRight: 8 }} />
+            Troubleshooting
+          </Title>
+          <Space direction="vertical" size="small">
+            <Text>• If the app won't open, check Gatekeeper settings</Text>
+            <Text>• Right-click the app → "Open" to bypass security</Text>
+            <Text>• Make sure you have sufficient disk space</Text>
+            <Text>• Contact support if you encounter persistent issues</Text>
           </Space>
         </div>
       </Space>

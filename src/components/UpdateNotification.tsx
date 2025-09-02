@@ -20,7 +20,6 @@ interface UpdateNotificationProps {
   visible: boolean;
   onClose: () => void;
   updateInfo?: UpdateInfo;
-  onUpdate: () => void;
   downloading?: boolean;
   downloadProgress?: number;
   currentVersion?: string;
@@ -30,7 +29,6 @@ const UpdateNotification: React.FC<UpdateNotificationProps> = ({
   visible,
   onClose,
   updateInfo,
-  onUpdate,
   downloading = false,
   downloadProgress = 0,
   currentVersion,
@@ -38,17 +36,8 @@ const UpdateNotification: React.FC<UpdateNotificationProps> = ({
   const [installing, setInstalling] = useState(false);
   const [showManualInstructions, setShowManualInstructions] = useState(false);
   const [manualUpdateInfo, setManualUpdateInfo] = useState<any>(null);
-
-  const handleUpdate = async () => {
-    try {
-      setInstalling(true);
-      await onUpdate();
-      message.success('Update downloaded! The app will restart to install the update.');
-    } catch (error) {
-      message.error('Failed to download update. Please try again.');
-      setInstalling(false);
-    }
-  };
+  const [downloadingToDisk, setDownloadingToDisk] = useState(false);
+  const [diskDownloadProgress, setDiskDownloadProgress] = useState(0);
 
   const handleDownloadToDisk = async () => {
     try {
@@ -57,7 +46,23 @@ const UpdateNotification: React.FC<UpdateNotificationProps> = ({
         return;
       }
 
-      setInstalling(true);
+      setDownloadingToDisk(true);
+      setDiskDownloadProgress(0);
+      
+      // Set up progress listener for disk download
+      const progressHandler = (status: any) => {
+        if (status.status === 'download-progress' && status.data) {
+          setDiskDownloadProgress(status.data.percent || 0);
+        } else if (status.status === 'download-complete') {
+          setDiskDownloadProgress(100);
+        }
+      };
+
+      // Listen for progress updates
+      if (window.electronAPI.onAutoUpdaterStatus) {
+        window.electronAPI.onAutoUpdaterStatus(progressHandler);
+      }
+
       const result = await window.electronAPI.downloadToDisk({
         version: updateInfo.version,
         releaseDate: updateInfo.releaseDate,
@@ -75,7 +80,13 @@ const UpdateNotification: React.FC<UpdateNotificationProps> = ({
       console.error('Download to disk error:', error);
       message.error('Failed to download update to disk. Please try again.');
     } finally {
-      setInstalling(false);
+      setDownloadingToDisk(false);
+      setDiskDownloadProgress(0);
+      
+      // Remove progress listener
+      if (window.electronAPI.removeAllListeners) {
+        window.electronAPI.removeAllListeners('auto-updater:status');
+      }
     }
   };
 
@@ -173,6 +184,22 @@ const UpdateNotification: React.FC<UpdateNotificationProps> = ({
             </div>
           )}
 
+          {downloadingToDisk && (
+            <div>
+              <Space direction="vertical" style={{ width: '100%' }}>
+                <Text>Downloading to disk...</Text>
+                <Progress 
+                  percent={Math.round(diskDownloadProgress)} 
+                  status="active"
+                  strokeColor="#52c41a"
+                />
+                <Text type="secondary">
+                  {Math.round(diskDownloadProgress)}% complete
+                </Text>
+              </Space>
+            </div>
+          )}
+
           <div style={{ 
             padding: 12, 
             backgroundColor: '#f6ffed', 
@@ -202,26 +229,16 @@ const UpdateNotification: React.FC<UpdateNotificationProps> = ({
           </div>
 
           <Space style={{ width: '100%', justifyContent: 'flex-end' }}>
-            {!downloading && !installing && (
-              <>
-                <Button 
-                  type="primary" 
-                  icon={<DownloadOutlined />}
-                  onClick={handleUpdate}
-                  size="large"
-                >
-                  Download Update
-                </Button>
-                <Button 
-                  type="default" 
-                  icon={<DownloadOutlined />}
-                  onClick={handleDownloadToDisk}
-                  size="large"
-                  style={{ marginRight: 8 }}
-                >
-                  Download to Disk
-                </Button>
-              </>
+            {!downloading && !installing && !downloadingToDisk && (
+              <Button 
+                type="default" 
+                icon={<DownloadOutlined />}
+                onClick={handleDownloadToDisk}
+                size="large"
+                style={{ marginRight: 8 }}
+              >
+                Download to Disk
+              </Button>
             )}
             
             {downloading && downloadProgress === 100 && (
@@ -236,7 +253,7 @@ const UpdateNotification: React.FC<UpdateNotificationProps> = ({
             )}
             
             <Button onClick={onClose} size="large">
-              {downloading ? 'Cancel' : 'Remind Me Later'}
+              {downloading || downloadingToDisk ? 'Cancel' : 'Remind Me Later'}
             </Button>
           </Space>
         </Space>

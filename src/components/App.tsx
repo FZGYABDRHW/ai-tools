@@ -83,16 +83,6 @@ const App: React.FC = () => {
         };
     }, []);
 
-    const handleUpdate = async () => {
-        try {
-            setDownloading(true);
-            await window.electronAPI.downloadUpdate();
-        } catch (error) {
-            setDownloading(false);
-            throw error;
-        }
-    };
-
     // Show loading screen while initializing
     if (isInitializing) {
         return (
@@ -180,7 +170,6 @@ const App: React.FC = () => {
                 visible={updateVisible}
                 onClose={() => setUpdateVisible(false)}
                 updateInfo={updateInfo}
-                onUpdate={handleUpdate}
                 downloading={downloading}
                 downloadProgress={downloadProgress}
                 currentVersion={currentVersion}

@@ -158,6 +158,35 @@ const VersionDisplay: React.FC<VersionDisplayProps> = ({
     }
   };
 
+  const handleDownloadLatestVersion = async () => {
+    console.log('📥 VersionDisplay: Download latest version button clicked!');
+    console.log('📥 VersionDisplay: window.electronAPI available?', !!window.electronAPI);
+    
+    if (!window.electronAPI) {
+      console.error('❌ VersionDisplay: electronAPI not available!');
+      message.error('Electron API not available');
+      return;
+    }
+    
+    try {
+      console.log('📥 VersionDisplay: Calling downloadLatestVersion...');
+      setCheckingForUpdates(true);
+      const result = await window.electronAPI.downloadLatestVersion();
+      console.log('📥 VersionDisplay: downloadLatestVersion result:', result);
+      
+      if (result.updateAvailable) {
+        message.success(result.message);
+      } else {
+        message.info(result.message);
+      }
+    } catch (error) {
+      console.error('❌ VersionDisplay: Error downloading latest version:', error);
+      message.error('Failed to download latest version: ' + (error as any)?.message || 'Unknown error');
+    } finally {
+      setCheckingForUpdates(false);
+    }
+  };
+
   // Context menu items for update options
   const updateMenuItems: MenuProps['items'] = [
     {
@@ -177,6 +206,12 @@ const VersionDisplay: React.FC<VersionDisplayProps> = ({
       label: 'Test IPC Communication',
       icon: <InfoCircleOutlined />,
       onClick: handleTestIpc,
+    },
+    {
+      key: 'download-latest',
+      label: 'Download Latest Version',
+      icon: <DownloadOutlined />,
+      onClick: handleDownloadLatestVersion,
     },
     {
       key: 'debug',
@@ -202,13 +237,18 @@ const VersionDisplay: React.FC<VersionDisplayProps> = ({
         padding: '4px 8px',
         borderRadius: '4px',
         backgroundColor: 'rgba(255, 140, 105, 0.1)',
-        border: '1px solid rgba(255, 140, 105, 0.3)'
+        border: '1px solid rgba(255, 140, 105, 0.3)',
+        width: '130px',
+        flexShrink: 0,
+        flexGrow: 0,
+        boxSizing: 'border-box',
+        overflow: 'hidden'
       }}>
         <Text type="secondary" style={{ fontSize: '12px', color: '#ff8c69', fontWeight: 500 }}>
           v{currentVersion}
         </Text>
         {showUpdateButton && (
-          <Space>
+          <div style={{ display: 'flex', gap: '4px' }}>
             <Tooltip title="Check for updates">
               <Button
                 type="text"
@@ -237,7 +277,7 @@ const VersionDisplay: React.FC<VersionDisplayProps> = ({
                 }}
               />
             </Dropdown>
-          </Space>
+          </div>
         )}
       </div>
     );

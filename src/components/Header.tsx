@@ -51,7 +51,9 @@ const AppHeader: React.FC = () => {
                 />
                 
                 {/* Version Display */}
-                <VersionDisplay compact />
+                <div style={{ width: '130px', flexShrink: 0, flexGrow: 0 }}>
+                    <VersionDisplay compact />
+                </div>
             </div>
             
             <div style={{ 

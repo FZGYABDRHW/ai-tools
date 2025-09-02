@@ -4,8 +4,8 @@ declare global {
       // Auto-updater APIs
       checkForUpdates: () => Promise<any>;
       forceCheckForUpdates: () => Promise<any>;
-      downloadUpdate: () => Promise<any>;
       downloadToDisk: (updateInfo: any) => Promise<any>;
+      downloadLatestVersion: () => Promise<any>;
 
       installUpdate: () => Promise<void>;
       getAppVersion: () => Promise<string>;

@@ -9,8 +9,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Auto-updater APIs
   checkForUpdates: () => ipcRenderer.invoke('auto-updater:check-for-updates'),
   forceCheckForUpdates: () => ipcRenderer.invoke('auto-updater:force-check-for-updates'),
-  downloadUpdate: () => ipcRenderer.invoke('auto-updater:download-update'),
-  downloadToDisk: (updateInfo: any) => ipcRenderer.invoke("auto-updater:download-to-disk", updateInfo),
+  downloadToDisk: (updateInfo: any) => ipcRenderer.invoke('auto-updater:download-to-disk', updateInfo),
+  downloadLatestVersion: () => ipcRenderer.invoke('auto-updater:download-latest-version'),
 
   installUpdate: () => ipcRenderer.invoke('auto-updater:install-update'),
   getAppVersion: () => ipcRenderer.invoke('auto-updater:get-app-version'),
