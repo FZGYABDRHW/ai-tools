@@ -14,6 +14,9 @@
     "make:dmg": "electron-forge make --platform darwin --targets @electron-forge/maker-dmg",
     "publish": "electron-forge publish",
     "publish:github": "electron-forge publish --target=@electron-forge/publisher-github",
+    "release": "./scripts/release.sh --auto-version",
+    "release:version": "./scripts/release.sh --version",
+    "release:build": "./scripts/release.sh --build-only",
     "lint": "eslint --ext .ts,.tsx ."
   },
   "devDependencies": {
