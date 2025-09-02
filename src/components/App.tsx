@@ -10,6 +10,7 @@ import TaskAuthForm from './TaskAuthForm';
 import CustomOperationalReport from './CustomOperationalReport';
 import ReportsPage from './ReportsPage';
 import ReportLogsPage from './ReportLogsPage';
+import SettingsScreen from './SettingsScreen';
 import LoginScreen from './LoginScreen';
 import UpdateNotification from './UpdateNotification';
 import VersionDisplay from './VersionDisplay';
@@ -157,6 +158,7 @@ const App: React.FC = () => {
                                     <Route path="/reports" element={<ReportsPage />} />
                                     <Route path="/report-logs" element={<ReportLogsPage />} />
                                     <Route path="/custom-report" element={<CustomOperationalReport />} />
+                                    <Route path="/settings" element={<SettingsScreen />} />
                                     <Route path="*" element={<TaskAuthForm />} />
                                 </Routes>
                             </Content>

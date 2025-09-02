@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { 
-    Card, 
     Table, 
     Button, 
     Input, 
@@ -12,8 +11,7 @@ import {
     Typography, 
     Tag,
     Tooltip,
-    Dropdown,
-    Menu
+    Alert
 } from 'antd';
 import { 
     PlusOutlined, 
@@ -25,7 +23,8 @@ import {
     EditOutlined,
     PauseCircleOutlined,
     CheckCircleOutlined,
-    ReloadOutlined
+    ReloadOutlined,
+    SettingOutlined
 } from '@ant-design/icons';
 import { Report } from '../types';
 import { reportService } from '../services/reportService';
@@ -33,6 +32,7 @@ import { reportGenerationService } from '../services/reportGenerationService';
 import { reportCheckpointService } from '../services/reportCheckpointService';
 import { useNavigate } from 'react-router-dom';
 import ResumableReportsModal from './ResumableReportsModal';
+import { settingsService } from '../services/settingsService';
 
 const { Text, Title } = Typography;
 const { Search } = Input;
@@ -433,14 +433,20 @@ const ReportsPage: React.FC = () => {
                     <Space>
                         {/* Ready state - only start generation */}
                         {status === 'ready' && (
-                            <Button
-                                type="primary"
-                                size="small"
-                                icon={<PlayCircleOutlined />}
-                                onClick={() => handleOpenReport(record)}
+                            <Tooltip 
+                                title={!settingsService.hasValidOpenAIKey() ? "Configure OpenAI API key in Settings to start generation" : ""}
+                                placement="bottom"
                             >
-                                Start Generation
-                            </Button>
+                                <Button
+                                    type="primary"
+                                    size="small"
+                                    icon={<PlayCircleOutlined />}
+                                    onClick={() => handleOpenReport(record)}
+                                    disabled={!settingsService.hasValidOpenAIKey()}
+                                >
+                                    Start Generation
+                                </Button>
+                            </Tooltip>
                         )}
                         
                         {/* In Progress state - can pause or complete */}
@@ -476,14 +482,20 @@ const ReportsPage: React.FC = () => {
                         {/* Paused state - can resume or reset */}
                         {status === 'paused' && (
                             <>
-                                <Button
-                                    type="default"
-                                    size="small"
-                                    icon={<PlayCircleOutlined />}
-                                    onClick={() => handleOpenReport(record)}
+                                <Tooltip 
+                                    title={!settingsService.hasValidOpenAIKey() ? "Configure OpenAI API key in Settings to resume generation" : ""}
+                                    placement="bottom"
                                 >
-                                    Resume
-                                </Button>
+                                    <Button
+                                        type="default"
+                                        size="small"
+                                        icon={<PlayCircleOutlined />}
+                                        onClick={() => handleOpenReport(record)}
+                                        disabled={!settingsService.hasValidOpenAIKey()}
+                                    >
+                                        Resume
+                                    </Button>
+                                </Tooltip>
                                 <Button
                                     type="default"
                                     size="small"
@@ -497,26 +509,38 @@ const ReportsPage: React.FC = () => {
                         
                         {/* Completed state - can rerun */}
                         {status === 'completed' && (
-                            <Button
-                                type="default"
-                                size="small"
-                                icon={<ReloadOutlined />}
-                                onClick={() => handleRerunFromCompleted(record.id)}
+                            <Tooltip 
+                                title={!settingsService.hasValidOpenAIKey() ? "Configure OpenAI API key in Settings to rerun generation" : ""}
+                                placement="bottom"
                             >
-                                Rerun
-                            </Button>
+                                <Button
+                                    type="default"
+                                    size="small"
+                                    icon={<ReloadOutlined />}
+                                    onClick={() => handleRerunFromCompleted(record.id)}
+                                    disabled={!settingsService.hasValidOpenAIKey()}
+                                >
+                                    Rerun
+                                </Button>
+                            </Tooltip>
                         )}
                         
                         {/* Failed state - can restart */}
                         {status === 'failed' && (
-                            <Button
-                                type="default"
-                                size="small"
-                                icon={<ReloadOutlined />}
-                                onClick={() => handleRestartFromFailed(record.id)}
+                            <Tooltip 
+                                title={!settingsService.hasValidOpenAIKey() ? "Configure OpenAI API key in Settings to restart generation" : ""}
+                                placement="bottom"
                             >
-                                Restart
-                            </Button>
+                                <Button
+                                    type="default"
+                                    size="small"
+                                    icon={<ReloadOutlined />}
+                                    onClick={() => handleRestartFromFailed(record.id)}
+                                    disabled={!settingsService.hasValidOpenAIKey()}
+                                >
+                                    Restart
+                                </Button>
+                            </Tooltip>
                         )}
                         
                         {/* Common actions for all states */}
@@ -603,38 +627,75 @@ const ReportsPage: React.FC = () => {
                         {(() => {
                             const resumableCount = reportCheckpointService.getResumableCheckpoints().length;
                             return resumableCount > 0 ? (
-                                <Button 
-                                    type="default"
-                                    icon={<PlayCircleOutlined />}
-                                    onClick={() => setIsResumableModalVisible(true)}
-                                    style={{
-                                        background: 'rgba(255, 255, 255, 0.2)',
-                                        border: '1px solid rgba(255, 255, 255, 0.3)',
-                                        color: '#fff',
-                                        fontWeight: 600,
-                                        flexShrink: 0
-                                    }}
+                                <Tooltip 
+                                    title={!settingsService.hasValidOpenAIKey() ? "Configure OpenAI API key in Settings to resume reports" : ""}
+                                    placement="bottom"
                                 >
-                                    Resume ({resumableCount})
-                                </Button>
+                                    <Button 
+                                        type="default"
+                                        icon={<PlayCircleOutlined />}
+                                        onClick={() => setIsResumableModalVisible(true)}
+                                        disabled={!settingsService.hasValidOpenAIKey()}
+                                        style={{
+                                            background: 'rgba(255, 255, 255, 0.2)',
+                                            border: '1px solid rgba(255, 255, 255, 0.3)',
+                                            color: '#fff',
+                                            fontWeight: 600,
+                                            flexShrink: 0
+                                        }}
+                                    >
+                                        Resume ({resumableCount})
+                                    </Button>
+                                </Tooltip>
                             ) : null;
                         })()}
-                    <Button 
-                        type="default"
-                        icon={<PlusOutlined />}
-                        onClick={() => setIsCreateModalVisible(true)}
-                        style={{
-                            background: 'rgba(255, 255, 255, 0.2)',
-                            border: '1px solid rgba(255, 255, 255, 0.3)',
-                            color: '#fff',
-                            fontWeight: 600,
-                            flexShrink: 0
-                        }}
+                    <Tooltip 
+                        title={!settingsService.hasValidOpenAIKey() ? "Configure OpenAI API key in Settings to create reports" : ""}
+                        placement="bottom"
                     >
-                        New Report
-                    </Button>
+                        <Button 
+                            type="default"
+                            icon={<PlusOutlined />}
+                            onClick={() => setIsCreateModalVisible(true)}
+                            disabled={!settingsService.hasValidOpenAIKey()}
+                            style={{
+                                background: 'rgba(255, 255, 255, 0.2)',
+                                border: '1px solid rgba(255, 255, 255, 0.3)',
+                                color: '#fff',
+                                fontWeight: 600,
+                                flexShrink: 0
+                            }}
+                        >
+                            New Report
+                        </Button>
+                    </Tooltip>
                     </Space>
                 </div>
+                
+                {/* API Key Check */}
+                {!settingsService.hasValidOpenAIKey() && (
+                    <div style={{ padding: '0 20px', marginTop: '16px' }}>
+                        <Alert
+                            message="OpenAI API Key Required"
+                            description={
+                                <span>
+                                    You need to configure your OpenAI API key to use the AI report generation features. 
+                                    <Button 
+                                        type="link" 
+                                        icon={<SettingOutlined />}
+                                        style={{ padding: 0, height: 'auto', marginLeft: 8 }}
+                                        onClick={() => window.location.hash = '#/settings'}
+                                    >
+                                        Go to Settings
+                                    </Button>
+                                </span>
+                            }
+                            type="warning"
+                            showIcon
+                            style={{ marginBottom: '16px' }}
+                        />
+                    </div>
+                )}
                 
                 {/* Content */}
                 <div style={{ padding: '20px', width: '100%', boxSizing: 'border-box' }}>
@@ -689,6 +750,28 @@ const ReportsPage: React.FC = () => {
                 footer={null}
                 width={400}
             >
+                {!settingsService.hasValidOpenAIKey() && (
+                    <Alert
+                        message="OpenAI API Key Required"
+                        description="You need to configure your OpenAI API key to create and generate reports."
+                        type="warning"
+                        showIcon
+                        style={{ marginBottom: '16px' }}
+                        action={
+                            <Button 
+                                type="link" 
+                                size="small"
+                                icon={<SettingOutlined />}
+                                onClick={() => {
+                                    setIsCreateModalVisible(false);
+                                    window.location.hash = '#/settings';
+                                }}
+                            >
+                                Go to Settings
+                            </Button>
+                        }
+                    />
+                )}
                 <Form
                     form={form}
                     layout="vertical"
@@ -709,7 +792,11 @@ const ReportsPage: React.FC = () => {
                             }}>
                                 Cancel
                             </Button>
-                            <Button type="primary" htmlType="submit">
+                            <Button 
+                                type="primary" 
+                                htmlType="submit"
+                                disabled={!settingsService.hasValidOpenAIKey()}
+                            >
                                 Create Report
                             </Button>
                         </Space>

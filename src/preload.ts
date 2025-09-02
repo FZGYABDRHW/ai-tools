@@ -16,6 +16,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getAppVersion: () => ipcRenderer.invoke('auto-updater:get-app-version'),
   testIpc: () => ipcRenderer.invoke('auto-updater:test-ipc'),
   
+  // Settings APIs
+  loadSettings: () => ipcRenderer.invoke('settings:load'),
+  saveSettings: (settings: any) => ipcRenderer.invoke('settings:save', settings),
+  
   // Auto-updater event listeners
   onAutoUpdaterStatus: (callback: (status: any) => void) => {
     ipcRenderer.on('auto-updater:status', (_, status) => callback(status));

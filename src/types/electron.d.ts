@@ -11,6 +11,10 @@ declare global {
       getAppVersion: () => Promise<string>;
       testIpc: () => Promise<any>;
       
+      // Settings APIs
+      loadSettings: () => Promise<any>;
+      saveSettings: (settings: any) => Promise<void>;
+      
       // Auto-updater event listeners
       onAutoUpdaterStatus: (callback: (status: any) => void) => void;
       onAutoUpdaterShowUpdateDialog: (callback: (info: any) => void) => void;

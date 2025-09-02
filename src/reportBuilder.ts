@@ -3,6 +3,7 @@ import { ServiceInitializer } from './serviceInit';
 import OpenAI from 'openai';
 import { filter, mergeMap } from 'rxjs/operators';
 import { TaskListParameters } from './services/parameterExtractionService';
+import { settingsService } from './services/settingsService';
 
 // Helper to trigger a file download in a browser/Electron renderer
 function downloadCsv(csvContent: string, filename = 'report.csv') {
@@ -53,7 +54,13 @@ export async function buildReport(
   };
 }> {
 
-  const openai = new OpenAI({dangerouslyAllowBrowser: true, apiKey: "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"});
+  // Get OpenAI API key from settings
+  const apiKey = settingsService.getOpenAIKey();
+  if (!apiKey) {
+    throw new Error('OpenAI API key not configured. Please go to Settings and configure your API key.');
+  }
+  
+  const openai = new OpenAI({dangerouslyAllowBrowser: true, apiKey });
 
   // 0) Extract parameters from the prompt using OpenAI if not provided
   let extractedParameters = parameters;

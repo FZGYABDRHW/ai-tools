@@ -1,7 +1,7 @@
 import React, { useContext } from 'react';
 import { Layout, Menu, Typography } from 'antd';
 import { Link, useLocation } from 'react-router-dom';
-import { FileTextOutlined, BarChartOutlined, UnorderedListOutlined } from '@ant-design/icons';
+import { FileTextOutlined, BarChartOutlined, UnorderedListOutlined, SettingOutlined } from '@ant-design/icons';
 import { SidebarContext } from '../contexts/SidebarContext';
 import logo from '../logo.png';
 
@@ -27,6 +27,11 @@ const Navigation: React.FC = () => {
             key: '/report-logs',
             icon: <FileTextOutlined />,
             label: <Link to="/report-logs">Report Logs</Link>,
+        },
+        {
+            key: '/settings',
+            icon: <SettingOutlined />,
+            label: <Link to="/settings">Settings</Link>,
         },
     ];
 

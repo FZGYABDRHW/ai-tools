@@ -1,11 +1,11 @@
 import React, { useEffect, useState, useContext } from 'react';
-import { Card, Typography, Form, Input, Button, Space, Divider, message, Layout } from 'antd';
-import { FileTextOutlined, CopyOutlined, LoadingOutlined } from '@ant-design/icons';
+import { Card, Typography, Form, Input, Button, Space, Divider, message, Layout, Alert } from 'antd';
+import { FileTextOutlined, CopyOutlined, LoadingOutlined, SettingOutlined } from '@ant-design/icons';
 import { AuthContext } from '../contexts/AuthContext';
 import builder from '../builder';
+import { settingsService } from '../services/settingsService';
 
 const { Title, Text } = Typography;
-const { Content } = Layout;
 
 const TaskAuthForm: React.FC = () => {
     const [taskId, setTaskId] = useState<string>(() => {
@@ -97,6 +97,29 @@ const TaskAuthForm: React.FC = () => {
                 
                 {/* Content */}
                 <div style={{ padding: '24px' }}>
+                    {/* API Key Check */}
+                    {!settingsService.hasValidOpenAIKey() && (
+                        <Alert
+                            message="OpenAI API Key Required"
+                            description={
+                                <span>
+                                    You need to configure your OpenAI API key to use the AI features. 
+                                    <Button 
+                                        type="link" 
+                                        icon={<SettingOutlined />}
+                                        style={{ padding: 0, height: 'auto', marginLeft: 8 }}
+                                        onClick={() => window.location.hash = '#/settings'}
+                                    >
+                                        Go to Settings
+                                    </Button>
+                                </span>
+                            }
+                            type="warning"
+                            showIcon
+                            style={{ marginBottom: '24px' }}
+                        />
+                    )}
+                    
                     <Title level={3} style={{ marginBottom: '24px' }}>
                         <FileTextOutlined style={{ marginRight: 8, color: '#ff8c69' }} />
                         AI Task Builder
@@ -123,7 +146,7 @@ const TaskAuthForm: React.FC = () => {
                             onClick={handleBuildPrompt}
                             loading={isLoading}
                             icon={isLoading ? <LoadingOutlined /> : <FileTextOutlined />}
-                            disabled={!taskId.trim() || !authToken.trim() || !user}
+                            disabled={!taskId.trim() || !authToken.trim() || !user || !settingsService.hasValidOpenAIKey()}
                         >
                             {isLoading ? 'Building...' : 'Build Text for Prompt'}
                         </Button>
