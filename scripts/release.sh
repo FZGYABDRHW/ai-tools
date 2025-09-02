@@ -299,6 +299,17 @@ main() {
     
     print_status "Starting release process for version $VERSION..."
     
+    # Update package.json version BEFORE building
+    print_status "Updating package.json version to $VERSION..."
+    npm version "$VERSION" --no-git-tag-version
+    
+    if [ $? -eq 0 ]; then
+        print_success "Package version updated to $VERSION"
+    else
+        print_error "Failed to update package version"
+        exit 1
+    fi
+    
     # Build the application
     build_app
     
@@ -315,6 +326,15 @@ main() {
     
     # Upload latest-mac.yml
     upload_latest_mac_yml "$VERSION"
+    
+    # Commit the version change
+    print_status "Committing version change to git..."
+    git add package.json package-lock.json
+    git commit -m "Bump version to $VERSION for release"
+    
+    # Create git tag
+    print_status "Creating git tag v$VERSION..."
+    git tag "v$VERSION"
     
     # Clean up
     cleanup
