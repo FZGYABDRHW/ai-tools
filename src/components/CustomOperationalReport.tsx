@@ -394,6 +394,7 @@ const CustomOperationalReport: React.FC = () => {
             await reportGenerationService.resumeGeneration(
                 reportId,
                 authToken,
+                selectedServer,
                 (progress) => {
                     // Progress callback - update UI in real-time
                     console.log('Resume progress callback received:', progress.results.length, 'results');
