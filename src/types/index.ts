@@ -6,11 +6,23 @@ export interface AuthContextType {
     isLoading: boolean;
     isInitializing: boolean;
     user: User | null;
+    selectedServer: ServerRegion;
+    setSelectedServer: (server: ServerRegion) => void;
+}
+
+export type ServerRegion = 'EU' | 'RU';
+
+export interface ServerConfig {
+    region: ServerRegion;
+    name: string;
+    baseURL: string;
+    flag: string;
 }
 
 export interface LoginCredentials {
     phone: string;
     password: string;
+    server?: ServerRegion;
 }
 
 export interface User {

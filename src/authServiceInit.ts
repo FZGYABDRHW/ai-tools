@@ -2,10 +2,14 @@ import {
     createInstance,
     CustomAxiosInstance,
 } from './api-client/src/axiosInstanceProxy';
+import { ServerRegion } from './types';
+import { getServerConfig } from './config/servers';
 
-export const buildAuthServiceInitializer = () => {
+export const buildAuthServiceInitializer = (serverRegion: ServerRegion = 'EU') => {
+    const serverConfig = getServerConfig(serverRegion);
+    
     const config = {
-        baseURL: 'https://api.eu.wowworks.org',
+        baseURL: serverConfig.baseURL,
     };
 
     const instance = createInstance(config);

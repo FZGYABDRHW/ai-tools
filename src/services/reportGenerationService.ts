@@ -216,6 +216,7 @@ class ReportGenerationService {
         reportId: string, 
         reportText: string, 
         authToken: string,
+        selectedServer: string = 'EU',
         onProgress?: (progress: any) => void,
         onComplete?: (result: any) => void,
         onError?: (error: any) => void,
@@ -271,13 +272,13 @@ class ReportGenerationService {
         }
 
         try {
-            const si = buildServiceInitializer(authToken);
+            const si = buildServiceInitializer(authToken, selectedServer as any);
             
             // Start the build process and get parameters immediately
             const result = await buildReport(
                 reportText,
                 si,
-                (taskId) => builder(taskId, authToken),
+                (taskId) => builder(taskId, authToken, selectedServer),
                 (progress) => {
                     // Merge new progress with existing data if resuming
                     let mergedProgress = progress;
@@ -474,6 +475,7 @@ class ReportGenerationService {
     async resumeGeneration(
         reportId: string,
         authToken: string,
+        selectedServer: string = 'EU',
         onProgress?: (progress: any) => void,
         onComplete?: (result: any) => void,
         onError?: (error: any) => void
@@ -512,6 +514,7 @@ class ReportGenerationService {
             reportId,
             checkpoint.prompt,
             authToken,
+            selectedServer,
             onProgress,
             onComplete,
             onError,

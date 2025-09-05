@@ -44,8 +44,8 @@ const buildEventsText = async (taskId: number, si: ServiceInitializer) => {
     return mergedData.map(eventToString).join('\n')
 };
 
-export default async (taskId: number, token: string): Promise<string> => {
-    const si = buildServiceInitializer(token);
+export default async (taskId: number, token: string, selectedServer: string = 'EU'): Promise<string> => {
+    const si = buildServiceInitializer(token, selectedServer as any);
     const {name, description, organizationId} = await si(TaskService).get(taskId);
     const {brand} = await si(OrganizationService).get(organizationId);
     const eventsText = await buildEventsText(taskId, si);

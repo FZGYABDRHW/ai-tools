@@ -1,20 +1,25 @@
 import React, { createContext, useState, useEffect, ReactNode } from 'react';
 import { message } from 'antd';
-import { AuthContextType, User } from '../types';
+import { AuthContextType, User, ServerRegion, LoginCredentials } from '../types';
 import { buildAuthServiceInitializer } from '../authServiceInit';
 import { buildServiceInitializer } from '../serviceInit';
 import { AuthService } from '../api-client/src/services/v4/user/auth';
-import { LoginCredentials } from '../types';
 import LogRocketService from '../services/logRocketService';
 
 export const AuthContext = createContext<AuthContextType>({
     authToken: '',
-    setAuthToken: () => {},
+    setAuthToken: () => {
+        // Default implementation
+    },
     login: async () => false,
     logout: async () => false,
     isLoading: false,
     isInitializing: true,
-    user: null
+    user: null,
+    selectedServer: 'EU',
+    setSelectedServer: () => {
+        // Default implementation
+    }
 });
 
 interface AuthProviderProps {
@@ -29,6 +34,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         const stored = localStorage.getItem('userId');
         return stored ? parseInt(stored, 10) : null;
     });
+    const [selectedServer, setSelectedServer] = useState<ServerRegion>(() => 
+        (localStorage.getItem('selectedServer') as ServerRegion) || 'EU'
+    );
     const [isLoading, setIsLoading] = useState<boolean>(false);
     const [isInitializing, setIsInitializing] = useState<boolean>(true);
     const [user, setUser] = useState<User | null>(null);
@@ -38,6 +46,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         console.log('AuthContext: authToken changed to:', authToken);
         localStorage.setItem('authToken', authToken);
     }, [authToken]);
+
+    // Effect to handle selectedServer changes
+    useEffect(() => {
+        console.log('AuthContext: selectedServer changed to:', selectedServer);
+        localStorage.setItem('selectedServer', selectedServer);
+    }, [selectedServer]);
 
     // Effect to initialize authentication state on app load
     useEffect(() => {
@@ -85,8 +99,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         if (!authToken || !userId) return;
         
         try {
-            console.log('AuthContext: Loading user profile for userId:', userId);
-            const si = buildServiceInitializer(authToken);
+            console.log('AuthContext: Loading user profile for userId:', userId, 'using server:', selectedServer);
+            const si = buildServiceInitializer(authToken, selectedServer);
             const authService = si(AuthService);
             const response = await authService.getUserProfile(userId);
             
@@ -154,7 +168,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const login = async (credentials: LoginCredentials): Promise<boolean> => {
         setIsLoading(true);
         try {
-            const authSi = buildAuthServiceInitializer();
+            // Use the server from credentials if provided, otherwise use the current selectedServer
+            const serverRegion = credentials.server || selectedServer;
+            
+            const authSi = buildAuthServiceInitializer(serverRegion);
             const authService = authSi(AuthService);
             const response = await authService.login(credentials);
             
@@ -202,7 +219,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
         setIsLoading(true);
         try {
-            const si = buildServiceInitializer(authToken);
+            const si = buildServiceInitializer(authToken, selectedServer);
             const authService = si(AuthService);
             await authService.logout();
             
@@ -244,7 +261,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             logout, 
             isLoading, 
             isInitializing, 
-            user 
+            user,
+            selectedServer,
+            setSelectedServer
         }}>
             {children}
         </AuthContext.Provider>

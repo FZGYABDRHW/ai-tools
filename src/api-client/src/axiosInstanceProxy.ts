@@ -8,6 +8,9 @@ export interface CustomAxiosInstance extends AxiosInstance {
 let axiosInstance: CustomAxiosInstance;
 let axiosInstanceConfig: AxiosRequestConfig;
 
+// Initialize the global instance with a default config
+axiosInstance = axios.create({});
+
 declare module 'axios' {
     export interface AxiosRequestConfig {
         silentMode?: boolean;

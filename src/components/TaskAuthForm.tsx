@@ -11,7 +11,7 @@ const TaskAuthForm: React.FC = () => {
     const [taskId, setTaskId] = useState<string>(() => {
         return localStorage.getItem('taskId') || '';
     });
-    const { authToken, user } = useContext(AuthContext);
+    const { authToken, user, selectedServer } = useContext(AuthContext);
     const [isLoading, setIsLoading] = useState<boolean>(false);
     const [promptText, setPromptText] = useState<string>('');
 
@@ -31,7 +31,7 @@ const TaskAuthForm: React.FC = () => {
 
         setIsLoading(true);
         try {
-            const prompt = await builder(Number(taskId), authToken);
+            const prompt = await builder(Number(taskId), authToken, selectedServer);
             setPromptText(prompt);
             message.success('Prompt built successfully!');
         } catch (error) {

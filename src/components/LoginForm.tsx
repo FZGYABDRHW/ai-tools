@@ -1,7 +1,9 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import { Form, Input, Button, Card, Typography, Space, message, Select } from 'antd';
 import { UserOutlined, LockOutlined, LogoutOutlined, GlobalOutlined } from '@ant-design/icons';
 import { AuthContext } from '../contexts/AuthContext';
+import ServerSelector from './ServerSelector';
+import { ServerRegion } from '../types';
 
 const { Title, Text } = Typography;
 
@@ -140,16 +142,27 @@ const AntPhoneInput = React.forwardRef<HTMLDivElement, {
 });
 
 const LoginForm: React.FC = () => {
-    const { authToken, login, logout, isLoading, user } = useContext(AuthContext);
+    const { authToken, login, logout, isLoading, user, selectedServer } = useContext(AuthContext);
     const [form] = Form.useForm();
+    const [currentServer, setCurrentServer] = useState<ServerRegion>(selectedServer);
+    
+    // Update currentServer when selectedServer changes
+    useEffect(() => {
+        setCurrentServer(selectedServer);
+    }, [selectedServer]);
 
     const handleLogin = async (values: { phone: string; password: string }) => {
         // Normalize phone number by removing all non-digit characters except the plus sign
         const normalizedPhone = values.phone.replace(/[^\d+]/g, '');
         console.log('Original phone:', values.phone);
         console.log('Normalized phone:', normalizedPhone);
+        console.log('Selected server:', selectedServer);
         
-        const success = await login({ ...values, phone: normalizedPhone });
+        const success = await login({ 
+            ...values, 
+            phone: normalizedPhone, 
+            server: currentServer 
+        });
         if (success) {
             form.resetFields();
         }
@@ -188,6 +201,7 @@ const LoginForm: React.FC = () => {
 
     return (
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <ServerSelector />
             <Form
                 form={form}
                 onFinish={handleLogin}

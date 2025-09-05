@@ -21,7 +21,7 @@ const { TextArea } = Input;
 const { Content } = Layout;
 
 const CustomOperationalReport: React.FC = () => {
-    const { authToken, user } = useContext(AuthContext);
+    const { authToken, user, selectedServer } = useContext(AuthContext);
     const { hideSidebar, showSidebar } = useContext(SidebarContext);
     const location = useLocation();
     const navigate = useNavigate();
@@ -271,6 +271,7 @@ const CustomOperationalReport: React.FC = () => {
                 reportId,
                 reportText, 
                 authToken,
+                selectedServer,
                 (progress) => {
                     // Progress callback - update UI in real-time
                     setTableData(progress);

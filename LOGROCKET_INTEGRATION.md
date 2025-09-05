@@ -259,3 +259,8 @@ For integration-specific issues:
 1. Review the service implementation in `src/services/logRocketService.ts`
 2. Check the configuration in `src/config/logRocket.config.ts`
 3. Verify the integration in `src/contexts/AuthContext.tsx`
+
+
+
+
+

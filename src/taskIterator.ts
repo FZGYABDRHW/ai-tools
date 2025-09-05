@@ -1,5 +1,5 @@
 // eslint-disable-next-line import/namespace
-import {buildServiceInitializer, ServiceInitializer} from "./serviceInit";
+import {ServiceInitializer} from "./serviceInit";
 import { CuratorListService } from './api-client/src/services/v2/curator/task/index';
 import { TaskListParameters } from './services/parameterExtractionService';
 

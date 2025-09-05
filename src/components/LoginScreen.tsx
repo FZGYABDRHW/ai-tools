@@ -1,7 +1,9 @@
-import React, { useContext, useState } from 'react';
+import React, { useContext, useState, useEffect } from 'react';
 import { Layout, Card, Form, Input, Button, Select } from 'antd';
 import { UserOutlined, LockOutlined } from '@ant-design/icons';
 import { AuthContext } from '../contexts/AuthContext';
+import ServerSelector from './ServerSelector';
+import { ServerRegion } from '../types';
 import logo from '../logo.png';
 import InputMask from 'react-input-mask';
 
@@ -237,8 +239,14 @@ const MultiCountryPhoneInput = ({ value, onChange, placeholder }: {
 };
 
 const LoginScreen: React.FC = () => {
-    const { login, isLoading } = useContext(AuthContext);
+    const { login, isLoading, selectedServer } = useContext(AuthContext);
     const [form] = Form.useForm();
+    const [currentServer, setCurrentServer] = useState<ServerRegion>(selectedServer);
+    
+    // Update currentServer when selectedServer changes
+    useEffect(() => {
+        setCurrentServer(selectedServer);
+    }, [selectedServer]);
     
     // Animation speed multiplier based on loading state
     const animationSpeed = isLoading ? 0.15 : 1; // 6.7x faster when loading
@@ -248,10 +256,13 @@ const LoginScreen: React.FC = () => {
     const handleLogin = async (values: { phone: string; password: string }) => {
         // Normalize phone number by removing all non-digit characters except the plus sign
         const normalizedPhone = values.phone.replace(/[^\d+]/g, '');
-        console.log('Original phone:', values.phone);
-        console.log('Normalized phone:', normalizedPhone);
         
-        const success = await login({ ...values, phone: normalizedPhone });
+        
+        const success = await login({ 
+            ...values, 
+            phone: normalizedPhone, 
+            server: currentServer 
+        });
         if (success) {
             form.resetFields();
         }
@@ -603,12 +614,16 @@ const LoginScreen: React.FC = () => {
                         layout="vertical"
                         size="large"
                     >
+                        <Form.Item label="Server Region" style={{ marginBottom: '20px' }}>
+                            <ServerSelector />
+                        </Form.Item>
+
                         <Form.Item
                             name="phone"
                             rules={[
                                 { required: true, message: 'Please enter your phone number' },
                                 { 
-                                    pattern: /^\+?[\d\s\-\(\)]+$/, 
+                                    pattern: /^\+?[\d\s\-()]+$/, 
                                     message: 'Please enter a valid phone number' 
                                 },
                                 {
