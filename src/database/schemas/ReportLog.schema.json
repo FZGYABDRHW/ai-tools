@@ -1,0 +1,39 @@
+{
+  "type": "object",
+  "required": ["id", "reportId", "reportName", "prompt", "generatedAt", "completedAt", "status", "totalTasks", "processedTasks", "tableData"],
+  "properties": {
+    "id": { "type": "string" },
+    "reportId": { "type": "string" },
+    "reportName": { "type": "string" },
+    "prompt": { "type": "string" },
+    "generatedAt": { "type": "string" },
+    "completedAt": { "type": "string" },
+    "status": { "type": "string", "enum": ["completed", "failed"] },
+    "totalTasks": { "type": "number" },
+    "processedTasks": { "type": "number" },
+    "tableData": {
+      "type": "object",
+      "properties": {
+        "columns": { "type": "array", "items": { "type": "string" } },
+        "results": { "type": "array", "items": { "type": "object" } },
+        "csv": { "type": "string" }
+      }
+    },
+    "extractedParameters": {
+      "type": "object",
+      "properties": {
+        "parameters": { "type": "object" },
+        "humanReadable": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "duration": { "type": "number" },
+        "errorMessage": { "type": "string" },
+        "userAgent": { "type": "string" },
+        "version": { "type": "string" }
+      }
+    }
+  }
+}

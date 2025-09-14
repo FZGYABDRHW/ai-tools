@@ -14,6 +14,7 @@ import SettingsScreen from './SettingsScreen';
 import LoginScreen from './LoginScreen';
 import UpdateNotification from './UpdateNotification';
 import VersionDisplay from './VersionDisplay';
+import { MigrationModal } from './MigrationModal';
 
 const { Content } = Layout;
 
@@ -24,8 +25,53 @@ const App: React.FC = () => {
     const [downloading, setDownloading] = useState(false);
     const [downloadProgress, setDownloadProgress] = useState(0);
     const [currentVersion, setCurrentVersion] = useState<string>('');
+    const [showMigration, setShowMigration] = useState(false);
+    const [migrationChecked, setMigrationChecked] = useState(false);
 
     console.log('App: authToken:', authToken, 'user:', user, 'isInitializing:', isInitializing);
+
+    const checkMigrationStatus = async () => {
+        try {
+            // Check if migration has been completed
+            const hasCompleted = await (window.electronAPI as any).migration.hasCompletedMigration();
+
+            if (!hasCompleted) {
+                // Check if localStorage data exists using renderer service directly
+                const { rendererMigrationService } = await import('../services/migrationService');
+                const hasLocalStorageData = await rendererMigrationService.checkLocalStorageData();
+
+                if (hasLocalStorageData) {
+                    setShowMigration(true);
+                }
+            }
+        } catch (error) {
+            console.error('Error checking migration status:', error);
+        } finally {
+            setMigrationChecked(true);
+        }
+    };
+
+    const handleMigrationComplete = async (success: boolean) => {
+        setShowMigration(false);
+        if (success) {
+            console.log('Migration completed successfully');
+            message.success('Data migration completed successfully!');
+
+            // Force sync reports from file system to localStorage
+            try {
+                const { reportService } = await import('../services/reportService');
+                const syncSuccess = await reportService.forceSyncFromFileSystem();
+                console.log('Reports synced from file system after migration:', syncSuccess);
+                if (syncSuccess) {
+                    // Force a page refresh to show the synced reports
+                    console.log('Reports synced successfully after migration, refreshing page...');
+                    window.location.reload();
+                }
+            } catch (error) {
+                console.error('Failed to sync reports after migration:', error);
+            }
+        }
+    };
 
     useEffect(() => {
         // Get current app version
@@ -35,11 +81,41 @@ const App: React.FC = () => {
             });
         }
 
+        // Check for migration
+        checkMigrationStatus();
+
+        // Sync reports from file system if migration was completed previously
+        const syncReportsOnStartup = async () => {
+            try {
+                const migrationCompleted = await (window.electronAPI as any)?.migration?.hasCompletedMigration();
+                console.log('Migration completed on startup:', migrationCompleted);
+                if (migrationCompleted) {
+                    const { reportService } = await import('../services/reportService');
+                    const hasReports = reportService.hasReports();
+                    console.log('Has reports in localStorage:', hasReports);
+                    if (!hasReports) {
+                        console.log('Migration completed but no reports in localStorage, syncing from file system...');
+                        const syncSuccess = await reportService.forceSyncFromFileSystem();
+                        console.log('Sync success:', syncSuccess);
+                        if (syncSuccess) {
+                            // Force a page refresh to show the synced reports
+                            console.log('Reports synced successfully, refreshing page...');
+                            window.location.reload();
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to sync reports on startup:', error);
+            }
+        };
+
+        syncReportsOnStartup();
+
         // Listen for auto-updater events
         if (window.electronAPI) {
             window.electronAPI.onAutoUpdaterStatus((status: any) => {
                 console.log('Auto-updater status:', status);
-                
+
                 if (status.status === 'update-available') {
                     setUpdateInfo(status.data);
                     setUpdateVisible(true);
@@ -84,8 +160,8 @@ const App: React.FC = () => {
         };
     }, []);
 
-    // Show loading screen while initializing
-    if (isInitializing) {
+    // Show loading screen while initializing or checking migration
+    if (isInitializing || !migrationChecked) {
         return (
             <ConfigProvider
                 theme={{
@@ -95,10 +171,10 @@ const App: React.FC = () => {
                     },
                 }}
             >
-                <div style={{ 
-                    display: 'flex', 
-                    justifyContent: 'center', 
-                    alignItems: 'center', 
+                <div style={{
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
                     height: '100vh',
                     background: 'linear-gradient(135deg, #f5f5f5 0%, #e8e8e8 100%)'
                 }}>
@@ -145,8 +221,8 @@ const App: React.FC = () => {
                         <Layout style={{ minHeight: '100vh' }}>
                             <AppHeader />
                             <Breadcrumbs />
-                            <Content style={{ 
-                                margin: 0, 
+                            <Content style={{
+                                margin: 0,
                                 background: 'linear-gradient(135deg, #f5f5f5 0%, #e8e8e8 100%)',
                                 flex: 1,
                                 width: '100%',
@@ -166,7 +242,7 @@ const App: React.FC = () => {
                     </Layout>
                 </SidebarProvider>
             </HashRouter>
-            
+
             {/* Update Notification Modal */}
             <UpdateNotification
                 visible={updateVisible}
@@ -175,6 +251,12 @@ const App: React.FC = () => {
                 downloading={downloading}
                 downloadProgress={downloadProgress}
                 currentVersion={currentVersion}
+            />
+
+            {/* Migration Modal */}
+            <MigrationModal
+                visible={showMigration}
+                onComplete={handleMigrationComplete}
             />
         </ConfigProvider>
     );

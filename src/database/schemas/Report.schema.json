@@ -1,0 +1,27 @@
+{
+  "type": "object",
+  "required": ["id", "name", "prompt", "createdAt", "updatedAt"],
+  "properties": {
+    "id": { "type": "string" },
+    "name": { "type": "string" },
+    "prompt": { "type": "string" },
+    "createdAt": { "type": "string" },
+    "updatedAt": { "type": "string" },
+    "lastGeneratedAt": { "type": "string" },
+    "tableData": {
+      "type": "object",
+      "properties": {
+        "columns": { "type": "array", "items": { "type": "string" } },
+        "results": { "type": "array", "items": { "type": "object" } },
+        "csv": { "type": "string" }
+      }
+    },
+    "extractedParameters": {
+      "type": "object",
+      "properties": {
+        "parameters": { "type": "object" },
+        "humanReadable": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  }
+}

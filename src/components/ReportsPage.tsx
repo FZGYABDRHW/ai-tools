@@ -1,22 +1,22 @@
 import React, { useState, useEffect } from 'react';
-import { 
-    Table, 
-    Button, 
-    Input, 
-    Modal, 
-    Form, 
-    message, 
-    Popconfirm, 
-    Space, 
-    Typography, 
+import {
+    Table,
+    Button,
+    Input,
+    Modal,
+    Form,
+    message,
+    Popconfirm,
+    Space,
+    Typography,
     Tag,
     Tooltip,
     Alert
 } from 'antd';
-import { 
-    PlusOutlined, 
-    SearchOutlined, 
-    DeleteOutlined, 
+import {
+    PlusOutlined,
+    SearchOutlined,
+    DeleteOutlined,
     FileTextOutlined,
     HistoryOutlined,
     PlayCircleOutlined,
@@ -78,10 +78,11 @@ const ReportsPage: React.FC = () => {
         return () => clearInterval(interval);
     }, []);
 
-    const loadReports = () => {
+    const loadReports = async () => {
         setLoading(true);
         try {
-            const allReports = reportService.getAllReports();
+            // Use the async method that waits for sync to complete
+            const allReports = await reportService.getAllReportsWithSync();
             setReports(allReports);
         } catch (error) {
             message.error('Failed to load reports');
@@ -123,7 +124,7 @@ const ReportsPage: React.FC = () => {
 
     const handleEditReport = async (values: { name: string; prompt: string }) => {
         if (!editingReport) return;
-        
+
         try {
             const updatedReport = reportService.updateReport(editingReport.id, values);
             if (updatedReport) {
@@ -144,9 +145,9 @@ const ReportsPage: React.FC = () => {
         // Get cleanup summary to show what will be removed
         const cleanupSummary = reportService.getCleanupSummary(reportId);
         const report = reports.find(r => r.id === reportId);
-        
+
         let description = `Are you sure you want to delete "${report?.name || 'this report'}"?`;
-        
+
         if (cleanupSummary.hasGenerationState || cleanupSummary.hasCheckpoint) {
             description += '\n\nThis will also clean up:';
             if (cleanupSummary.isGenerating) {
@@ -287,7 +288,7 @@ const ReportsPage: React.FC = () => {
                     // Get current generation state and table data
                     const generationState = reportGenerationService.getGenerationState(reportId);
                     const currentTableData = generationState?.tableData || report.tableData;
-                    
+
                     if (!currentTableData || currentTableData.results.length === 0) {
                         message.error('No data to save to report log');
                         return;
@@ -312,7 +313,7 @@ const ReportsPage: React.FC = () => {
                     if (reportGenerationService.isGenerating(reportId)) {
                         reportGenerationService.stopGeneration(reportId);
                     }
-                    
+
                     // Reset to ready
                     if (reportGenerationService.resetToReady(reportId)) {
                         message.success('Report generation completed and log created successfully!');
@@ -344,7 +345,7 @@ const ReportsPage: React.FC = () => {
     const getStatusTag = (record: Report) => {
         const status = getGenerationStatus(record.id);
         const progress = getGenerationProgress(record.id);
-        
+
         switch (status) {
             case 'in_progress':
                 return (
@@ -386,7 +387,7 @@ const ReportsPage: React.FC = () => {
     };
 
     const formatDate = (dateString: string) => {
-        return new Date(dateString).toLocaleDateString() + ' ' + 
+        return new Date(dateString).toLocaleDateString() + ' ' +
                new Date(dateString).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     };
 
@@ -401,9 +402,9 @@ const ReportsPage: React.FC = () => {
             key: 'name',
             render: (text: string, record: Report) => (
                 <div>
-                    <Text 
-                        strong 
-                        style={{ 
+                    <Text
+                        strong
+                        style={{
                             cursor: 'pointer',
                             color: '#ff8c69'
                         }}
@@ -428,12 +429,12 @@ const ReportsPage: React.FC = () => {
             key: 'actions',
             render: (_, record: Report) => {
                 const status = getGenerationStatus(record.id);
-                
+
                 return (
                     <Space>
                         {/* Ready state - only start generation */}
                         {status === 'ready' && (
-                            <Tooltip 
+                            <Tooltip
                                 title={!settingsService.hasValidOpenAIKey() ? "Configure OpenAI API key in Settings to start generation" : ""}
                                 placement="bottom"
                             >
@@ -448,7 +449,7 @@ const ReportsPage: React.FC = () => {
                                 </Button>
                             </Tooltip>
                         )}
-                        
+
                         {/* In Progress state - can pause or complete */}
                         {status === 'in_progress' && (
                             <>
@@ -478,11 +479,11 @@ const ReportsPage: React.FC = () => {
                                 </Button>
                             </>
                         )}
-                        
+
                         {/* Paused state - can resume or reset */}
                         {status === 'paused' && (
                             <>
-                                <Tooltip 
+                                <Tooltip
                                     title={!settingsService.hasValidOpenAIKey() ? "Configure OpenAI API key in Settings to resume generation" : ""}
                                     placement="bottom"
                                 >
@@ -506,10 +507,10 @@ const ReportsPage: React.FC = () => {
                                 </Button>
                             </>
                         )}
-                        
+
                         {/* Completed state - can rerun */}
                         {status === 'completed' && (
-                            <Tooltip 
+                            <Tooltip
                                 title={!settingsService.hasValidOpenAIKey() ? "Configure OpenAI API key in Settings to rerun generation" : ""}
                                 placement="bottom"
                             >
@@ -524,10 +525,10 @@ const ReportsPage: React.FC = () => {
                                 </Button>
                             </Tooltip>
                         )}
-                        
+
                         {/* Failed state - can restart */}
                         {status === 'failed' && (
-                            <Tooltip 
+                            <Tooltip
                                 title={!settingsService.hasValidOpenAIKey() ? "Configure OpenAI API key in Settings to restart generation" : ""}
                                 placement="bottom"
                             >
@@ -542,7 +543,7 @@ const ReportsPage: React.FC = () => {
                                 </Button>
                             </Tooltip>
                         )}
-                        
+
                         {/* Common actions for all states */}
                         <Button
                             type="primary"
@@ -574,13 +575,13 @@ const ReportsPage: React.FC = () => {
     ];
 
     return (
-        <div style={{ 
-            width: '100%', 
+        <div style={{
+            width: '100%',
             boxSizing: 'border-box',
             height: '100%',
             overflow: 'hidden'
         }}>
-            <div style={{ 
+            <div style={{
                 background: 'linear-gradient(135deg, #fff 0%, #f8f9fa 100%)',
                 borderRadius: '12px',
                 boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
@@ -606,8 +607,8 @@ const ReportsPage: React.FC = () => {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0, flex: 1 }}>
                         <FileTextOutlined style={{ color: '#fff', fontSize: '20px', flexShrink: 0 }} />
                         <div style={{ minWidth: 0, flex: 1 }}>
-                            <Title level={4} style={{ 
-                                margin: 0, 
+                            <Title level={4} style={{
+                                margin: 0,
                                 color: '#fff',
                                 fontWeight: 600,
                                 letterSpacing: '0.5px',
@@ -615,7 +616,7 @@ const ReportsPage: React.FC = () => {
                             }}>
                                 Wowworks Report Management
                             </Title>
-                            <Text style={{ 
+                            <Text style={{
                                 color: 'rgba(255, 255, 255, 0.8)',
                                 fontSize: '13px'
                             }}>
@@ -627,11 +628,11 @@ const ReportsPage: React.FC = () => {
                         {(() => {
                             const resumableCount = reportCheckpointService.getResumableCheckpoints().length;
                             return resumableCount > 0 ? (
-                                <Tooltip 
+                                <Tooltip
                                     title={!settingsService.hasValidOpenAIKey() ? "Configure OpenAI API key in Settings to resume reports" : ""}
                                     placement="bottom"
                                 >
-                                    <Button 
+                                    <Button
                                         type="default"
                                         icon={<PlayCircleOutlined />}
                                         onClick={() => setIsResumableModalVisible(true)}
@@ -649,11 +650,11 @@ const ReportsPage: React.FC = () => {
                                 </Tooltip>
                             ) : null;
                         })()}
-                    <Tooltip 
+                    <Tooltip
                         title={!settingsService.hasValidOpenAIKey() ? "Configure OpenAI API key in Settings to create reports" : ""}
                         placement="bottom"
                     >
-                        <Button 
+                        <Button
                             type="default"
                             icon={<PlusOutlined />}
                             onClick={() => setIsCreateModalVisible(true)}
@@ -671,7 +672,7 @@ const ReportsPage: React.FC = () => {
                     </Tooltip>
                     </Space>
                 </div>
-                
+
                 {/* API Key Check */}
                 {!settingsService.hasValidOpenAIKey() && (
                     <div style={{ padding: '0 20px', marginTop: '16px' }}>
@@ -679,9 +680,9 @@ const ReportsPage: React.FC = () => {
                             message="OpenAI API Key Required"
                             description={
                                 <span>
-                                    You need to configure your OpenAI API key to use the AI report generation features. 
-                                    <Button 
-                                        type="link" 
+                                    You need to configure your OpenAI API key to use the AI report generation features.
+                                    <Button
+                                        type="link"
                                         icon={<SettingOutlined />}
                                         style={{ padding: 0, height: 'auto', marginLeft: 8 }}
                                         onClick={() => window.location.hash = '#/settings'}
@@ -696,7 +697,7 @@ const ReportsPage: React.FC = () => {
                         />
                     </div>
                 )}
-                
+
                 {/* Content */}
                 <div style={{ padding: '20px', width: '100%', boxSizing: 'border-box' }}>
                     <div style={{ marginBottom: '16px' }}>
@@ -727,7 +728,7 @@ const ReportsPage: React.FC = () => {
                                 pageSize: 10,
                                 showSizeChanger: true,
                                 showQuickJumper: true,
-                                showTotal: (total, range) => 
+                                showTotal: (total, range) =>
                                     `${range[0]}-${range[1]} of ${total} reports`,
                             }}
                             scroll={{ x: 600 }}
@@ -758,8 +759,8 @@ const ReportsPage: React.FC = () => {
                         showIcon
                         style={{ marginBottom: '16px' }}
                         action={
-                            <Button 
-                                type="link" 
+                            <Button
+                                type="link"
                                 size="small"
                                 icon={<SettingOutlined />}
                                 onClick={() => {
@@ -792,8 +793,8 @@ const ReportsPage: React.FC = () => {
                             }}>
                                 Cancel
                             </Button>
-                            <Button 
-                                type="primary" 
+                            <Button
+                                type="primary"
                                 htmlType="submit"
                                 disabled={!settingsService.hasValidOpenAIKey()}
                             >
@@ -833,7 +834,7 @@ const ReportsPage: React.FC = () => {
                         label="Report Prompt"
                         rules={[{ required: true, message: 'Please enter a report prompt' }]}
                     >
-                        <Input.TextArea 
+                        <Input.TextArea
                             placeholder="Enter your report prompt..."
                             rows={6}
                         />

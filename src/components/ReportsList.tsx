@@ -1,24 +1,24 @@
 import React, { useState, useEffect } from 'react';
-import { 
-    Card, 
-    List, 
-    Button, 
-    Input, 
-    Modal, 
-    Form, 
-    message, 
-    Popconfirm, 
-    Space, 
-    Typography, 
+import {
+    Card,
+    List,
+    Button,
+    Input,
+    Modal,
+    Form,
+    message,
+    Popconfirm,
+    Space,
+    Typography,
     Tag,
     Empty,
     Tooltip
 } from 'antd';
-import { 
-    PlusOutlined, 
-    SearchOutlined, 
-    EditOutlined, 
-    DeleteOutlined, 
+import {
+    PlusOutlined,
+    SearchOutlined,
+    EditOutlined,
+    DeleteOutlined,
     PlayCircleOutlined,
     DownloadOutlined,
     UploadOutlined,
@@ -52,9 +52,17 @@ const ReportsList: React.FC<ReportsListProps> = ({ onSelectReport, onNewReport }
         filterReports();
     }, [reports, searchText]);
 
-    const loadReports = () => {
-        const allReports = reportService.getAllReports();
-        setReports(allReports);
+    const loadReports = async () => {
+        try {
+            // Use the async method that waits for sync to complete
+            const allReports = await reportService.getAllReportsWithSync();
+            setReports(allReports);
+        } catch (error) {
+            console.error('Failed to load reports:', error);
+            // Fallback to synchronous method
+            const allReports = reportService.getAllReports();
+            setReports(allReports);
+        }
     };
 
     const filterReports = () => {
@@ -84,7 +92,7 @@ const ReportsList: React.FC<ReportsListProps> = ({ onSelectReport, onNewReport }
 
     const handleEditReport = async (values: { name: string; prompt: string }) => {
         if (!editingReport) return;
-        
+
         try {
             const updatedReport = reportService.updateReport(editingReport.id, values);
             if (updatedReport) {
@@ -154,7 +162,7 @@ const ReportsList: React.FC<ReportsListProps> = ({ onSelectReport, onNewReport }
     };
 
     const formatDate = (dateString: string) => {
-        return new Date(dateString).toLocaleDateString() + ' ' + 
+        return new Date(dateString).toLocaleDateString() + ' ' +
                new Date(dateString).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     };
 
@@ -163,7 +171,7 @@ const ReportsList: React.FC<ReportsListProps> = ({ onSelectReport, onNewReport }
     };
 
     return (
-        <Card 
+        <Card
             title={
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <Title level={4} style={{ margin: 0 }}>
@@ -172,21 +180,21 @@ const ReportsList: React.FC<ReportsListProps> = ({ onSelectReport, onNewReport }
                     </Title>
                     <Space>
                         <Tooltip title="Import Reports">
-                            <Button 
-                                icon={<UploadOutlined />} 
+                            <Button
+                                icon={<UploadOutlined />}
                                 size="small"
                                 onClick={() => document.getElementById('import-input')?.click()}
                             />
                         </Tooltip>
                         <Tooltip title="Export Reports">
-                            <Button 
-                                icon={<DownloadOutlined />} 
+                            <Button
+                                icon={<DownloadOutlined />}
                                 size="small"
                                 onClick={handleExportReports}
                             />
                         </Tooltip>
-                        <Button 
-                            type="primary" 
+                        <Button
+                            type="primary"
                             icon={<PlusOutlined />}
                             onClick={() => setIsCreateModalVisible(true)}
                         >
@@ -209,7 +217,7 @@ const ReportsList: React.FC<ReportsListProps> = ({ onSelectReport, onNewReport }
 
             <div style={{ flex: 1, overflow: 'auto' }}>
                 {filteredReports.length === 0 ? (
-                    <Empty 
+                    <Empty
                         description="No reports found"
                         style={{ marginTop: 60 }}
                     >
@@ -223,7 +231,7 @@ const ReportsList: React.FC<ReportsListProps> = ({ onSelectReport, onNewReport }
                         renderItem={(report) => (
                             <List.Item
                                 key={report.id}
-                                style={{ 
+                                style={{
                                     padding: '12px 0',
                                     borderBottom: '1px solid #f0f0f0',
                                     cursor: 'pointer'
@@ -335,7 +343,7 @@ const ReportsList: React.FC<ReportsListProps> = ({ onSelectReport, onNewReport }
                         label="Report Prompt"
                         rules={[{ required: true, message: 'Please enter a report prompt' }]}
                     >
-                        <Input.TextArea 
+                        <Input.TextArea
                             placeholder="Enter your report prompt..."
                             rows={4}
                         />
@@ -384,7 +392,7 @@ const ReportsList: React.FC<ReportsListProps> = ({ onSelectReport, onNewReport }
                         label="Report Prompt"
                         rules={[{ required: true, message: 'Please enter a report prompt' }]}
                     >
-                        <Input.TextArea 
+                        <Input.TextArea
                             placeholder="Enter your report prompt..."
                             rows={4}
                         />

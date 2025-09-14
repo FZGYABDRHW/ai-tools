@@ -4,6 +4,21 @@ import { reportCheckpointService } from './reportCheckpointService';
 
 class ReportService {
     private readonly STORAGE_KEY = 'ai_tools_reports';
+    private migrationCheckInProgress = false;
+    private fileSystemReports: Report[] | null = null;
+
+    private async saveReport(report: Report): Promise<void> {
+        if ((window.electronAPI as any)?.fileSystem?.saveReport) {
+            await (window.electronAPI as any).fileSystem.saveReport(report);
+        }
+    }
+
+    private async loadReport(id: string): Promise<Report | null> {
+        if ((window.electronAPI as any)?.fileSystem?.getReport) {
+            return await (window.electronAPI as any).fileSystem.getReport(id);
+        }
+        return null;
+    }
 
     private getReportsFromStorage(): Report[] {
         try {
@@ -23,13 +38,110 @@ class ReportService {
         }
     }
 
+    // Check if migration has been completed and sync reports if needed
+    private async syncReportsFromFileSystem(): Promise<void> {
+        if (this.migrationCheckInProgress) {
+            console.log('Migration check already in progress, skipping...');
+            return;
+        }
+
+        this.migrationCheckInProgress = true;
+        console.log('Starting sync from file system...');
+
+        try {
+            // Check if migration has been completed
+            console.log('Checking migration status...');
+            const migrationCompleted = await (window.electronAPI as any)?.migration?.hasCompletedMigration();
+            console.log('Migration completed:', migrationCompleted);
+
+            if (migrationCompleted) {
+                // Get reports from file system
+                console.log('Getting reports from file system...');
+                const fileSystemReports = await (window.electronAPI as any)?.fileSystem?.getAllReports();
+                console.log('File system reports:', fileSystemReports);
+
+                if (fileSystemReports && fileSystemReports.length > 0) {
+                    // Always sync from file system when migration is completed
+                    // This ensures we have the complete migrated data
+                    this.saveReportsToStorage(fileSystemReports);
+                    this.fileSystemReports = fileSystemReports;
+                    console.log(`✅ Synced ${fileSystemReports.length} reports from file system to localStorage`);
+                } else {
+                    console.log('No reports found in file system');
+                }
+            } else {
+                console.log('Migration not completed, skipping sync');
+            }
+        } catch (error) {
+            console.error('❌ Error syncing reports from file system:', error);
+        } finally {
+            this.migrationCheckInProgress = false;
+        }
+    }
+
     getAllReports(): Report[] {
-        return this.getReportsFromStorage();
+        const localReports = this.getReportsFromStorage();
+
+        // If localStorage has reports, use them
+        if (localReports.length > 0) {
+            return localReports;
+        }
+
+        // If localStorage is empty, return empty array
+        // The sync will happen in the background and populate localStorage
+        // UI components should use getAllReportsAsync() for immediate sync
+        return localReports;
+    }
+
+    // Synchronous method that waits for sync to complete
+    async getAllReportsWithSync(): Promise<Report[]> {
+        console.log('getAllReportsWithSync called');
+        const localReports = this.getReportsFromStorage();
+        console.log('Local reports count:', localReports.length);
+        console.log('Local reports:', localReports.map(r => ({ id: r.id, name: r.name })));
+
+        // Always check if we need to sync from file system
+        console.log('Checking if sync is needed...');
+        await this.syncReportsFromFileSystem();
+
+        // Return the reports (either from localStorage or newly synced)
+        const finalReports = this.getReportsFromStorage();
+        console.log('Final reports count:', finalReports.length);
+        console.log('Final reports:', finalReports.map(r => ({ id: r.id, name: r.name })));
+        return finalReports;
     }
 
     getReportById(id: string): Report | null {
-        const reports = this.getReportsFromStorage();
+        const reports = this.getAllReports();
         return reports.find(report => report.id === id) || null;
+    }
+
+    // Async versions for new file system
+    async getAllReportsAsync(): Promise<Report[]> {
+        if ((window.electronAPI as any)?.fileSystem?.getAllReports) {
+            return await (window.electronAPI as any).fileSystem.getAllReports();
+        }
+        return [];
+    }
+
+    async getReportByIdAsync(id: string): Promise<Report | null> {
+        return await this.loadReport(id);
+    }
+
+    // Method to manually trigger sync from file system
+    async forceSyncFromFileSystem(): Promise<boolean> {
+        try {
+            await this.syncReportsFromFileSystem();
+            return true;
+        } catch (error) {
+            console.error('Failed to force sync from file system:', error);
+            return false;
+        }
+    }
+
+    // Method to check if reports are available (useful for UI)
+    hasReports(): boolean {
+        return this.getAllReports().length > 0;
     }
 
     createReport(request: CreateReportRequest): Report {
@@ -38,10 +150,10 @@ class ReportService {
             throw new Error('Report name is required');
         }
 
-        const reports = this.getReportsFromStorage();
-        
+        const reports = this.getAllReports();
+
         // Check for duplicate names
-        const existingReport = reports.find(report => 
+        const existingReport = reports.find(report =>
             report.name.toLowerCase() === request.name.toLowerCase()
         );
         if (existingReport) {
@@ -58,7 +170,7 @@ class ReportService {
 
         reports.push(newReport);
         this.saveReportsToStorage(reports);
-        
+
         console.log(`Created new report: ${newReport.name} (ID: ${newReport.id})`);
         return newReport;
     }
@@ -66,7 +178,7 @@ class ReportService {
     updateReport(id: string, updates: UpdateReportRequest): Report | null {
         const reports = this.getReportsFromStorage();
         const index = reports.findIndex(report => report.id === id);
-        
+
         if (index === -1) return null;
 
         reports[index] = {
@@ -82,7 +194,7 @@ class ReportService {
     deleteReport(id: string): boolean {
         const reports = this.getReportsFromStorage();
         const filteredReports = reports.filter(report => report.id !== id);
-        
+
         if (filteredReports.length === reports.length) {
             return false; // Report not found
         }
@@ -94,13 +206,13 @@ class ReportService {
         try {
             // Stop any ongoing generation for this report
             reportGenerationService.stopGeneration(id);
-            
+
             // Clear generation state
             reportGenerationService.clearGeneration(id);
-            
+
             // Clear checkpoint data
             reportCheckpointService.clearCheckpoint(id);
-            
+
             console.log(`Cleaned up all data for report ${id}`);
         } catch (error) {
             console.error(`Error cleaning up data for report ${id}:`, error);
@@ -124,7 +236,7 @@ class ReportService {
     }): Report | null {
         const reports = this.getReportsFromStorage();
         const index = reports.findIndex(report => report.id === id);
-        
+
         if (index === -1) return null;
 
         reports[index] = {
@@ -142,12 +254,12 @@ class ReportService {
     clearReportData(id: string): Report | null {
         const reports = this.getReportsFromStorage();
         const index = reports.findIndex(report => report.id === id);
-        
+
         if (index === -1) return null;
 
         // Remove tableData, extractedParameters, and lastGeneratedAt
         const { tableData, extractedParameters, lastGeneratedAt, ...reportWithoutData } = reports[index];
-        
+
         reports[index] = {
             ...reportWithoutData,
             updatedAt: new Date().toISOString()
@@ -159,7 +271,7 @@ class ReportService {
     }
 
     exportReports(): string {
-        const reports = this.getReportsFromStorage();
+        const reports = this.getAllReports();
         return JSON.stringify(reports, null, 2);
     }
 
@@ -189,13 +301,13 @@ class ReportService {
         try {
             // Stop any ongoing generation for this report
             reportGenerationService.stopGeneration(id);
-            
+
             // Clear generation state
             reportGenerationService.clearGeneration(id);
-            
+
             // Clear checkpoint data
             reportCheckpointService.clearCheckpoint(id);
-            
+
             console.log(`Cleaned up data for report ${id}`);
         } catch (error) {
             console.error(`Error cleaning up data for report ${id}:`, error);
@@ -222,7 +334,7 @@ class ReportService {
     } {
         const generationState = reportGenerationService.getGenerationState(id);
         const checkpoint = reportCheckpointService.getCheckpoint(id);
-        
+
         return {
             hasGenerationState: generationState !== null,
             hasCheckpoint: checkpoint !== null,
@@ -237,9 +349,9 @@ class ReportService {
     cleanupOrphanedData(): number {
         const reports = this.getAllReports();
         const reportIds = new Set(reports.map(r => r.id));
-        
+
         let cleanedCount = 0;
-        
+
         // Clean up orphaned generation states
         const activeGenerations = reportGenerationService.getActiveGenerations();
         activeGenerations.forEach((state, reportId) => {
@@ -248,7 +360,7 @@ class ReportService {
                 cleanedCount++;
             }
         });
-        
+
         // Clean up orphaned checkpoints
         const allCheckpoints = reportCheckpointService.getAllCheckpoints();
         allCheckpoints.forEach(checkpoint => {
@@ -257,11 +369,11 @@ class ReportService {
                 cleanedCount++;
             }
         });
-        
+
         if (cleanedCount > 0) {
             console.log(`Cleaned up ${cleanedCount} orphaned data entries`);
         }
-        
+
         return cleanedCount;
     }
 }

@@ -25,14 +25,14 @@ const CustomOperationalReport: React.FC = () => {
     const { hideSidebar, showSidebar } = useContext(SidebarContext);
     const location = useLocation();
     const navigate = useNavigate();
-    
+
     // Get initial tab from URL or default to 'editor'
     const getInitialTab = () => {
         const searchParams = new URLSearchParams(location.search);
         const tab = searchParams.get('tab');
         return tab === 'logs' ? 'logs' : 'editor';
     };
-    
+
     const [reportText, setReportText] = useState<string>(() => {
         return localStorage.getItem('customOperationalReport') || '';
     });
@@ -62,7 +62,7 @@ const CustomOperationalReport: React.FC = () => {
             if (report?.extractedParameters) {
                 return report.extractedParameters;
             }
-            
+
             // Fallback to generation state (temporary)
             const generationState = reportGenerationService.getGenerationState(reportId);
             return generationState?.extractedParameters || null;
@@ -82,13 +82,13 @@ const CustomOperationalReport: React.FC = () => {
         const reportId = searchParams.get('reportId');
         const status = reportId ? reportGenerationService.getGenerationStatus(reportId) : null;
         setCurrentGenerationStatus(status);
-        
+
         // Set up interval to check for status changes
         const interval = setInterval(() => {
             const currentStatus = reportId ? reportGenerationService.getGenerationStatus(reportId) : null;
             if (currentStatus !== status) {
                 setCurrentGenerationStatus(currentStatus);
-                
+
                 // Clear extracted parameters when status changes to 'ready'
                 if (currentStatus === 'ready' && reportId) {
                     reportGenerationService.clearExtractedParameters(reportId);
@@ -96,7 +96,7 @@ const CustomOperationalReport: React.FC = () => {
                 }
             }
         }, 1000);
-        
+
         return () => clearInterval(interval);
     }, [location.search]);
 
@@ -104,9 +104,9 @@ const CustomOperationalReport: React.FC = () => {
     useEffect(() => {
         const searchParams = new URLSearchParams(location.search);
         const reportId = searchParams.get('reportId');
-        
+
         console.log('Loading report with ID:', reportId);
-        
+
         if (reportId) {
             const report = reportService.getReportById(reportId);
             console.log('Found report:', report);
@@ -121,11 +121,11 @@ const CustomOperationalReport: React.FC = () => {
             const generationState = reportGenerationService.getGenerationState(reportId);
             if (generationState) {
                 console.log('Restoring generation state:', generationState);
-                
+
                 // Check if the generation was actually interrupted by app reload
                 const isCurrentlyGenerating = generationState.status === 'in_progress';
                 const wasInterrupted = isCurrentlyGenerating && !generationState.abortController;
-                
+
                 if (wasInterrupted) {
                     console.log('Generation was interrupted by app reload, setting status to paused');
                     // If generation was interrupted, set it to paused state
@@ -134,7 +134,7 @@ const CustomOperationalReport: React.FC = () => {
                 } else {
                     setIsGenerating(isCurrentlyGenerating);
                 }
-                
+
                 setProgressInfo(generationState.progress);
                 if (generationState.tableData) {
                     setTableData(generationState.tableData);
@@ -175,7 +175,7 @@ const CustomOperationalReport: React.FC = () => {
     useEffect(() => {
         const searchParams = new URLSearchParams(location.search);
         const reportId = searchParams.get('reportId');
-        
+
         if (reportId) {
             const report = reportService.getReportById(reportId);
             if (report?.tableData && !isGenerating) {
@@ -189,7 +189,7 @@ const CustomOperationalReport: React.FC = () => {
     useEffect(() => {
         const searchParams = new URLSearchParams(location.search);
         const reportId = searchParams.get('reportId');
-        
+
         if (reportId && reportText.trim()) {
             const report = reportService.getReportById(reportId);
             if (report && report.prompt !== reportText) {
@@ -204,22 +204,22 @@ const CustomOperationalReport: React.FC = () => {
     // Calculate dynamic page size based on available container height
     const calculateDynamicPageSize = useCallback(() => {
         if (!tableContainerRef.current) return;
-        
+
         const container = tableContainerRef.current;
         const containerHeight = container.clientHeight;
-        
+
         // Estimate row height (including padding, borders, etc.)
         const estimatedRowHeight = 40; // Approximate height per row
         const headerHeight = 55; // Table header height
         const paginationHeight = 50; // Pagination controls height
         const padding = 32; // Container padding (16px top + 16px bottom)
-        
+
         // Calculate available height for rows
         const availableHeight = containerHeight - headerHeight - paginationHeight - padding;
-        
+
         // Calculate how many rows can fit
         const maxRows = Math.max(1, Math.floor(availableHeight / estimatedRowHeight));
-        
+
         setDynamicPageSize(maxRows);
     }, []);
 
@@ -250,7 +250,7 @@ const CustomOperationalReport: React.FC = () => {
         // Get or create report ID
         const searchParams = new URLSearchParams(location.search);
         let reportId = searchParams.get('reportId');
-        
+
         if (!reportId) {
             // Create new report
             const newReport = reportService.createReport({
@@ -265,11 +265,11 @@ const CustomOperationalReport: React.FC = () => {
         setIsGenerating(true);
         setTableData(null); // Clear previous data
         setProgressInfo(null); // Clear progress info
-        
+
         try {
             await reportGenerationService.startGeneration(
                 reportId,
-                reportText, 
+                reportText,
                 authToken,
                 selectedServer,
                 (progress) => {
@@ -320,18 +320,18 @@ const CustomOperationalReport: React.FC = () => {
         // Update URL with tab parameter while preserving reportId
         const searchParams = new URLSearchParams(location.search);
         searchParams.set('tab', key);
-        
+
         // Preserve reportId if it exists in state
         if (location.state?.reportId && !searchParams.get('reportId')) {
             searchParams.set('reportId', location.state.reportId);
         }
-        
+
         navigate(`${location.pathname}?${searchParams.toString()}`, { replace: true });
     };
 
     const handleDownloadCSV = () => {
         if (!tableData) return;
-        
+
         const blob = new Blob([tableData.csv], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement('a');
         const url = URL.createObjectURL(blob);
@@ -357,7 +357,7 @@ const CustomOperationalReport: React.FC = () => {
     const handleStopReport = () => {
         const searchParams = new URLSearchParams(location.search);
         const reportId = searchParams.get('reportId');
-        
+
         if (reportId && reportGenerationService.stopGeneration(reportId)) {
             console.log('Aborting report generation...');
             setIsGenerating(false);
@@ -371,7 +371,7 @@ const CustomOperationalReport: React.FC = () => {
         const searchParams = new URLSearchParams(location.search);
         const reportId = searchParams.get('reportId');
         console.log('Report ID from URL:', reportId);
-        
+
         if (!reportId) {
             message.error('No report ID found');
             return;
@@ -427,7 +427,7 @@ const CustomOperationalReport: React.FC = () => {
     const handleResetToReady = () => {
         const searchParams = new URLSearchParams(location.search);
         const reportId = searchParams.get('reportId');
-        
+
         if (!reportId) {
             message.error('No report ID found');
             return;
@@ -456,7 +456,7 @@ const CustomOperationalReport: React.FC = () => {
     const handleRerunFromCompleted = () => {
         const searchParams = new URLSearchParams(location.search);
         const reportId = searchParams.get('reportId');
-        
+
         if (!reportId) {
             message.error('No report ID found');
             return;
@@ -487,7 +487,7 @@ const CustomOperationalReport: React.FC = () => {
     const handleRestartFromFailed = () => {
         const searchParams = new URLSearchParams(location.search);
         const reportId = searchParams.get('reportId');
-        
+
         if (!reportId) {
             message.error('No report ID found');
             return;
@@ -518,7 +518,7 @@ const CustomOperationalReport: React.FC = () => {
     const handleCompleteGeneration = () => {
         const searchParams = new URLSearchParams(location.search);
         const reportId = searchParams.get('reportId');
-        
+
         if (!reportId) {
             message.error('No report ID found');
             return;
@@ -562,7 +562,7 @@ const CustomOperationalReport: React.FC = () => {
                     if (isGenerating) {
                         reportGenerationService.stopGeneration(reportId);
                     }
-                    
+
                     // Reset to ready
                     if (reportGenerationService.resetToReady(reportId)) {
                         message.success('Report generation completed and log created successfully!');
@@ -625,7 +625,7 @@ const CustomOperationalReport: React.FC = () => {
                                 const searchParams = new URLSearchParams(location.search);
                                 const reportId = searchParams.get('reportId');
                                 const status = reportId ? reportGenerationService.getGenerationStatus(reportId) : null;
-                                
+
                                 switch (status) {
                                     case 'in_progress':
                                         return '🔄 Processing tasks...';
@@ -645,23 +645,23 @@ const CustomOperationalReport: React.FC = () => {
 
                         {/* Compact Parameters Display */}
                         {getExtractedParameters() && getExtractedParameters()!.humanReadable.length > 0 && (
-                            <div style={{ 
+                            <div style={{
                                 display: 'flex',
                                 flexWrap: 'wrap',
                                 gap: '6px',
                                 alignItems: 'center'
                             }}>
-                                <span style={{ 
-                                    color: '#ff8c69', 
-                                    fontSize: '10px', 
+                                <span style={{
+                                    color: '#ff8c69',
+                                    fontSize: '10px',
                                     fontWeight: 600,
                                     marginRight: '4px'
                                 }}>
                                     🔍 Parameters:
                                 </span>
                                 {getExtractedParameters()!.humanReadable.map((param, index) => (
-                                    <span key={index} style={{ 
-                                        color: '#333', 
+                                    <span key={index} style={{
+                                        color: '#333',
                                         fontSize: '10px',
                                         background: 'rgba(255, 140, 105, 0.15)',
                                         padding: '2px 6px',
@@ -675,8 +675,8 @@ const CustomOperationalReport: React.FC = () => {
                             </div>
                         )}
                         {getExtractedParameters() && getExtractedParameters()!.humanReadable.length === 0 && (
-                            <div style={{ 
-                                color: '#666', 
+                            <div style={{
+                                color: '#666',
                                 fontSize: '10px',
                                 fontStyle: 'italic'
                             }}>
@@ -685,7 +685,7 @@ const CustomOperationalReport: React.FC = () => {
                         )}
                     </div>
                 </div>
-                
+
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     {!isGenerating ? (
                                             <>
@@ -695,7 +695,7 @@ const CustomOperationalReport: React.FC = () => {
                                                     const status = reportId ? reportGenerationService.getGenerationStatus(reportId) : null;
                                                     const canResume = reportId && reportCheckpointService.canResume(reportId);
                                                     console.log('Resume button check:', { reportId, canResume, status });
-                                                    
+
                                                     return (status === 'paused' || status === 'failed') && canResume ? (
                                                         <Button
                                                             type="default"
@@ -720,7 +720,7 @@ const CustomOperationalReport: React.FC = () => {
                                                     const searchParams = new URLSearchParams(location.search);
                                                     const reportId = searchParams.get('reportId');
                                                     const status = reportId ? reportGenerationService.getGenerationStatus(reportId) : null;
-                                                    
+
                                                     return status === 'paused' ? (
                                                         <>
                                                             <Button
@@ -764,7 +764,7 @@ const CustomOperationalReport: React.FC = () => {
                                                     const searchParams = new URLSearchParams(location.search);
                                                     const reportId = searchParams.get('reportId');
                                                     const status = reportId ? reportGenerationService.getGenerationStatus(reportId) : null;
-                                                    
+
                                                     return status === 'completed' ? (
                                                         <Button
                                                             type="default"
@@ -789,7 +789,7 @@ const CustomOperationalReport: React.FC = () => {
                                                     const searchParams = new URLSearchParams(location.search);
                                                     const reportId = searchParams.get('reportId');
                                                     const status = reportId ? reportGenerationService.getGenerationStatus(reportId) : null;
-                                                    
+
                                                     return status === 'failed' ? (
                                                         <Button
                                                             type="default"
@@ -814,7 +814,7 @@ const CustomOperationalReport: React.FC = () => {
                                                     const searchParams = new URLSearchParams(location.search);
                                                     const reportId = searchParams.get('reportId');
                                                     const status = reportId ? reportGenerationService.getGenerationStatus(reportId) : null;
-                                                    
+
                                                     // Only show Start Report button when status is 'ready' or null (no status)
                                                     return (status === 'ready' || status === null) ? (
                         <Button
@@ -875,7 +875,7 @@ const CustomOperationalReport: React.FC = () => {
                         </Button>
                                             </div>
                     )}
-                    
+
                     {progressInfo && (
                         <div style={{
                             background: 'rgba(255, 140, 105, 0.1)',
@@ -891,10 +891,10 @@ const CustomOperationalReport: React.FC = () => {
                     )}
                 </div>
             </div>
-            
+
                                 <Row gutter={24} style={{ flex: 1, minHeight: 0, height: 'calc(100% - 80px)' }}>
                                     <Col xs={24} lg={isTableFullScreen ? 0 : 12} style={{ display: 'flex', flexDirection: 'column' }}>
-                    <div style={{ 
+                    <div style={{
                                         flex: 1,
                         background: 'linear-gradient(135deg, #fff 0%, #f8f9fa 100%)',
                         borderRadius: '12px',
@@ -915,16 +915,16 @@ const CustomOperationalReport: React.FC = () => {
                             gap: '8px'
                         }}>
                             <BarChartOutlined style={{ color: '#fff', fontSize: '16px' }} />
-                            <span style={{ 
-                                color: '#fff', 
-                                fontSize: '14px', 
+                            <span style={{
+                                color: '#fff',
+                                fontSize: '14px',
                                 fontWeight: 600,
                                 letterSpacing: '0.5px'
                             }}>
                                                  Editor
                                                 {(currentGenerationStatus === 'in_progress' || currentGenerationStatus === 'paused') && (
-                                                        <span style={{ 
-                                                            fontSize: '12px', 
+                                                        <span style={{
+                                                            fontSize: '12px',
                                                             marginLeft: '8px',
                                                             opacity: 0.8
                                                         }}>
@@ -933,9 +933,9 @@ const CustomOperationalReport: React.FC = () => {
                                                     )}
                             </span>
                         </div>
-                        
+
                         {/* Editor container */}
-                        <div style={{ 
+                        <div style={{
                                             flex: 1,
                             background: '#fff',
                             overflow: 'hidden'
@@ -949,9 +949,9 @@ const CustomOperationalReport: React.FC = () => {
                         </div>
                     </div>
                 </Col>
-                
+
                                 <Col xs={24} lg={isTableFullScreen ? 24 : 12} style={{ display: 'flex', flexDirection: 'column' }}>
-                    <div style={{ 
+                    <div style={{
                                         flex: 1,
                         background: 'linear-gradient(135deg, #fff 0%, #f8f9fa 100%)',
                         borderRadius: '12px',
@@ -973,16 +973,16 @@ const CustomOperationalReport: React.FC = () => {
                         }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                 <BarChartOutlined style={{ color: '#fff', fontSize: '16px' }} />
-                                <span style={{ 
-                                    color: '#fff', 
-                                    fontSize: '14px', 
+                                <span style={{
+                                    color: '#fff',
+                                    fontSize: '14px',
                                     fontWeight: 600,
                                     letterSpacing: '0.5px'
                                 }}>
                                                      Results
                                 </span>
                             </div>
-                            
+
                             {tableData && (
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                     <Button
@@ -1004,11 +1004,11 @@ const CustomOperationalReport: React.FC = () => {
                                 </div>
                             )}
                         </div>
-                        
+
                         {/* Table container */}
-                        <div 
+                        <div
                             ref={tableContainerRef}
-                            style={{ 
+                            style={{
                                 flex: 1,
                                 padding: '16px',
                                 background: '#fff',
@@ -1016,10 +1016,10 @@ const CustomOperationalReport: React.FC = () => {
                             }}
                         >
                             {!tableData && isGenerating ? (
-                            <div style={{ 
-                                display: 'flex', 
-                                justifyContent: 'center', 
-                                alignItems: 'center', 
+                            <div style={{
+                                display: 'flex',
+                                justifyContent: 'center',
+                                alignItems: 'center',
                                                 height: '100%',
                                 flexDirection: 'column',
                                 gap: 16
@@ -1031,7 +1031,7 @@ const CustomOperationalReport: React.FC = () => {
                                 </div>
                             </div>
                         ) : tableData ? (
-                            <div style={{ 
+                            <div style={{
                                 flex: 1,
                                 display: 'flex',
                                 flexDirection: 'column',
@@ -1062,16 +1062,16 @@ const CustomOperationalReport: React.FC = () => {
                                             pageSize: dynamicPageSize,
                                             showSizeChanger: false,
                                             showQuickJumper: true,
-                                            showTotal: (total, range) => 
+                                            showTotal: (total, range) =>
                                                 `${range[0]}-${range[1]} of ${total} items`,
                                             size: 'small'
                                         }}
-                                        scroll={{ 
+                                        scroll={{
                                             x: 'max-content',
                                             y: '100%'
                                         }}
                                         size="small"
-                                        style={{ 
+                                        style={{
                                             height: '100%',
                                             width: '100%'
                                         }}
@@ -1079,10 +1079,10 @@ const CustomOperationalReport: React.FC = () => {
                                 </div>
                             </div>
                         ) : (
-                            <div style={{ 
-                                display: 'flex', 
-                                justifyContent: 'center', 
-                                alignItems: 'center', 
+                            <div style={{
+                                display: 'flex',
+                                justifyContent: 'center',
+                                alignItems: 'center',
                                                 height: '100%',
                                 color: '#666',
                                 fontSize: 16
@@ -1108,13 +1108,13 @@ const CustomOperationalReport: React.FC = () => {
                         children: (
                             <div style={{ height: 'calc(100vh - 200px)', overflow: 'auto', marginTop: '16px' }}>
                                 {selectedLogId ? (
-                                    <ReportLogViewer 
-                                        reportLogId={selectedLogId} 
+                                    <ReportLogViewer
+                                        reportLogId={selectedLogId}
                                         onBack={handleBackToList}
                                     />
                                 ) : (
-                                    <ReportLogsList 
-                                        onViewLog={handleViewLog} 
+                                    <ReportLogsList
+                                        onViewLog={handleViewLog}
                                         selectedReportId={new URLSearchParams(location.search).get('reportId') || undefined}
                                         refreshKey={logsRefreshKey}
                                     />

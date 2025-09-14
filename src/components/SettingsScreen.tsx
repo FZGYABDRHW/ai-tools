@@ -1,18 +1,36 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Form, Input, Button, message, Typography, Space, Alert } from 'antd';
-import { KeyOutlined, SaveOutlined, EyeInvisibleOutlined, EyeTwoTone } from '@ant-design/icons';
+import { Card, Form, Input, Button, message, Typography, Space, Alert, Modal, Checkbox } from 'antd';
+import { KeyOutlined, SaveOutlined, EyeInvisibleOutlined, EyeTwoTone, DownloadOutlined } from '@ant-design/icons';
 import { settingsService, AppSettings } from '../services/settingsService';
+import { downloadService, DownloadOptions } from '../services/downloadService';
 
 const { Title, Text } = Typography;
 
 const SettingsScreen: React.FC = () => {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
+  const [downloadModalVisible, setDownloadModalVisible] = useState(false);
+  const [downloadLoading, setDownloadLoading] = useState(false);
+  const [downloadOptions, setDownloadOptions] = useState<DownloadOptions>({
+    includeReports: true,
+    includeLogs: true,
+    includeCheckpoints: true,
+    includeGenerationStates: true,
+    includeBackups: true,
+  });
+  const [downloadStats, setDownloadStats] = useState({ fileCount: 0, totalSize: 0 });
 
 
   useEffect(() => {
     loadCurrentSettings();
+    loadDownloadStats();
   }, []);
+
+  useEffect(() => {
+    if (downloadModalVisible) {
+      loadDownloadStats();
+    }
+  }, [downloadModalVisible, downloadOptions]);
 
   const loadCurrentSettings = async () => {
     try {
@@ -69,6 +87,42 @@ const SettingsScreen: React.FC = () => {
     }
   };
 
+  const loadDownloadStats = async () => {
+    try {
+      const stats = await downloadService.getDownloadStats(downloadOptions);
+      setDownloadStats(stats);
+    } catch (error) {
+      console.error('Failed to load download stats:', error);
+    }
+  };
+
+  const handleDownloadAllData = async () => {
+    setDownloadLoading(true);
+    try {
+      const result = await downloadService.downloadAllData(downloadOptions);
+
+      if (result.success) {
+        message.success(`✅ Download completed! File saved to: ${result.filePath}`);
+        setDownloadModalVisible(false);
+      } else {
+        message.error(`❌ Download failed: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('Download failed:', error);
+      message.error('❌ Download failed. Please try again.');
+    } finally {
+      setDownloadLoading(false);
+    }
+  };
+
+  const formatFileSize = (bytes: number): string => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
   return (
     <div style={{ maxWidth: 800, margin: '0 auto', padding: '20px' }}>
       <Card>
@@ -89,10 +143,10 @@ const SettingsScreen: React.FC = () => {
             type="info"
             showIcon
             action={
-              <Button 
-                size="small" 
-                type="link" 
-                href="https://platform.openai.com/api-keys" 
+              <Button
+                size="small"
+                type="link"
+                href="https://platform.openai.com/api-keys"
                 target="_blank"
               >
                 Get API Key
@@ -151,6 +205,37 @@ const SettingsScreen: React.FC = () => {
             </Form.Item>
           </Form>
 
+          <Card size="small" style={{ background: '#f0f8ff', border: '1px solid #1890ff' }}>
+            <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+              <div>
+                <Title level={5} style={{ margin: 0, color: '#1890ff' }}>
+                  <DownloadOutlined style={{ marginRight: 8 }} />
+                  Data Export
+                </Title>
+                <Text type="secondary">
+                  Download all your application data as a ZIP file for backup or migration purposes
+                </Text>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <Text strong>Available for download:</Text><br/>
+                  <Text type="secondary">
+                    {downloadStats.fileCount} files ({formatFileSize(downloadStats.totalSize)})
+                  </Text>
+                </div>
+                <Button
+                  type="primary"
+                  icon={<DownloadOutlined />}
+                  onClick={() => setDownloadModalVisible(true)}
+                  size="large"
+                >
+                  Download All Data
+                </Button>
+              </div>
+            </Space>
+          </Card>
+
           <Card size="small" style={{ background: '#f8f9fa' }}>
             <Title level={5} style={{ margin: 0, color: '#666' }}>
               Security Note
@@ -164,6 +249,80 @@ const SettingsScreen: React.FC = () => {
           </Card>
         </Space>
       </Card>
+
+      <Modal
+        title="Download All Data"
+        open={downloadModalVisible}
+        onCancel={() => setDownloadModalVisible(false)}
+        footer={[
+          <Button key="cancel" onClick={() => setDownloadModalVisible(false)}>
+            Cancel
+          </Button>,
+          <Button
+            key="download"
+            type="primary"
+            loading={downloadLoading}
+            onClick={handleDownloadAllData}
+            icon={<DownloadOutlined />}
+          >
+            Download
+          </Button>,
+        ]}
+        width={600}
+      >
+        <Space direction="vertical" size="large" style={{ width: '100%' }}>
+          <Alert
+            message="Data Export Information"
+            description="This will create a ZIP file containing all your application data. You can use this file for backup or to migrate your data to another installation."
+            type="info"
+            showIcon
+          />
+
+          <div>
+            <Title level={5}>Select data to include:</Title>
+            <Space direction="vertical" style={{ width: '100%' }}>
+              <Checkbox
+                checked={downloadOptions.includeReports}
+                onChange={(e) => setDownloadOptions({ ...downloadOptions, includeReports: e.target.checked })}
+              >
+                Reports ({downloadOptions.includeReports ? 'Included' : 'Excluded'})
+              </Checkbox>
+              <Checkbox
+                checked={downloadOptions.includeLogs}
+                onChange={(e) => setDownloadOptions({ ...downloadOptions, includeLogs: e.target.checked })}
+              >
+                Report Logs ({downloadOptions.includeLogs ? 'Included' : 'Excluded'})
+              </Checkbox>
+              <Checkbox
+                checked={downloadOptions.includeCheckpoints}
+                onChange={(e) => setDownloadOptions({ ...downloadOptions, includeCheckpoints: e.target.checked })}
+              >
+                Checkpoints ({downloadOptions.includeCheckpoints ? 'Included' : 'Excluded'})
+              </Checkbox>
+              <Checkbox
+                checked={downloadOptions.includeGenerationStates}
+                onChange={(e) => setDownloadOptions({ ...downloadOptions, includeGenerationStates: e.target.checked })}
+              >
+                Generation States ({downloadOptions.includeGenerationStates ? 'Included' : 'Excluded'})
+              </Checkbox>
+              <Checkbox
+                checked={downloadOptions.includeBackups}
+                onChange={(e) => setDownloadOptions({ ...downloadOptions, includeBackups: e.target.checked })}
+              >
+                Backups ({downloadOptions.includeBackups ? 'Included' : 'Excluded'})
+              </Checkbox>
+            </Space>
+          </div>
+
+          <Card size="small" style={{ background: '#f8f9fa' }}>
+            <Title level={5} style={{ margin: 0 }}>Download Summary</Title>
+            <Text>
+              <strong>Files to download:</strong> {downloadStats.fileCount}<br/>
+              <strong>Total size:</strong> {formatFileSize(downloadStats.totalSize)}
+            </Text>
+          </Card>
+        </Space>
+      </Modal>
     </div>
   );
 };

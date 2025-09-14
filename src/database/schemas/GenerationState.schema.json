@@ -1,0 +1,33 @@
+{
+  "type": "object",
+  "required": ["reportId", "status", "startTime"],
+  "properties": {
+    "reportId": { "type": "string" },
+    "status": { "type": "string", "enum": ["in_progress", "paused", "completed", "failed", "ready"] },
+    "progress": {
+      "type": "object",
+      "properties": {
+        "processed": { "type": "number" },
+        "total": { "type": "number" }
+      }
+    },
+    "tableData": {
+      "type": "object",
+      "properties": {
+        "columns": { "type": "array", "items": { "type": "string" } },
+        "results": { "type": "array", "items": { "type": "object" } },
+        "csv": { "type": "string" }
+      }
+    },
+    "startTime": { "type": "number" },
+    "errorMessage": { "type": "string" },
+    "parameters": { "type": "object" },
+    "extractedParameters": {
+      "type": "object",
+      "properties": {
+        "parameters": { "type": "object" },
+        "humanReadable": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  }
+}

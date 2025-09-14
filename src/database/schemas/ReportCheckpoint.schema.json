@@ -1,0 +1,34 @@
+{
+  "type": "object",
+  "required": ["reportId", "prompt", "currentTaskIndex", "completedTasks", "totalTasks", "startTime", "lastCheckpointTime", "status", "startOffset"],
+  "properties": {
+    "reportId": { "type": "string" },
+    "prompt": { "type": "string" },
+    "currentTaskIndex": { "type": "number" },
+    "completedTasks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "taskId": { "type": "string" },
+          "result": { "type": "object" },
+          "timestamp": { "type": "number" }
+        }
+      }
+    },
+    "totalTasks": { "type": "number" },
+    "startTime": { "type": "number" },
+    "lastCheckpointTime": { "type": "number" },
+    "status": { "type": "string", "enum": ["in_progress", "completed", "failed", "paused"] },
+    "errorMessage": { "type": "string" },
+    "startOffset": { "type": "number" },
+    "tableData": {
+      "type": "object",
+      "properties": {
+        "columns": { "type": "array", "items": { "type": "string" } },
+        "results": { "type": "array", "items": { "type": "object" } },
+        "csv": { "type": "string" }
+      }
+    }
+  }
+}
