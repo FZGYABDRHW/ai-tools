@@ -105,7 +105,7 @@ const ReportsPage: React.FC = () => {
 
     const handleCreateReport = async (values: { name: string }) => {
         try {
-            const newReport = reportService.createReport({
+            const newReport = await reportService.createReport({
                 name: values.name,
                 prompt: '' // Empty prompt, user will fill it in the editor
             });
@@ -126,7 +126,7 @@ const ReportsPage: React.FC = () => {
         if (!editingReport) return;
 
         try {
-            const updatedReport = reportService.updateReport(editingReport.id, values);
+            const updatedReport = await reportService.updateReport(editingReport.id, values);
             if (updatedReport) {
                 message.success('Report updated successfully!');
                 setIsEditModalVisible(false);
@@ -168,9 +168,9 @@ const ReportsPage: React.FC = () => {
             okText: 'Delete',
             okType: 'danger',
             cancelText: 'Cancel',
-            onOk: () => {
+            onOk: async () => {
         try {
-            const success = reportService.deleteReport(reportId);
+            const success = await reportService.deleteReport(reportId);
             if (success) {
                 message.success('Report deleted successfully!');
                 loadReports();
@@ -180,7 +180,7 @@ const ReportsPage: React.FC = () => {
         } catch (error) {
             message.error('Failed to delete report');
         }
-            }
+    }
         });
     };
 

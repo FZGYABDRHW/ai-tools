@@ -92,6 +92,18 @@ class ReportGenerationService {
         }
     }
 
+    private async saveGenerationStateToFileSystem(reportId: string, state: Omit<ReportGenerationState, 'abortController'>): Promise<boolean> {
+        try {
+            if ((window.electronAPI as any)?.fileSystem?.saveGenerationState) {
+                return await (window.electronAPI as any).fileSystem.saveGenerationState(reportId, state);
+            }
+            return false;
+        } catch (error) {
+            console.error('Error saving generation state to file system:', error);
+            return false;
+        }
+    }
+
     getActiveGenerations(): Map<string, ReportGenerationState> {
         return this.activeGenerations;
     }
@@ -122,7 +134,7 @@ class ReportGenerationService {
         return state?.status || null;
     }
 
-    updateGenerationStatus(reportId: string, status: GenerationStatus, errorMessage?: string): void {
+    async updateGenerationStatus(reportId: string, status: GenerationStatus, errorMessage?: string): Promise<void> {
         const state = this.activeGenerations.get(reportId);
         if (state) {
             state.status = status;
@@ -130,22 +142,43 @@ class ReportGenerationService {
                 state.errorMessage = errorMessage;
             }
             this.activeGenerations.set(reportId, state);
+            
+            // Save to file system first
+            const stateToSave = {
+                reportId: state.reportId,
+                status: state.status,
+                progress: state.progress,
+                tableData: state.tableData,
+                startTime: state.startTime,
+                errorMessage: state.errorMessage,
+                parameters: state.parameters,
+                extractedParameters: state.extractedParameters
+            };
+            
+            const fileSystemSaved = await this.saveGenerationStateToFileSystem(reportId, stateToSave);
+            if (fileSystemSaved) {
+                console.log(`✅ Updated generation status in file system for ${reportId}: ${status}`);
+            } else {
+                console.warn(`⚠️ Failed to save generation status to file system, falling back to localStorage: ${reportId}`);
+            }
+            
+            // Also save to localStorage for immediate UI updates
             this.saveActiveGenerations();
             console.log(`Updated generation status for ${reportId}: ${status}`);
         }
     }
 
-    resetToReady(reportId: string): boolean {
+    async resetToReady(reportId: string): Promise<boolean> {
         const state = this.activeGenerations.get(reportId);
         if (state && (state.status === 'paused' || state.status === 'in_progress')) {
             // Clear generation state but keep the report
-            this.clearGeneration(reportId);
+            await this.clearGeneration(reportId);
             
             // Clear checkpoint data
-            reportCheckpointService.clearCheckpoint(reportId);
+            await reportCheckpointService.clearCheckpoint(reportId);
             
             // Clear saved report data (table results)
-            reportService.clearReportData(reportId);
+            await reportService.clearReportData(reportId);
             
             console.log(`Reset report ${reportId} to ready state - cleared all data (from ${state.status})`);
             return true;
@@ -172,7 +205,7 @@ class ReportGenerationService {
         return false;
     }
 
-    rerunFromCompleted(reportId: string): boolean {
+    async rerunFromCompleted(reportId: string): Promise<boolean> {
         // Validate that the report exists
         const report = reportService.getReportById(reportId);
         if (!report) {
@@ -183,16 +216,16 @@ class ReportGenerationService {
         const state = this.activeGenerations.get(reportId);
         if (state && state.status === 'completed') {
             // Clear the completed state to allow new generation
-            this.clearGeneration(reportId);
+            await this.clearGeneration(reportId);
             // Clear all report data (table data, extracted parameters) to ensure fresh start
-            reportService.clearReportData(reportId);
+            await reportService.clearReportData(reportId);
             console.log(`Report ${reportId} ready for rerun - cleared generation state and all report data`);
             return true;
         }
         return false;
     }
 
-    restartFromFailed(reportId: string): boolean {
+    async restartFromFailed(reportId: string): Promise<boolean> {
         // Validate that the report exists
         const report = reportService.getReportById(reportId);
         if (!report) {
@@ -203,9 +236,9 @@ class ReportGenerationService {
         const state = this.activeGenerations.get(reportId);
         if (state && state.status === 'failed') {
             // Clear the failed state to allow new generation
-            this.clearGeneration(reportId);
+            await this.clearGeneration(reportId);
             // Clear all report data (table data, extracted parameters) to ensure fresh start
-            reportService.clearReportData(reportId);
+            await reportService.clearReportData(reportId);
             console.log(`Report ${reportId} ready for restart from failed state - cleared generation state and all report data`);
             return true;
         }
@@ -228,7 +261,7 @@ class ReportGenerationService {
         // Create or get report
         let report = reportService.getReportById(reportId);
         if (!report) {
-            report = reportService.createReport({
+            report = await reportService.createReport({
                 name: 'Custom Operational Report',
                 prompt: reportText
             });
@@ -266,7 +299,7 @@ class ReportGenerationService {
 
         // Create checkpoint for this generation only if not resuming
         if (startOffset === 0) {
-            reportCheckpointService.createCheckpoint(reportId, reportText, 0, startTime, startOffset);
+            await reportCheckpointService.createCheckpoint(reportId, reportText, 0, startTime, startOffset);
         } else {
             console.log(`Resuming generation - using existing checkpoint with offset ${startOffset}`);
         }
@@ -279,7 +312,7 @@ class ReportGenerationService {
                 reportText,
                 si,
                 (taskId) => builder(taskId, authToken, selectedServer),
-                (progress) => {
+                async (progress) => {
                     // Merge new progress with existing data if resuming
                     let mergedProgress = progress;
                     if (existingTableData && startOffset > 0) {
@@ -303,11 +336,11 @@ class ReportGenerationService {
                     this.saveActiveGenerations();
 
                     // Save to report service
-                    reportService.saveReportData(reportId, mergedProgress);
+                    await reportService.saveReportData(reportId, mergedProgress);
 
                     // Update checkpoint with the total number of tasks processed
                     const totalTasksProcessed = mergedProgress.results.length;
-                    reportCheckpointService.updateCheckpoint(
+                    await reportCheckpointService.updateCheckpoint(
                         reportId, 
                         `task_${totalTasksProcessed}`, 
                         mergedProgress, 
@@ -348,13 +381,13 @@ class ReportGenerationService {
                 console.log('Stored extracted parameters:', result.extractedParameters);
             }
             
-            this.updateGenerationStatus(reportId, 'completed');
+            await this.updateGenerationStatus(reportId, 'completed');
 
             // Save to report service with extracted parameters
-            reportService.saveReportData(reportId, finalResult, result.extractedParameters);
+            await reportService.saveReportData(reportId, finalResult, result.extractedParameters);
 
             // Create report log with extracted parameters
-            reportLogService.createFromReportGeneration(
+            await reportLogService.createFromReportGeneration(
                 reportId,
                 report.name,
                 reportText,
@@ -368,7 +401,7 @@ class ReportGenerationService {
             );
 
             // Mark checkpoint as completed
-            reportCheckpointService.markCompleted(reportId);
+            await reportCheckpointService.markCompleted(reportId);
 
             const callbacks = this.getCallbacks(reportId);
             callbacks?.onComplete?.(finalResult);
@@ -377,7 +410,7 @@ class ReportGenerationService {
             if (error.message !== 'Aborted') {
                 // Create report log for failed generation
                 const failedData = generationState.tableData || { columns: [], results: [], csv: '' };
-                reportLogService.createFromReportGeneration(
+                await reportLogService.createFromReportGeneration(
                     reportId,
                     report.name,
                     reportText,
@@ -390,16 +423,16 @@ class ReportGenerationService {
                 );
 
                 // Mark checkpoint as failed
-                reportCheckpointService.markFailed(reportId, error.message);
+                await reportCheckpointService.markFailed(reportId, error.message);
                 
                 // Update generation status to failed
-                this.updateGenerationStatus(reportId, 'failed', error.message);
+                await this.updateGenerationStatus(reportId, 'failed', error.message);
             } else {
                 // Mark checkpoint as paused for aborted generations
-                reportCheckpointService.markPaused(reportId);
+                await reportCheckpointService.markPaused(reportId);
                 
                 // Update generation status to paused
-                this.updateGenerationStatus(reportId, 'paused');
+                await this.updateGenerationStatus(reportId, 'paused');
             }
 
             const callbacks = this.getCallbacks(reportId);
@@ -408,23 +441,38 @@ class ReportGenerationService {
         }
     }
 
-    stopGeneration(reportId: string): boolean {
+    async stopGeneration(reportId: string): Promise<boolean> {
         const state = this.activeGenerations.get(reportId);
         if (state?.abortController) {
             state.abortController.abort();
             
             // Mark checkpoint as paused when manually stopped
-            reportCheckpointService.markPaused(reportId);
+            await reportCheckpointService.markPaused(reportId);
             
             // Update generation status to paused
-            this.updateGenerationStatus(reportId, 'paused');
+            await this.updateGenerationStatus(reportId, 'paused');
             
             return true;
         }
         return false;
     }
 
-    clearGeneration(reportId: string): void {
+    async clearGeneration(reportId: string): Promise<void> {
+        // Delete from file system first
+        try {
+            if ((window.electronAPI as any)?.fileSystem?.deleteGenerationState) {
+                const fileSystemDeleted = await (window.electronAPI as any).fileSystem.deleteGenerationState(reportId);
+                if (fileSystemDeleted) {
+                    console.log(`✅ Deleted generation state from file system: ${reportId}`);
+                } else {
+                    console.warn(`⚠️ Failed to delete generation state from file system: ${reportId}`);
+                }
+            }
+        } catch (error) {
+            console.error(`Error deleting generation state from file system: ${reportId}:`, error);
+        }
+
+        // Also remove from localStorage
         this.activeGenerations.delete(reportId);
         this.saveActiveGenerations();
     }
@@ -497,7 +545,7 @@ class ReportGenerationService {
 
         // Resume the checkpoint
         console.log('Attempting to resume checkpoint...');
-        const resumedCheckpoint = reportCheckpointService.resumeCheckpoint(reportId);
+        const resumedCheckpoint = await reportCheckpointService.resumeCheckpoint(reportId);
         if (!resumedCheckpoint) {
             console.error('Failed to resume checkpoint');
             throw new Error('Failed to resume checkpoint');

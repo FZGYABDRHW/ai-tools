@@ -25,12 +25,33 @@ class ReportLogService {
         }
     }
 
-    createReportLog(reportLog: Omit<ReportLog, 'id'>): ReportLog {
+    private async saveReportLogToFileSystem(reportLog: ReportLog): Promise<boolean> {
+        try {
+            if ((window.electronAPI as any)?.fileSystem?.saveReportLog) {
+                return await (window.electronAPI as any).fileSystem.saveReportLog(reportLog);
+            }
+            return false;
+        } catch (error) {
+            console.error('Error saving report log to file system:', error);
+            return false;
+        }
+    }
+
+    async createReportLog(reportLog: Omit<ReportLog, 'id'>): Promise<ReportLog> {
         const newReportLog: ReportLog = {
             ...reportLog,
             id: this.generateId(),
         };
 
+        // Save to file system first
+        const fileSystemSaved = await this.saveReportLogToFileSystem(newReportLog);
+        if (fileSystemSaved) {
+            console.log(`✅ Created report log in file system: ${newReportLog.id}`);
+        } else {
+            console.warn(`⚠️ Failed to save report log to file system, falling back to localStorage: ${newReportLog.id}`);
+        }
+
+        // Also save to localStorage for immediate UI updates
         const reportLogs = this.getReportLogs();
         reportLogs.unshift(newReportLog); // Add to beginning of array
         this.saveReportLogs(reportLogs);
@@ -52,30 +73,83 @@ class ReportLogService {
         return reportLogs.find(log => log.id === id) || null;
     }
 
-    deleteReportLog(id: string): boolean {
+    async deleteReportLog(id: string): Promise<boolean> {
         const reportLogs = this.getReportLogs();
         const filteredLogs = reportLogs.filter(log => log.id !== id);
         
         if (filteredLogs.length !== reportLogs.length) {
+            // Delete from file system first
+            try {
+                if ((window.electronAPI as any)?.fileSystem?.deleteReportLog) {
+                    const fileSystemDeleted = await (window.electronAPI as any).fileSystem.deleteReportLog(id);
+                    if (fileSystemDeleted) {
+                        console.log(`✅ Deleted report log from file system: ${id}`);
+                    } else {
+                        console.warn(`⚠️ Failed to delete report log from file system: ${id}`);
+                    }
+                }
+            } catch (error) {
+                console.error(`Error deleting report log from file system: ${id}:`, error);
+            }
+
+            // Also remove from localStorage
             this.saveReportLogs(filteredLogs);
             return true;
         }
         return false;
     }
 
-    deleteReportLogsByReportId(reportId: string): number {
+    async deleteReportLogsByReportId(reportId: string): Promise<number> {
         const reportLogs = this.getReportLogs();
+        const logsToDelete = reportLogs.filter(log => log.reportId === reportId);
         const filteredLogs = reportLogs.filter(log => log.reportId !== reportId);
         const deletedCount = reportLogs.length - filteredLogs.length;
         
         if (deletedCount > 0) {
+            // Delete from file system first
+            for (const log of logsToDelete) {
+                try {
+                    if ((window.electronAPI as any)?.fileSystem?.deleteReportLog) {
+                        const fileSystemDeleted = await (window.electronAPI as any).fileSystem.deleteReportLog(log.id);
+                        if (fileSystemDeleted) {
+                            console.log(`✅ Deleted report log from file system: ${log.id}`);
+                        } else {
+                            console.warn(`⚠️ Failed to delete report log from file system: ${log.id}`);
+                        }
+                    }
+                } catch (error) {
+                    console.error(`Error deleting report log from file system: ${log.id}:`, error);
+                }
+            }
+
+            // Also remove from localStorage
             this.saveReportLogs(filteredLogs);
         }
         
         return deletedCount;
     }
 
-    clearAllReportLogs(): void {
+    async clearAllReportLogs(): Promise<void> {
+        // Get all logs to delete from file system
+        const reportLogs = this.getReportLogs();
+        
+        // Delete from file system first
+        for (const log of reportLogs) {
+            try {
+                if ((window.electronAPI as any)?.fileSystem?.deleteReportLog) {
+                    const fileSystemDeleted = await (window.electronAPI as any).fileSystem.deleteReportLog(log.id);
+                    if (fileSystemDeleted) {
+                        console.log(`✅ Deleted report log from file system: ${log.id}`);
+                    } else {
+                        console.warn(`⚠️ Failed to delete report log from file system: ${log.id}`);
+                    }
+                }
+            } catch (error) {
+                console.error(`Error deleting report log from file system: ${log.id}:`, error);
+            }
+        }
+
+        // Also clear localStorage
         this.saveReportLogs([]);
     }
 
@@ -84,7 +158,7 @@ class ReportLogService {
     }
 
     // Helper method to create a report log from a completed report generation
-    createFromReportGeneration(
+    async createFromReportGeneration(
         reportId: string,
         reportName: string,
         prompt: string,
@@ -103,11 +177,11 @@ class ReportLogService {
             };
             humanReadable: string[];
         }
-    ): ReportLog {
+    ): Promise<ReportLog> {
         const completedAt = new Date().toISOString();
         const duration = Date.now() - startTime;
 
-        return this.createReportLog({
+        return await this.createReportLog({
             reportId,
             reportName,
             prompt,

@@ -13,6 +13,18 @@ class ReportService {
         }
     }
 
+    private async saveReportToFileSystem(report: Report): Promise<boolean> {
+        try {
+            if ((window.electronAPI as any)?.fileSystem?.saveReport) {
+                return await (window.electronAPI as any).fileSystem.saveReport(report);
+            }
+            return false;
+        } catch (error) {
+            console.error('Error saving report to file system:', error);
+            return false;
+        }
+    }
+
     private async loadReport(id: string): Promise<Report | null> {
         if ((window.electronAPI as any)?.fileSystem?.getReport) {
             return await (window.electronAPI as any).fileSystem.getReport(id);
@@ -144,7 +156,7 @@ class ReportService {
         return this.getAllReports().length > 0;
     }
 
-    createReport(request: CreateReportRequest): Report {
+    async createReport(request: CreateReportRequest): Promise<Report> {
         // Validate input
         if (!request.name || request.name.trim() === '') {
             throw new Error('Report name is required');
@@ -168,6 +180,15 @@ class ReportService {
             updatedAt: new Date().toISOString()
         };
 
+        // Save to file system first
+        const fileSystemSaved = await this.saveReportToFileSystem(newReport);
+        if (fileSystemSaved) {
+            console.log(`✅ Created new report in file system: ${newReport.name} (ID: ${newReport.id})`);
+        } else {
+            console.warn(`⚠️ Failed to save report to file system, falling back to localStorage: ${newReport.name}`);
+        }
+
+        // Also save to localStorage for immediate UI updates
         reports.push(newReport);
         this.saveReportsToStorage(reports);
 
@@ -175,23 +196,33 @@ class ReportService {
         return newReport;
     }
 
-    updateReport(id: string, updates: UpdateReportRequest): Report | null {
+    async updateReport(id: string, updates: UpdateReportRequest): Promise<Report | null> {
         const reports = this.getReportsFromStorage();
         const index = reports.findIndex(report => report.id === id);
 
         if (index === -1) return null;
 
-        reports[index] = {
+        const updatedReport = {
             ...reports[index],
             ...updates,
             updatedAt: new Date().toISOString()
         };
 
+        // Save to file system first
+        const fileSystemSaved = await this.saveReportToFileSystem(updatedReport);
+        if (fileSystemSaved) {
+            console.log(`✅ Updated report in file system: ${updatedReport.name} (ID: ${updatedReport.id})`);
+        } else {
+            console.warn(`⚠️ Failed to save updated report to file system, falling back to localStorage: ${updatedReport.name}`);
+        }
+
+        // Also save to localStorage for immediate UI updates
+        reports[index] = updatedReport;
         this.saveReportsToStorage(reports);
-        return reports[index];
+        return updatedReport;
     }
 
-    deleteReport(id: string): boolean {
+    async deleteReport(id: string): Promise<boolean> {
         const reports = this.getReportsFromStorage();
         const filteredReports = reports.filter(report => report.id !== id);
 
@@ -199,7 +230,21 @@ class ReportService {
             return false; // Report not found
         }
 
-        // Save the filtered reports (remove the report)
+        // Delete from file system first
+        try {
+            if ((window.electronAPI as any)?.fileSystem?.deleteReport) {
+                const fileSystemDeleted = await (window.electronAPI as any).fileSystem.deleteReport(id);
+                if (fileSystemDeleted) {
+                    console.log(`✅ Deleted report from file system: ${id}`);
+                } else {
+                    console.warn(`⚠️ Failed to delete report from file system: ${id}`);
+                }
+            }
+        } catch (error) {
+            console.error(`Error deleting report from file system: ${id}:`, error);
+        }
+
+        // Save the filtered reports (remove the report) to localStorage
         this.saveReportsToStorage(filteredReports);
 
         // Clean up all related data for this report
@@ -221,7 +266,7 @@ class ReportService {
         return true;
     }
 
-    saveReportData(id: string, tableData: {
+    async saveReportData(id: string, tableData: {
         columns: string[];
         results: Array<Record<string, unknown>>;
         csv: string;
@@ -233,13 +278,13 @@ class ReportService {
             timeRangeTo?: string;
         };
         humanReadable: string[];
-    }): Report | null {
+    }): Promise<Report | null> {
         const reports = this.getReportsFromStorage();
         const index = reports.findIndex(report => report.id === id);
 
         if (index === -1) return null;
 
-        reports[index] = {
+        const updatedReport = {
             ...reports[index],
             tableData,
             extractedParameters,
@@ -247,11 +292,21 @@ class ReportService {
             updatedAt: new Date().toISOString()
         };
 
+        // Save to file system first
+        const fileSystemSaved = await this.saveReportToFileSystem(updatedReport);
+        if (fileSystemSaved) {
+            console.log(`✅ Saved report data to file system: ${updatedReport.name} (ID: ${updatedReport.id})`);
+        } else {
+            console.warn(`⚠️ Failed to save report data to file system, falling back to localStorage: ${updatedReport.name}`);
+        }
+
+        // Also save to localStorage for immediate UI updates
+        reports[index] = updatedReport;
         this.saveReportsToStorage(reports);
-        return reports[index];
+        return updatedReport;
     }
 
-    clearReportData(id: string): Report | null {
+    async clearReportData(id: string): Promise<Report | null> {
         const reports = this.getReportsFromStorage();
         const index = reports.findIndex(report => report.id === id);
 
@@ -260,14 +315,24 @@ class ReportService {
         // Remove tableData, extractedParameters, and lastGeneratedAt
         const { tableData, extractedParameters, lastGeneratedAt, ...reportWithoutData } = reports[index];
 
-        reports[index] = {
+        const clearedReport = {
             ...reportWithoutData,
             updatedAt: new Date().toISOString()
         };
 
+        // Save to file system first
+        const fileSystemSaved = await this.saveReportToFileSystem(clearedReport);
+        if (fileSystemSaved) {
+            console.log(`✅ Cleared report data in file system: ${clearedReport.name} (ID: ${clearedReport.id})`);
+        } else {
+            console.warn(`⚠️ Failed to clear report data in file system, falling back to localStorage: ${clearedReport.name}`);
+        }
+
+        // Also save to localStorage for immediate UI updates
+        reports[index] = clearedReport;
         this.saveReportsToStorage(reports);
         console.log(`Cleared table data and extracted parameters for report ${id}`);
-        return reports[index];
+        return clearedReport;
     }
 
     exportReports(): string {

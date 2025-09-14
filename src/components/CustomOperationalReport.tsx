@@ -194,7 +194,9 @@ const CustomOperationalReport: React.FC = () => {
             const report = reportService.getReportById(reportId);
             if (report && report.prompt !== reportText) {
                 console.log('Auto-saving report text changes');
-                reportService.updateReport(reportId, { prompt: reportText });
+                reportService.updateReport(reportId, { prompt: reportText }).catch(error => {
+                    console.error('Failed to auto-save report:', error);
+                });
             }
         }
     }, [reportText, location.search]);
@@ -253,7 +255,7 @@ const CustomOperationalReport: React.FC = () => {
 
         if (!reportId) {
             // Create new report
-            const newReport = reportService.createReport({
+            const newReport = await reportService.createReport({
                 name: 'Custom Operational Report',
                 prompt: reportText
             });

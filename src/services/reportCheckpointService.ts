@@ -48,15 +48,26 @@ class ReportCheckpointService {
         }
     }
 
-    createCheckpoint(
+    private async saveCheckpointToFileSystem(reportId: string, checkpoint: ReportCheckpoint): Promise<boolean> {
+        try {
+            if ((window.electronAPI as any)?.fileSystem?.saveCheckpoint) {
+                return await (window.electronAPI as any).fileSystem.saveCheckpoint(reportId, checkpoint);
+            }
+            return false;
+        } catch (error) {
+            console.error('Error saving checkpoint to file system:', error);
+            return false;
+        }
+    }
+
+    async createCheckpoint(
         reportId: string,
         prompt: string,
         totalTasks: number,
         startTime: number,
         startOffset: number = 0
-    ): void {
-        const checkpoints = this.getCheckpoints();
-        checkpoints[reportId] = {
+    ): Promise<void> {
+        const checkpoint: ReportCheckpoint = {
             reportId,
             prompt,
             currentTaskIndex: 0,
@@ -67,11 +78,23 @@ class ReportCheckpointService {
             status: 'in_progress',
             startOffset
         };
+
+        // Save to file system first
+        const fileSystemSaved = await this.saveCheckpointToFileSystem(reportId, checkpoint);
+        if (fileSystemSaved) {
+            console.log(`✅ Created checkpoint in file system for report ${reportId} at offset ${startOffset}`);
+        } else {
+            console.warn(`⚠️ Failed to save checkpoint to file system, falling back to localStorage: ${reportId}`);
+        }
+
+        // Also save to localStorage for immediate UI updates
+        const checkpoints = this.getCheckpoints();
+        checkpoints[reportId] = checkpoint;
         this.saveCheckpoints(checkpoints);
         console.log(`Created checkpoint for report ${reportId} at offset ${startOffset}`);
     }
 
-    updateCheckpoint(
+    async updateCheckpoint(
         reportId: string,
         taskId: string,
         result: any,
@@ -81,7 +104,7 @@ class ReportCheckpointService {
             results: Array<Record<string, unknown>>;
             csv: string;
         }
-    ): void {
+    ): Promise<void> {
         const checkpoints = this.getCheckpoints();
         const checkpoint = checkpoints[reportId];
         
@@ -105,6 +128,15 @@ class ReportCheckpointService {
                 checkpoint.tableData = tableData;
             }
             
+            // Save to file system first
+            const fileSystemSaved = await this.saveCheckpointToFileSystem(reportId, checkpoint);
+            if (fileSystemSaved) {
+                console.log(`✅ Updated checkpoint in file system for report ${reportId}, task ${currentTaskIndex}/${checkpoint.totalTasks}, offset: ${checkpoint.startOffset}`);
+            } else {
+                console.warn(`⚠️ Failed to save updated checkpoint to file system, falling back to localStorage: ${reportId}`);
+            }
+            
+            // Also save to localStorage for immediate UI updates
             this.saveCheckpoints(checkpoints);
             console.log(`Updated checkpoint for report ${reportId}, task ${currentTaskIndex}/${checkpoint.totalTasks}, offset: ${checkpoint.startOffset}`);
         }
@@ -126,34 +158,64 @@ class ReportCheckpointService {
         return canResume;
     }
 
-    markCompleted(reportId: string): void {
+    async markCompleted(reportId: string): Promise<void> {
         const checkpoints = this.getCheckpoints();
         const checkpoint = checkpoints[reportId];
         if (checkpoint) {
             checkpoint.status = 'completed';
             checkpoint.lastCheckpointTime = Date.now();
+            
+            // Save to file system first
+            const fileSystemSaved = await this.saveCheckpointToFileSystem(reportId, checkpoint);
+            if (fileSystemSaved) {
+                console.log(`✅ Marked checkpoint as completed in file system: ${reportId}`);
+            } else {
+                console.warn(`⚠️ Failed to save completed checkpoint to file system, falling back to localStorage: ${reportId}`);
+            }
+            
+            // Also save to localStorage for immediate UI updates
             this.saveCheckpoints(checkpoints);
         }
     }
 
-    markFailed(reportId: string, errorMessage: string): void {
+    async markFailed(reportId: string, errorMessage: string): Promise<void> {
         const checkpoints = this.getCheckpoints();
         const checkpoint = checkpoints[reportId];
         if (checkpoint) {
             checkpoint.status = 'failed';
             checkpoint.errorMessage = errorMessage;
             checkpoint.lastCheckpointTime = Date.now();
+            
+            // Save to file system first
+            const fileSystemSaved = await this.saveCheckpointToFileSystem(reportId, checkpoint);
+            if (fileSystemSaved) {
+                console.log(`✅ Marked checkpoint as failed in file system: ${reportId}`);
+            } else {
+                console.warn(`⚠️ Failed to save failed checkpoint to file system, falling back to localStorage: ${reportId}`);
+            }
+            
+            // Also save to localStorage for immediate UI updates
             this.saveCheckpoints(checkpoints);
         }
     }
 
-    markPaused(reportId: string): void {
+    async markPaused(reportId: string): Promise<void> {
         console.log(`Marking checkpoint ${reportId} as paused`);
         const checkpoints = this.getCheckpoints();
         const checkpoint = checkpoints[reportId];
         if (checkpoint) {
             checkpoint.status = 'paused';
             checkpoint.lastCheckpointTime = Date.now();
+            
+            // Save to file system first
+            const fileSystemSaved = await this.saveCheckpointToFileSystem(reportId, checkpoint);
+            if (fileSystemSaved) {
+                console.log(`✅ Marked checkpoint as paused in file system: ${reportId}`);
+            } else {
+                console.warn(`⚠️ Failed to save paused checkpoint to file system, falling back to localStorage: ${reportId}`);
+            }
+            
+            // Also save to localStorage for immediate UI updates
             this.saveCheckpoints(checkpoints);
             console.log(`Checkpoint ${reportId} marked as paused successfully`);
         } else {
@@ -161,7 +223,7 @@ class ReportCheckpointService {
         }
     }
 
-    resumeCheckpoint(reportId: string): ReportCheckpoint | null {
+    async resumeCheckpoint(reportId: string): Promise<ReportCheckpoint | null> {
         const checkpoint = this.getCheckpoint(reportId);
         console.log(`Resume checkpoint called for ${reportId}:`, checkpoint);
         
@@ -169,6 +231,16 @@ class ReportCheckpointService {
             console.log(`Resuming checkpoint ${reportId} from status: ${checkpoint.status}`);
             checkpoint.status = 'in_progress';
             checkpoint.lastCheckpointTime = Date.now();
+            
+            // Save to file system first
+            const fileSystemSaved = await this.saveCheckpointToFileSystem(reportId, checkpoint);
+            if (fileSystemSaved) {
+                console.log(`✅ Resumed checkpoint in file system: ${reportId}`);
+            } else {
+                console.warn(`⚠️ Failed to save resumed checkpoint to file system, falling back to localStorage: ${reportId}`);
+            }
+            
+            // Also save to localStorage for immediate UI updates
             const checkpoints = this.getCheckpoints();
             checkpoints[reportId] = checkpoint;
             this.saveCheckpoints(checkpoints);
@@ -180,7 +252,22 @@ class ReportCheckpointService {
         return null;
     }
 
-    clearCheckpoint(reportId: string): void {
+    async clearCheckpoint(reportId: string): Promise<void> {
+        // Delete from file system first
+        try {
+            if ((window.electronAPI as any)?.fileSystem?.deleteCheckpoint) {
+                const fileSystemDeleted = await (window.electronAPI as any).fileSystem.deleteCheckpoint(reportId);
+                if (fileSystemDeleted) {
+                    console.log(`✅ Deleted checkpoint from file system: ${reportId}`);
+                } else {
+                    console.warn(`⚠️ Failed to delete checkpoint from file system: ${reportId}`);
+                }
+            }
+        } catch (error) {
+            console.error(`Error deleting checkpoint from file system: ${reportId}:`, error);
+        }
+
+        // Also remove from localStorage
         const checkpoints = this.getCheckpoints();
         delete checkpoints[reportId];
         this.saveCheckpoints(checkpoints);

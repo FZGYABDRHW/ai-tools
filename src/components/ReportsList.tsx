@@ -79,7 +79,7 @@ const ReportsList: React.FC<ReportsListProps> = ({ onSelectReport, onNewReport }
 
     const handleCreateReport = async (values: { name: string; prompt: string }) => {
         try {
-            const newReport = reportService.createReport(values);
+            const newReport = await reportService.createReport(values);
             message.success('Report created successfully!');
             setIsCreateModalVisible(false);
             form.resetFields();
@@ -94,7 +94,7 @@ const ReportsList: React.FC<ReportsListProps> = ({ onSelectReport, onNewReport }
         if (!editingReport) return;
 
         try {
-            const updatedReport = reportService.updateReport(editingReport.id, values);
+            const updatedReport = await reportService.updateReport(editingReport.id, values);
             if (updatedReport) {
                 message.success('Report updated successfully!');
                 setIsEditModalVisible(false);
@@ -109,9 +109,9 @@ const ReportsList: React.FC<ReportsListProps> = ({ onSelectReport, onNewReport }
         }
     };
 
-    const handleDeleteReport = (reportId: string) => {
+    const handleDeleteReport = async (reportId: string) => {
         try {
-            const success = reportService.deleteReport(reportId);
+            const success = await reportService.deleteReport(reportId);
             if (success) {
                 message.success('Report deleted successfully!');
                 loadReports();
