@@ -1,0 +1,23 @@
+{
+  "name": "Electron + UI (noVNC)",
+  "build": { "dockerfile": "Dockerfile" },
+  "forwardPorts": [6080],
+  "runArgs": ["--shm-size=2g"],
+  "containerEnv": {
+    "DISPLAY": ":0",
+    "ELECTRON_ENABLE_LOGGING": "1"
+  },
+  "remoteUser": "vscode",
+  "postCreateCommand": "bash .devcontainer/post-create.sh",
+  "overrideCommand": false,
+  "workspaceFolder": "/workspaces/ai-tools",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "ms-vscode.vscode-typescript-next"
+      ]
+    }
+  }
+}
