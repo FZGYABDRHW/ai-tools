@@ -76,50 +76,35 @@ export async function buildReport(
       messages: [
         {
           role: 'system',
-          content: `You are an expert parameter extraction specialist for agile project management systems. Your task is to analyze user requests and extract precise filtering parameters for task reports.
-
-CONTEXT: You're working with a task management system that tracks work items through various stages. Users request reports with specific filters.
-
-CURRENT DATE: ${new Date().toISOString().split('T')[0]} (YYYY-MM-DD format)
-
-EXTRACT these parameters and return ONLY a valid JSON object:
+          content: `You are a parameter extraction specialist. From the user prompt, extract task list parameters and return ONLY a JSON object with the following structure:
 {
-  "limit": number (optional, max tasks to process, default: undefined),
-  "taskStatus": string (optional, one of: "new", "done", "canceled", "in-work", "on-moderation", "awaiting-approve", "on-payment", "in-queue", default: "in-work"),
-  "timeRangeFrom": string (optional, ISO date YYYY-MM-DD),
-  "timeRangeTo": string (optional, ISO date YYYY-MM-DD)
+  "limit": number (optional, maximum number of tasks to process, default is undefined),
+  "taskStatus": string (optional, one of: "new", "done", "canceled", "in-work", "on-moderation", "awaiting-approve", "on-payment", "in-queue", default "in-work"),
+  "timeRangeFrom": string (optional, ISO date string YYYY-MM-DD),
+  "timeRangeTo": string (optional, ISO date string YYYY-MM-DD)
 }
 
-EXTRACTION RULES:
+IMPORTANT: Current date is ${new Date().toISOString().split('T')[0]} (YYYY-MM-DD format).
 
-1. LIMIT DETECTION:
-   - "first X", "only X", "limit to X", "top X", "maximum X" → set limit to X
-   - Numbers 1-1000 are valid limits
+Rules:
+- If user mentions "only first X tasks" or "limit to X tasks", set limit to X
+- If user mentions task status keywords, map them appropriately:
+  * "new", "fresh", "recent", "новое" → "new"
+  * "completed", "done", "finished" → "done"
+  * "canceled", "cancelled" → "canceled"
+  * "in work", "in progress", "working" → "in-work"
+  * "on moderation", "moderating" → "on-moderation"
+  * "awaiting approval", "pending approval" → "awaiting-approve"
+  * "on payment", "paid" → "on-payment"
+  * "in queue", "queued", "waiting" → "in-queue"
+- If user mentions time ranges, calculate based on CURRENT DATE:
+  * "last X days" or "последние X дней" → timeRangeFrom = (current date - X days), timeRangeTo = current date
+  * "this week" → timeRangeFrom = start of current week, timeRangeTo = current date
+  * "this month" → timeRangeFrom = start of current month, timeRangeTo = current date
+  * "yesterday" → timeRangeFrom = (current date - 1 day), timeRangeTo = (current date - 1 day)
+  * "today" → timeRangeFrom = current date, timeRangeTo = current date
 
-2. STATUS MAPPING (case-insensitive):
-   - "new", "fresh", "recent", "новое", "новые" → "new"
-   - "completed", "done", "finished", "завершенные", "выполненные" → "done"
-   - "canceled", "cancelled", "отмененные" → "canceled"
-   - "in work", "in progress", "working", "в работе", "выполняются" → "in-work"
-   - "on moderation", "moderating", "на модерации" → "on-moderation"
-   - "awaiting approval", "pending approval", "ожидают одобрения" → "awaiting-approve"
-   - "on payment", "paid", "на оплате" → "on-payment"
-   - "in queue", "queued", "waiting", "в очереди" → "in-queue"
-
-3. TIME RANGE CALCULATION (based on current date):
-   - "last X days/weeks/months" → from: (current - X units), to: current
-   - "this week" → from: start of current week, to: current
-   - "this month" → from: start of current month, to: current
-   - "yesterday" → from: current-1 day, to: current-1 day
-   - "today" → from: current, to: current
-   - "last week/month" → from: start of previous period, to: end of previous period
-
-EXAMPLES:
-- "Show me new tasks from last week" → {"taskStatus": "new", "timeRangeFrom": "2024-01-15", "timeRangeTo": "2024-01-21"}
-- "First 50 completed tasks" → {"limit": 50, "taskStatus": "done"}
-- "Tasks in progress this month" → {"taskStatus": "in-work", "timeRangeFrom": "2024-01-01", "timeRangeTo": "2024-01-22"}
-
-CRITICAL: Return ONLY the JSON object, no explanations or additional text.`
+Calculate dates dynamically using the current date provided above. Return only the JSON object, no additional text.`
         },
         { role: 'user', content: rawPrompt },
       ],
@@ -198,42 +183,7 @@ CRITICAL: Return ONLY the JSON object, no explanations or additional text.`
     const schemaCompletion = await openai.chat.completions.create({
       model: 'o3',
       messages: [
-        { role: 'system', content: `You are an expert business analyst specializing in agile project management reporting. Your task is to design optimal column schemas for task reports.
-
-CONTEXT: You're creating a structured report schema based on user requirements for agile task analysis.
-
-TASK: Analyze the user's request and determine the most relevant column names for a comprehensive task report.
-
-REQUIREMENTS:
-- Return ONLY a JSON array of column names (strings)
-- Use clear, descriptive column names in English
-- Include standard agile metrics when relevant
-- Consider both technical and business perspectives
-- Maximum 15 columns to keep reports manageable
-
-STANDARD COLUMNS (include when relevant):
-- "Task ID" - unique identifier
-- "Title" - task name/summary
-- "Description" - detailed task description
-- "Status" - current task status
-- "Priority" - task priority level
-- "Assignee" - person responsible
-- "Sprint" - sprint/iteration
-- "Story Points" - effort estimation
-- "Created Date" - when task was created
-- "Due Date" - deadline
-- "Completed Date" - when finished
-- "Tags" - categorization labels
-- "Epic" - larger feature grouping
-- "Component" - technical component
-- "Labels" - additional categorization
-
-EXAMPLES:
-- "Show task completion rates" → ["Task ID", "Title", "Status", "Completed Date", "Story Points", "Sprint"]
-- "Analyze developer workload" → ["Task ID", "Title", "Assignee", "Status", "Story Points", "Priority", "Sprint"]
-- "Track bug resolution" → ["Task ID", "Title", "Status", "Priority", "Assignee", "Created Date", "Completed Date", "Component"]
-
-CRITICAL: Return ONLY the JSON array, no explanations.` },
+        { role: 'system', content: 'You are an analyst. From the user prompt, output ONLY a JSON array of column names for an agile task report. Return only a JSON string.' },
         { role: 'user', content: rawPrompt },
       ],
     });
@@ -257,28 +207,9 @@ CRITICAL: Return ONLY the JSON array, no explanations.` },
   const results: Record<string, unknown>[] = [];
 
   const makeTaskPrompt = (taskText: string) =>
-    `You are a data extraction specialist for agile project management. Extract structured information from task descriptions to populate a report.
-
-REPORT CONTEXT: ${rawPrompt}
-
-REQUIRED COLUMNS: ${columns.join(', ')}
-
-TASK DESCRIPTION:
-${taskText}
-
-INSTRUCTIONS:
-1. Analyze the task description carefully
-2. Extract relevant information for each required column
-3. Use "N/A" for missing information (don't make up data)
-4. For dates, use ISO format (YYYY-MM-DD) when possible
-5. For numbers, use actual values or 0 if not specified
-6. For text fields, use exact wording from the task when available
-7. Ensure all column names match exactly (case-sensitive)
-
-OUTPUT FORMAT: Return ONLY a JSON object with the exact column names as keys. No explanations or additional text.
-
-EXAMPLE OUTPUT:
-{"Task ID": "12345", "Title": "Fix login bug", "Status": "in-work", "Priority": "high", "Assignee": "John Doe", "Story Points": 3}`;
+    `Request from user for the context: ${rawPrompt}, Return a JSON object with EXACTLY these keys: ${columns.join(', ')}. ` +
+    `Fill them with data inferred from the following task description, nothing more, nothing less.\n\n` +
+    `Task description:\n${taskText}`;
 
   // Helper function to update progress
   const updateProgress = () => {
@@ -332,23 +263,7 @@ EXAMPLE OUTPUT:
           const completionPromise = openai.chat.completions.create({
             model: 'o3', // replace with any model your account supports
             messages: [
-              { role: 'system', content: `You are an expert data analyst specializing in agile project management. Your task is to extract structured information from task descriptions and format it according to specific report requirements.
-
-EXPERTISE: You understand agile methodologies, project management terminology, and can accurately interpret task descriptions to extract relevant metrics and metadata.
-
-QUALITY STANDARDS:
-- Extract only factual information from the provided task description
-- Use consistent formatting for similar data types
-- Apply domain knowledge to infer reasonable values when context is clear
-- Maintain data integrity and avoid hallucination
-- Follow the exact column schema provided
-
-OUTPUT REQUIREMENTS:
-- Return ONLY valid JSON
-- Use exact column names as provided
-- Include all required columns
-- Use appropriate data types (strings, numbers, dates)
-- No explanations or additional text` },
+              { role: 'system', content: 'You are a helpful assistant producing structured task rows.' },
               { role: 'user', content: makeTaskPrompt(task) },
             ],
           });
