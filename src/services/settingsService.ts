@@ -1,5 +1,6 @@
 export interface AppSettings {
   openaiApiKey: string;
+  concurrencyLimit?: number;
 }
 
 class SettingsService {
@@ -9,7 +10,8 @@ class SettingsService {
 
   private constructor() {
     this.settings = {
-      openaiApiKey: ''
+      openaiApiKey: '',
+      concurrencyLimit: 2
     };
     this.loadSettings();
   }
@@ -65,6 +67,15 @@ class SettingsService {
 
   public hasValidOpenAIKey(): boolean {
     return this.settings.openaiApiKey.trim().length > 0;
+  }
+
+  public getConcurrencyLimit(): number {
+    return Math.max(1, this.settings.concurrencyLimit || 2);
+  }
+
+  public async setConcurrencyLimit(limit: number): Promise<void> {
+    this.settings.concurrencyLimit = Math.max(1, limit);
+    await this.saveSettings();
   }
 }
 

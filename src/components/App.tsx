@@ -3,6 +3,7 @@ import { Layout, ConfigProvider, theme, message } from 'antd';
 import { HashRouter, Routes, Route } from 'react-router-dom';
 import { useAuth } from '../machines';
 import { SidebarProvider } from '../contexts/SidebarContext';
+import { ReportsRegistryProvider } from '../machines';
 import Navigation from './Navigation';
 import AppHeader from './Header';
 import Breadcrumbs from './Breadcrumbs';
@@ -216,6 +217,7 @@ const App: React.FC = () => {
         >
             <HashRouter>
                 <SidebarProvider>
+                    <ReportsRegistryProvider>
                     <Layout style={{ minHeight: '100vh' }}>
                         <Navigation />
                         <Layout style={{ minHeight: '100vh' }}>
@@ -240,6 +242,7 @@ const App: React.FC = () => {
                             </Content>
                         </Layout>
                     </Layout>
+                    </ReportsRegistryProvider>
                 </SidebarProvider>
             </HashRouter>
 

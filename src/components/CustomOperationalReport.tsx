@@ -33,9 +33,7 @@ const CustomOperationalReport: React.FC = () => {
         return tab === 'logs' ? 'logs' : 'editor';
     };
 
-    const [reportText, setReportText] = useState<string>(() => {
-        return localStorage.getItem('customOperationalReport') || '';
-    });
+    const [reportText, setReportText] = useState<string>('');
     const [isGenerating, setIsGenerating] = useState<boolean>(false);
     const [tableData, setTableData] = useState<{
         columns: string[];
@@ -72,30 +70,30 @@ const CustomOperationalReport: React.FC = () => {
     const tableContainerRef = useRef<HTMLDivElement>(null);
     const abortControllerRef = useRef<AbortController | null>(null);
 
+    const loadedPromptRef = useRef<string | null>(null);
+    const didLoadRef = useRef<boolean>(false);
+
     useEffect(() => {
-        localStorage.setItem('customOperationalReport', reportText);
-    }, [reportText]);
+        const searchParams = new URLSearchParams(location.search);
+        const reportId = searchParams.get('reportId');
+        const storageKey = reportId ? `customOperationalReport_${reportId}` : 'customOperationalReport';
+        localStorage.setItem(storageKey, reportText);
+    }, [reportText, location.search]);
 
     // Update generation status for UI updates
     useEffect(() => {
         const searchParams = new URLSearchParams(location.search);
         const reportId = searchParams.get('reportId');
-        const status = reportId ? reportGenerationService.getGenerationStatus(reportId) : null;
-        setCurrentGenerationStatus(status);
+        setCurrentGenerationStatus(reportId ? reportGenerationService.getGenerationStatus(reportId) : null);
 
-        // Set up interval to check for status changes
+        // Poll for status changes
         const interval = setInterval(() => {
             const currentStatus = reportId ? reportGenerationService.getGenerationStatus(reportId) : null;
-            if (currentStatus !== status) {
-                setCurrentGenerationStatus(currentStatus);
-
-                // Clear extracted parameters when status changes to 'ready'
-                if (currentStatus === 'ready' && reportId) {
-                    reportGenerationService.clearExtractedParameters(reportId);
-                    console.log('Cleared extracted parameters for ready status');
-                }
+            setCurrentGenerationStatus(currentStatus);
+            if (currentStatus === 'ready' && reportId) {
+                reportGenerationService.clearExtractedParameters(reportId);
             }
-        }, 1000);
+        }, 500);
 
         return () => clearInterval(interval);
     }, [location.search]);
@@ -111,7 +109,13 @@ const CustomOperationalReport: React.FC = () => {
             const report = reportService.getReportById(reportId);
             console.log('Found report:', report);
             if (report) {
-                setReportText(report.prompt);
+                // Load prompt from report; fallback to per-report localStorage
+                const storageKey = `customOperationalReport_${reportId}`;
+                const fallback = localStorage.getItem(storageKey);
+                const promptToLoad = report.prompt || fallback || '';
+                loadedPromptRef.current = promptToLoad;
+                setReportText(promptToLoad);
+                didLoadRef.current = true;
                 if (report.tableData) {
                     setTableData(report.tableData);
                 }
@@ -189,15 +193,23 @@ const CustomOperationalReport: React.FC = () => {
     useEffect(() => {
         const searchParams = new URLSearchParams(location.search);
         const reportId = searchParams.get('reportId');
+        if (!reportId || !reportText.trim() || !didLoadRef.current) return;
 
-        if (reportId && reportText.trim()) {
-            const report = reportService.getReportById(reportId);
-            if (report && report.prompt !== reportText) {
+        const report = reportService.getReportById(reportId);
+        if (!report) return;
+
+        // Only save when user changed text compared to what we loaded
+        if (loadedPromptRef.current !== null && reportText !== loadedPromptRef.current) {
+            const controller = new AbortController();
+            const timeout = setTimeout(() => {
                 console.log('Auto-saving report text changes');
-                reportService.updateReport(reportId, { prompt: reportText }).catch(error => {
+                reportService.updateReport(reportId!, { prompt: reportText }).catch(error => {
                     console.error('Failed to auto-save report:', error);
                 });
-            }
+                // Update baseline to avoid repeat saves for same content
+                loadedPromptRef.current = reportText;
+            }, 600);
+            return () => clearTimeout(timeout);
         }
     }, [reportText, location.search]);
 
@@ -356,15 +368,23 @@ const CustomOperationalReport: React.FC = () => {
         }
     };
 
-    const handleStopReport = () => {
+    const handleStopReport = async () => {
         const searchParams = new URLSearchParams(location.search);
         const reportId = searchParams.get('reportId');
 
-        if (reportId && reportGenerationService.stopGeneration(reportId)) {
-            console.log('Aborting report generation...');
-            setIsGenerating(false);
-            setProgressInfo(null);
-            message.info('Report generation stopped. Report log created.');
+        if (!reportId) return;
+
+        try {
+            const stopped = await reportGenerationService.stopGeneration(reportId);
+            if (stopped) {
+                console.log('Aborting report generation...');
+                setIsGenerating(false);
+                setProgressInfo(null);
+                setCurrentGenerationStatus('paused');
+                message.info('Report generation paused.');
+            }
+        } catch (e) {
+            // no-op
         }
     };
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Form, Input, Button, message, Typography, Space, Alert, Modal, Checkbox } from 'antd';
+import { Card, Form, Input, Button, message, Typography, Space, Alert, Modal, Checkbox, InputNumber } from 'antd';
 import { KeyOutlined, SaveOutlined, EyeInvisibleOutlined, EyeTwoTone, DownloadOutlined } from '@ant-design/icons';
 import { settingsService, AppSettings } from '../services/settingsService';
 import { downloadService, DownloadOptions } from '../services/downloadService';
@@ -36,7 +36,8 @@ const SettingsScreen: React.FC = () => {
     try {
       const settings = settingsService.getSettings();
       form.setFieldsValue({
-        openaiApiKey: settings.openaiApiKey
+        openaiApiKey: settings.openaiApiKey,
+        concurrencyLimit: settings.concurrencyLimit || 2
       });
     } catch (error) {
       console.error('Failed to load settings:', error);
@@ -158,7 +159,7 @@ const SettingsScreen: React.FC = () => {
             form={form}
             layout="vertical"
             onFinish={handleSave}
-            initialValues={{ openaiApiKey: '' }}
+            initialValues={{ openaiApiKey: '', concurrencyLimit: 2 }}
           >
             <Form.Item
               label="OpenAI API Key"
@@ -175,6 +176,15 @@ const SettingsScreen: React.FC = () => {
                 iconRender={(visible) => (visible ? <EyeTwoTone /> : <EyeInvisibleOutlined />)}
                 size="large"
               />
+            </Form.Item>
+
+            <Form.Item
+              label="Concurrent Generations"
+              name="concurrencyLimit"
+              extra="How many reports can generate at the same time"
+              rules={[{ type: 'number', min: 1, message: 'Minimum 1' }]}
+            >
+              <InputNumber min={1} max={10} style={{ width: 200 }} />
             </Form.Item>
 
             <Form.Item>
