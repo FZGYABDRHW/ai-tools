@@ -44,9 +44,10 @@ export async function buildReport(
   abortSignal?: AbortSignal,
   startOffset: number = 0,
   parameters?: TaskListParameters,
-): Promise<{ 
-  columns: string[]; 
-  results: Array<Record<string, unknown>>; 
+  existingColumns?: string[],
+): Promise<{
+  columns: string[];
+  results: Array<Record<string, unknown>>;
   csv: string;
   extractedParameters?: {
     parameters: TaskListParameters;
@@ -59,7 +60,7 @@ export async function buildReport(
   if (!apiKey) {
     throw new Error('OpenAI API key not configured. Please go to Settings and configure your API key.');
   }
-  
+
   const openai = new OpenAI({dangerouslyAllowBrowser: true, apiKey });
 
   // 0) Extract parameters from the prompt using OpenAI if not provided
@@ -69,12 +70,12 @@ export async function buildReport(
     if (abortSignal?.aborted) {
       throw new Error('Aborted');
     }
-    
+
     const parameterCompletion = await openai.chat.completions.create({
       model: 'o3',
       messages: [
-        { 
-          role: 'system', 
+        {
+          role: 'system',
           content: `You are a parameter extraction specialist. From the user prompt, extract task list parameters and return ONLY a JSON object with the following structure:
 {
   "limit": number (optional, maximum number of tasks to process, default is undefined),
@@ -103,14 +104,14 @@ Rules:
   * "yesterday" → timeRangeFrom = (current date - 1 day), timeRangeTo = (current date - 1 day)
   * "today" → timeRangeFrom = current date, timeRangeTo = current date
 
-Calculate dates dynamically using the current date provided above. Return only the JSON object, no additional text.` 
+Calculate dates dynamically using the current date provided above. Return only the JSON object, no additional text.`
         },
         { role: 'user', content: rawPrompt },
       ],
     });
-    
+
     console.log('Parameter extraction result:', parameterCompletion.choices[0].message.content);
-    
+
     try {
       const extracted = JSON.parse(parameterCompletion.choices[0].message.content ?? '{}');
       extractedParameters = {
@@ -169,28 +170,32 @@ Calculate dates dynamically using the current date provided above. Return only t
     onParametersExtracted(extractedParamsForUI);
   }
 
-  // 1) Derive the tabular schema (column names) from the raw prompt
-  // Check for abort signal before making the initial OpenAI call
-  if (abortSignal?.aborted) {
-    throw new Error('Aborted');
-  }
-  
-  const schemaCompletion = await openai.chat.completions.create({
-    model: 'o3',
-    messages: [
-      { role: 'system', content: 'You are an analyst. From the user prompt, output ONLY a JSON array of column names for an agile task report. Return only a JSON string.' },
-      { role: 'user', content: rawPrompt },
-    ],
-  });
-  console.log(schemaCompletion.choices[0].message.content);
+  // 1) Derive the tabular schema (column names) from the raw prompt, or reuse existing ones
   let columns: string[];
-  try {
-    columns = JSON.parse(schemaCompletion.choices[0].message.content ?? '[]');
-    if (!Array.isArray(columns) || !columns.every((c) => typeof c === 'string')) {
-      throw new Error('Schema is not an array of strings');
+  if (existingColumns && Array.isArray(existingColumns) && existingColumns.length > 0) {
+    columns = existingColumns;
+  } else {
+    // Check for abort signal before making the initial OpenAI call
+    if (abortSignal?.aborted) {
+      throw new Error('Aborted');
     }
-  } catch (err) {
-    throw new Error(`Could not parse column list from OpenAI: ${err instanceof Error ? err.message : String(err)}`);
+
+    const schemaCompletion = await openai.chat.completions.create({
+      model: 'o3',
+      messages: [
+        { role: 'system', content: 'You are an analyst. From the user prompt, output ONLY a JSON array of column names for an agile task report. Return only a JSON string.' },
+        { role: 'user', content: rawPrompt },
+      ],
+    });
+    console.log(schemaCompletion.choices[0].message.content);
+    try {
+      columns = JSON.parse(schemaCompletion.choices[0].message.content ?? '[]');
+      if (!Array.isArray(columns) || !columns.every((c) => typeof c === 'string')) {
+        throw new Error('Schema is not an array of strings');
+      }
+    } catch (err) {
+      throw new Error(`Could not parse column list from OpenAI: ${err instanceof Error ? err.message : String(err)}`);
+    }
   }
 
   // Ensure taskId is always part of the schema
@@ -216,15 +221,21 @@ Calculate dates dynamically using the current date provided above. Return only t
         .map((row) => columns.map((c) => escapeCsv((row as Record<string, unknown>)[c])).join(','))
         .join('\n');
       const csvContent = `${header}\n${body}`;
-      
+
       onProgress({ columns, results: [...results], csv: csvContent });
     }
   };
 
+  // Emit an initial progress update with just the header so columns are persisted early
+  // Only emit if there are no existing rows to avoid overwriting persisted UI state with empty results
+  if (results.length === 0) {
+    updateProgress();
+  }
+
   // Wrap the RxJS pipeline in an explicit promise so we can await completion.
   await new Promise<void>((resolve, reject) => {
     let abortHandler: (() => void) | null = null;
-    
+
     const subscription = taskIterator(si, startOffset, extractedParameters).pipe(
       // We only care about concrete "content" events (those carry the task ID).
       filter((ev): ev is TaskEvent & { taskId: number } => ev.type === 'content'),
@@ -239,15 +250,15 @@ Calculate dates dynamically using the current date provided above. Return only t
             console.log('Abort detected before task processing');
             throw new Error('Aborted');
           }
-          
+
           const task = await taskPlotGenerator(ev.taskId);
-          
+
           // Check for abort signal before making OpenAI call
           if (abortSignal?.aborted) {
             console.log('Abort detected before OpenAI call');
             throw new Error('Aborted');
           }
-          
+
           // Create a promise that can be cancelled
           const completionPromise = openai.chat.completions.create({
             model: 'o3', // replace with any model your account supports
@@ -256,7 +267,7 @@ Calculate dates dynamically using the current date provided above. Return only t
               { role: 'user', content: makeTaskPrompt(task) },
             ],
           });
-          
+
           // Check for abort during the OpenAI call
           const completion = await Promise.race([
             completionPromise,
@@ -266,14 +277,14 @@ Calculate dates dynamically using the current date provided above. Return only t
                 reject(new Error('Aborted'));
                 return;
               }
-              
+
               // Set up abort listener
               const abortListener = () => {
                 reject(new Error('Aborted'));
               };
-              
+
               abortSignal?.addEventListener('abort', abortListener, { once: true });
-              
+
               // Clean up listener if promise resolves normally
               completionPromise.finally(() => {
                 abortSignal?.removeEventListener('abort', abortListener);
@@ -317,9 +328,9 @@ Calculate dates dynamically using the current date provided above. Return only t
         subscription.unsubscribe();
         reject(new Error('Aborted'));
       };
-      
+
       abortSignal.addEventListener('abort', abortHandler);
-      
+
       // Also check if already aborted
       if (abortSignal.aborted) {
         console.log('Abort signal already aborted, rejecting immediately');
@@ -373,9 +384,9 @@ Calculate dates dynamically using the current date provided above. Return only t
   }
 
   // Return the results without automatic download
-  return { 
-    columns, 
-    results, 
+  return {
+    columns,
+    results,
     csv: csvContent,
     extractedParameters: extractedParameters ? {
       parameters: extractedParameters,

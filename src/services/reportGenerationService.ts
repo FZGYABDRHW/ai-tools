@@ -275,13 +275,11 @@ class ReportGenerationService {
         let existingTableData = existingState?.tableData;
         const existingProgress = existingState?.progress;
 
-        // If resuming, get table data from checkpoint
-        if (startOffset > 0) {
-            const checkpoint = reportCheckpointService.getCheckpoint(reportId);
-            if (checkpoint?.tableData) {
-                existingTableData = checkpoint.tableData;
-                console.log(`Restoring table data from checkpoint: ${existingTableData.results.length} results`);
-            }
+        // Load any existing checkpoint table data even if startOffset is 0 (small resumes)
+        const existingCheckpoint = reportCheckpointService.getCheckpoint(reportId);
+        if (existingCheckpoint?.tableData) {
+            existingTableData = existingCheckpoint.tableData;
+            console.log(`Restoring table data from checkpoint: ${existingTableData.results.length} results (offset ${startOffset})`);
         }
 
         const generationState: ReportGenerationState = {
@@ -297,8 +295,9 @@ class ReportGenerationService {
         this.activeGenerations.set(reportId, generationState);
         this.saveActiveGenerations();
 
-        // Create checkpoint for this generation only if not resuming
-        if (startOffset === 0) {
+        // Create checkpoint only if none exists (handles resume case even when offset is 0)
+        const hasExistingCheckpoint = reportCheckpointService.hasCheckpoint(reportId);
+        if (!hasExistingCheckpoint) {
             await reportCheckpointService.createCheckpoint(reportId, reportText, 0, startTime, startOffset);
         } else {
             console.log(`Resuming generation - using existing checkpoint with offset ${startOffset}`);
@@ -315,7 +314,7 @@ class ReportGenerationService {
                 async (progress) => {
                     // Merge new progress with existing data if resuming
                     let mergedProgress = progress;
-                    if (existingTableData && startOffset > 0) {
+                    if (existingTableData) {
                         // Merge existing results with new results
                         mergedProgress = {
                             ...progress,
@@ -356,16 +355,20 @@ class ReportGenerationService {
                     // Store extracted parameters immediately for UI display
                     generationState.extractedParameters = extractedParams;
                     this.saveActiveGenerations();
+                    // Also persist to file system right away so a pause or app crash preserves them
+                    void this.updateGenerationStatus(reportId, 'in_progress');
                     console.log('Parameters extracted and stored immediately:', extractedParams);
                 },
                 abortController.signal,
                 startOffset,
-                parameters
+                parameters,
+                // Reuse existing columns if available to avoid re-fetching schema
+                existingTableData?.columns || report?.tableData?.columns
             );
 
             // Final save - merge with existing data if resuming
             let finalResult = result;
-            if (existingTableData && startOffset > 0) {
+            if (existingTableData) {
                 finalResult = {
                     ...result,
                     results: [...existingTableData.results, ...result.results]
@@ -562,6 +565,14 @@ class ReportGenerationService {
         const startOffset = reportCheckpointService.getResumeOffset(reportId);
         console.log(`Resuming report ${reportId} from offset ${startOffset} with ${checkpoint.currentTaskIndex} completed tasks`);
 
+        // Resolve parameters prepared during the previous session (prefer explicit saved ones)
+        const existingState = this.getGenerationState(reportId);
+        const persistedReport = reportService.getReportById(reportId);
+        const resumedParameters = existingState?.parameters
+            || existingState?.extractedParameters?.parameters
+            || persistedReport?.extractedParameters?.parameters
+            || undefined;
+
         // Start generation from where it left off
         console.log('Starting generation with startOffset:', startOffset);
         await this.startGeneration(
@@ -572,7 +583,8 @@ class ReportGenerationService {
             onProgress,
             onComplete,
             onError,
-            startOffset
+            startOffset,
+            resumedParameters
         );
     }
 }
