@@ -169,22 +169,30 @@ class ReportGenerationService {
     }
 
     async resetToReady(reportId: string): Promise<boolean> {
-        const state = this.activeGenerations.get(reportId);
-        if (state && (state.status === 'paused' || state.status === 'in_progress')) {
-            // Clear generation state but keep the report
+        // Always attempt to stop/clear current generation, checkpoints, and saved data
+        try {
+            const state = this.activeGenerations.get(reportId);
+
+            // If something is running, attempt to stop and mark paused first
+            if (state?.status === 'in_progress') {
+                await this.stopGeneration(reportId);
+            }
+
+            // Clear generation state
             await this.clearGeneration(reportId);
 
             // Clear checkpoint data
             await reportCheckpointService.clearCheckpoint(reportId);
 
-            // Clear saved report data (table results)
+            // Clear saved report data (table results and extracted params)
             await reportService.clearReportData(reportId);
 
-            console.log(`Reset report ${reportId} to ready state - cleared all data (from ${state.status})`);
+            console.log(`Reset report ${reportId} to ready state - cleared all data (prev status: ${state?.status || 'unknown'})`);
             return true;
+        } catch (error) {
+            console.error(`Failed to reset report ${reportId} to ready state:`, error);
+            return false;
         }
-        console.log(`Cannot reset report ${reportId} to ready state. Current status: ${state?.status}`);
-        return false;
     }
 
     setToPaused(reportId: string): boolean {

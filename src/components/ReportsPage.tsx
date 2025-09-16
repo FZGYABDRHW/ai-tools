@@ -222,8 +222,9 @@ const ReportsPage: React.FC = () => {
             okText: 'Reset',
             okType: 'default',
             cancelText: 'Cancel',
-            onOk: () => {
-                if (reportGenerationService.resetToReady(reportId)) {
+            onOk: async () => {
+                const ok = await reportGenerationService.resetToReady(reportId);
+                if (ok) {
                     message.success('Report reset to ready state');
                     loadReports(); // Refresh to update status
                 } else {
@@ -311,11 +312,12 @@ const ReportsPage: React.FC = () => {
 
                     // Stop generation first if it's in progress
                     if (reportGenerationService.isGenerating(reportId)) {
-                        reportGenerationService.stopGeneration(reportId);
+                        await reportGenerationService.stopGeneration(reportId);
                     }
 
                     // Reset to ready
-                    if (reportGenerationService.resetToReady(reportId)) {
+                    const ok = await reportGenerationService.resetToReady(reportId);
+                    if (ok) {
                         message.success('Report generation completed and log created successfully!');
                         loadReports(); // Refresh to update status
                     } else {

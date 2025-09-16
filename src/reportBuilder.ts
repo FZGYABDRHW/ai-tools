@@ -207,8 +207,14 @@ Calculate dates dynamically using the current date provided above. Return only t
   const results: Record<string, unknown>[] = [];
 
   const makeTaskPrompt = (taskText: string) =>
-    `Request from user for the context: ${rawPrompt}, Return a JSON object with EXACTLY these keys: ${columns.join(', ')}. ` +
-    `Fill them with data inferred from the following task description, nothing more, nothing less.\n\n` +
+    `Context: ${rawPrompt}\n` +
+    `Output: Return ONLY a single JSON object with EXACTLY these keys: ${columns.join(', ')}.\n` +
+    `Constraints:\n` +
+    `- Populate EVERY key; do not leave any value empty, null, [], or {}.\n` +
+    `- Prefer explicit information from the task. If not explicit, infer briefly from context or quote the closest relevant phrase from the task text.\n` +
+    `- Keep values short and factual; avoid speculation.\n` +
+    `- Do NOT add extra keys or text.\n` +
+    `- Output must be valid JSON only (no markdown or commentary).\n\n` +
     `Task description:\n${taskText}`;
 
   // Helper function to update progress
@@ -263,7 +269,7 @@ Calculate dates dynamically using the current date provided above. Return only t
           const completionPromise = openai.chat.completions.create({
             model: 'o3', // replace with any model your account supports
             messages: [
-              { role: 'system', content: 'You are a helpful assistant producing structured task rows.' },
+              { role: 'system', content: 'You are an expert task analyst. Return ONLY a valid JSON object with exactly the requested keys. Do not include extra keys or any text outside JSON. Never leave any value empty, null, [], or {}. When a value is not explicitly available, infer concisely from context or copy the nearest relevant phrase from the task description. Keep values short and factual.' },
               { role: 'user', content: makeTaskPrompt(task) },
             ],
           });
@@ -292,13 +298,82 @@ Calculate dates dynamically using the current date provided above. Return only t
             })
           ]);
           console.log(completion.choices[0].message.content);
-          // Persist the answer in memory.
+          // One total retry allowed: trigger if content is empty OR fields are empty after parsing
+          let retried = false;
+          let content = (completion.choices[0].message.content ?? '').trim();
+
+          const performRetry = async (): Promise<string> => {
+            const retryCompletionPromise = openai.chat.completions.create({
+              model: 'o3',
+              messages: [
+                { role: 'system', content: 'You are an expert task analyst. Return ONLY a valid JSON object with exactly the requested keys. Do not include extra keys or any text outside JSON. Never leave any value empty, null, [], or {}. When a value is not explicitly available, infer concisely from context or copy the nearest relevant phrase from the task description. Keep values short and factual.' },
+                { role: 'user', content: makeTaskPrompt(task) },
+              ],
+            });
+            const retryCompletion = await Promise.race([
+              retryCompletionPromise,
+              new Promise<never>((_, reject) => {
+                if (abortSignal?.aborted) {
+                  reject(new Error('Aborted'));
+                  return;
+                }
+                const retryAbortListener = () => {
+                  reject(new Error('Aborted'));
+                };
+                abortSignal?.addEventListener('abort', retryAbortListener, { once: true });
+                retryCompletionPromise.finally(() => {
+                  abortSignal?.removeEventListener('abort', retryAbortListener);
+                });
+              })
+            ]);
+            console.log(retryCompletion.choices[0].message.content);
+            return (retryCompletion.choices[0].message.content ?? '').trim();
+          };
+
+          // Retry if content is empty
+          if (!content) {
+            console.warn(`Empty AI response for task ${ev.taskId}. Retrying once...`);
+            content = await performRetry();
+            retried = true;
+          }
+
+          // Try parse and check for empty fields
+          let parsed: Record<string, unknown> | null = null;
           try {
-            const row = JSON.parse(completion.choices[0].message.content ?? '{}') as Record<string, unknown>;
-            results.push({ ...row, taskId: ev.taskId });
+            parsed = JSON.parse(content || '{}') as Record<string, unknown>;
           } catch {
+            parsed = null;
+          }
+
+          const isValueEmpty = (value: unknown): boolean =>
+            value === null ||
+            value === undefined ||
+            (typeof value === 'string' && value.trim() === '') ||
+            (Array.isArray(value) && value.length === 0) ||
+            (typeof value === 'object' && value !== null && !Array.isArray(value) && Object.keys(value as Record<string, unknown>).length === 0);
+
+          const hasEmptyRequiredFields = parsed
+            ? columns.some((col) => col !== 'taskId' && isValueEmpty((parsed as Record<string, unknown>)[col]))
+            : false;
+
+          if (!retried && hasEmptyRequiredFields) {
+            console.warn(`Empty fields detected for task ${ev.taskId}. Retrying once...`);
+            content = await performRetry();
+            retried = true;
+            // Re-parse after retry
+            try {
+              parsed = JSON.parse(content || '{}') as Record<string, unknown>;
+            } catch {
+              parsed = null;
+            }
+          }
+
+          // Persist the answer in memory without substituting values
+          if (parsed) {
+            results.push({ ...parsed, taskId: ev.taskId });
+          } else {
             // Fallback: keep raw content if JSON parsing fails
-            results.push({ taskId: ev.taskId, raw: completion.choices[0].message.content });
+            results.push({ taskId: ev.taskId, raw: content });
           }
           // Update progress after each result
           updateProgress();

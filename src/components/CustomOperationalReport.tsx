@@ -461,8 +461,9 @@ const CustomOperationalReport: React.FC = () => {
             okText: 'Reset',
             okType: 'default',
             cancelText: 'Cancel',
-            onOk: () => {
-                if (reportGenerationService.resetToReady(reportId)) {
+            onOk: async () => {
+                const ok = await reportGenerationService.resetToReady(reportId);
+                if (ok) {
                     message.success('Report reset to ready state');
                     // Clear local state
                     setIsGenerating(false);
