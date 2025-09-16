@@ -1,7 +1,7 @@
-import React, { useEffect, useState, useContext } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card, Typography, Form, Input, Button, Space, Divider, message, Layout, Alert } from 'antd';
 import { FileTextOutlined, CopyOutlined, LoadingOutlined, SettingOutlined } from '@ant-design/icons';
-import { AuthContext } from '../contexts/AuthContext';
+import { useAuth } from '../machines';
 import builder from '../builder';
 import { settingsService } from '../services/settingsService';
 
@@ -11,7 +11,7 @@ const TaskAuthForm: React.FC = () => {
     const [taskId, setTaskId] = useState<string>(() => {
         return localStorage.getItem('taskId') || '';
     });
-    const { authToken, user, selectedServer } = useContext(AuthContext);
+    const { authToken, user, selectedServer } = useAuth();
     const [isLoading, setIsLoading] = useState<boolean>(false);
     const [promptText, setPromptText] = useState<string>('');
 
@@ -57,15 +57,15 @@ const TaskAuthForm: React.FC = () => {
     };
 
     return (
-        <div style={{ 
-            width: '100%', 
+        <div style={{
+            width: '100%',
             boxSizing: 'border-box',
             height: '100%',
             maxWidth: '800px',
             margin: '0 auto',
             overflow: 'hidden'
         }}>
-            <div style={{ 
+            <div style={{
                 background: 'linear-gradient(135deg, #fff 0%, #f8f9fa 100%)',
                 borderRadius: '12px',
                 boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
@@ -85,8 +85,8 @@ const TaskAuthForm: React.FC = () => {
                     gap: '12px'
                 }}>
                     <FileTextOutlined style={{ color: '#fff', fontSize: '20px' }} />
-                    <Title level={4} style={{ 
-                        margin: 0, 
+                    <Title level={4} style={{
+                        margin: 0,
                         color: '#fff',
                         fontWeight: 600,
                         letterSpacing: '0.5px'
@@ -94,7 +94,7 @@ const TaskAuthForm: React.FC = () => {
                         Wowworks Task Builder
                     </Title>
                 </div>
-                
+
                 {/* Content */}
                 <div style={{ padding: '24px' }}>
                     {/* API Key Check */}
@@ -103,9 +103,9 @@ const TaskAuthForm: React.FC = () => {
                             message="OpenAI API Key Required"
                             description={
                                 <span>
-                                    You need to configure your OpenAI API key to use the AI features. 
-                                    <Button 
-                                        type="link" 
+                                    You need to configure your OpenAI API key to use the AI features.
+                                    <Button
+                                        type="link"
                                         icon={<SettingOutlined />}
                                         style={{ padding: 0, height: 'auto', marginLeft: 8 }}
                                         onClick={() => window.location.hash = '#/settings'}
@@ -119,12 +119,12 @@ const TaskAuthForm: React.FC = () => {
                             style={{ marginBottom: '24px' }}
                         />
                     )}
-                    
+
                     <Title level={3} style={{ marginBottom: '24px' }}>
                         <FileTextOutlined style={{ marginRight: 8, color: '#ff8c69' }} />
                         AI Task Builder
                     </Title>
-                
+
                 <Form layout="vertical" style={{ maxWidth: 600 }}>
                     <Form.Item
                         label="Task ID"

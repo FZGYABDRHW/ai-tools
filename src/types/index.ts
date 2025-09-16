@@ -1,14 +1,5 @@
-export interface AuthContextType {
-    authToken: string;
-    setAuthToken: (token: string) => void;
-    login: (credentials: LoginCredentials) => Promise<boolean>;
-    logout: () => Promise<boolean>;
-    isLoading: boolean;
-    isInitializing: boolean;
-    user: User | null;
-    selectedServer: ServerRegion;
-    setSelectedServer: (server: ServerRegion) => void;
-}
+// AuthContextType has been replaced by XState auth machine
+// Use useAuth hook from '../machines' instead
 
 export type ServerRegion = 'EU' | 'RU';
 

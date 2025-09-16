@@ -1,7 +1,7 @@
 import React, { useContext } from 'react';
 import { Layout, Typography, Button } from 'antd';
 import { FileTextOutlined, LogoutOutlined, UserOutlined, MenuFoldOutlined, MenuUnfoldOutlined } from '@ant-design/icons';
-import { AuthContext } from '../contexts/AuthContext';
+import { useAuth } from '../machines';
 import { SidebarContext } from '../contexts/SidebarContext';
 import VersionDisplay from './VersionDisplay';
 
@@ -9,7 +9,7 @@ const { Header } = Layout;
 const { Text } = Typography;
 
 const AppHeader: React.FC = () => {
-    const { user, logout, isLoading } = useContext(AuthContext);
+    const { user, logout, isLoading } = useAuth();
     const { isSidebarVisible, toggleSidebar } = useContext(SidebarContext);
 
     const handleLogout = async () => {
@@ -17,7 +17,7 @@ const AppHeader: React.FC = () => {
     };
 
     return (
-        <Header style={{ 
+        <Header style={{
             background: 'linear-gradient(180deg, #ffffff 0%, #fafafa 100%)',
             padding: '0 16px',
             height: '48px',
@@ -27,10 +27,10 @@ const AppHeader: React.FC = () => {
             position: 'relative',
             zIndex: 1000
         }}>
-            <div style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                gap: '16px' 
+            <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '16px'
             }}>
                 <Button
                     type="text"
@@ -49,17 +49,17 @@ const AppHeader: React.FC = () => {
                         borderRadius: '6px'
                     }}
                 />
-                
+
                 {/* Version Display */}
                 <div style={{ width: '130px', flexShrink: 0, flexGrow: 0 }}>
                     <VersionDisplay compact />
                 </div>
             </div>
-            
-            <div style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                gap: '24px' 
+
+            <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '24px'
             }}>
                 {user && (
                     <div style={{
@@ -71,21 +71,21 @@ const AppHeader: React.FC = () => {
                         background: 'rgba(255, 140, 105, 0.1)',
                         border: '1px solid rgba(255, 140, 105, 0.3)'
                     }}>
-                        <UserOutlined style={{ 
-                            color: '#ff8c69', 
-                            fontSize: '14px' 
+                        <UserOutlined style={{
+                            color: '#ff8c69',
+                            fontSize: '14px'
                         }} />
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-                            <Text style={{ 
-                                color: '#333', 
+                            <Text style={{
+                                color: '#333',
                                 fontSize: '12px',
                                 fontWeight: 500,
                                 lineHeight: 1
                             }}>
                                 {user.name}
                             </Text>
-                            <Text style={{ 
-                                color: '#666', 
+                            <Text style={{
+                                color: '#666',
                                 fontSize: '10px',
                                 lineHeight: 1
                             }}>
@@ -94,7 +94,7 @@ const AppHeader: React.FC = () => {
                         </div>
                     </div>
                 )}
-                
+
                 <Button
                     type="default"
                     icon={<LogoutOutlined />}

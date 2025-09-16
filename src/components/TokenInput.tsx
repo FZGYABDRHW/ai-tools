@@ -1,13 +1,19 @@
-import React, { useContext } from 'react';
+import React from 'react';
 import { Input, Typography } from 'antd';
 import { KeyOutlined } from '@ant-design/icons';
-import { AuthContext } from '../contexts/AuthContext';
+import { useAuth } from '../machines';
 
 const { Text } = Typography;
 
 const TokenInput: React.FC = () => {
-    const { authToken, setAuthToken } = useContext(AuthContext);
-    
+    const { authToken } = useAuth();
+
+    // Note: setAuthToken is not available in the new XState system
+    // This component might need to be refactored or removed
+    const setAuthToken = (token: string) => {
+        console.warn('setAuthToken is not available in XState auth system');
+    };
+
     return (
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -20,7 +26,7 @@ const TokenInput: React.FC = () => {
                 placeholder="Enter your authentication token"
                 value={authToken}
                 onChange={(e) => setAuthToken(e.target.value)}
-                style={{ 
+                style={{
                     width: 320,
                     borderRadius: '6px',
                     border: '1px solid #d9d9d9'
@@ -29,20 +35,20 @@ const TokenInput: React.FC = () => {
                 allowClear
             />
             {authToken && (
-                <div style={{ 
-                    display: 'flex', 
-                    alignItems: 'center', 
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
                     gap: '4px',
                     padding: '4px 8px',
                     backgroundColor: '#f6ffed',
                     border: '1px solid #b7eb8f',
                     borderRadius: '4px'
                 }}>
-                    <div style={{ 
-                        width: '6px', 
-                        height: '6px', 
-                        borderRadius: '50%', 
-                        backgroundColor: '#52c41a' 
+                    <div style={{
+                        width: '6px',
+                        height: '6px',
+                        borderRadius: '50%',
+                        backgroundColor: '#52c41a'
                     }} />
                     <Text style={{ fontSize: '12px', color: '#52c41a' }}>
                         Connected

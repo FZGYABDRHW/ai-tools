@@ -2,7 +2,7 @@ import React, { useEffect, useState, useContext, useRef, useCallback } from 'rea
 import { Card, Typography, Form, Input, Button, Space, Divider, Layout, Table, Row, Col, message, Tabs, Modal } from 'antd';
 import { BarChartOutlined, LoadingOutlined, DownloadOutlined, StopOutlined, FullscreenOutlined, FullscreenExitOutlined, HistoryOutlined, PlayCircleOutlined, EditOutlined, ReloadOutlined, CheckCircleOutlined } from '@ant-design/icons';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { AuthContext } from '../contexts/AuthContext';
+import { useAuth } from '../machines';
 import { SidebarContext } from '../contexts/SidebarContext';
 import { buildServiceInitializer } from '../serviceInit';
 import { buildReport } from '../reportBuilder';
@@ -21,7 +21,7 @@ const { TextArea } = Input;
 const { Content } = Layout;
 
 const CustomOperationalReport: React.FC = () => {
-    const { authToken, user, selectedServer } = useContext(AuthContext);
+    const { authToken, user, selectedServer } = useAuth();
     const { hideSidebar, showSidebar } = useContext(SidebarContext);
     const location = useLocation();
     const navigate = useNavigate();

@@ -1,7 +1,7 @@
-import React, { useContext } from 'react';
+import React from 'react';
 import { Card, Typography, Button, Space } from 'antd';
 import { UserOutlined, LockOutlined } from '@ant-design/icons';
-import { AuthContext } from '../contexts/AuthContext';
+import { useAuth } from '../machines';
 import LoginForm from './LoginForm';
 
 const { Title, Text } = Typography;
@@ -11,14 +11,14 @@ interface AuthGuardProps {
 }
 
 const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
-    const { authToken, user } = useContext(AuthContext);
+    const { authToken, user } = useAuth();
 
     if (!authToken || !user) {
         return (
-            <div style={{ 
-                display: 'flex', 
-                justifyContent: 'center', 
-                alignItems: 'center', 
+            <div style={{
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
                 minHeight: '50vh',
                 padding: '24px'
             }}>

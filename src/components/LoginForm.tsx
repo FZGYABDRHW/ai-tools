@@ -1,7 +1,7 @@
-import React, { useState, useContext, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Form, Input, Button, Card, Typography, Space, message, Select } from 'antd';
 import { UserOutlined, LockOutlined, LogoutOutlined, GlobalOutlined } from '@ant-design/icons';
-import { AuthContext } from '../contexts/AuthContext';
+import { useAuth } from '../machines';
 import ServerSelector from './ServerSelector';
 import { ServerRegion } from '../types';
 
@@ -53,7 +53,7 @@ const AntPhoneInput = React.forwardRef<HTMLDivElement, {
 
     const formatPhoneNumber = (value: string) => {
         const digits = value.replace(/\D/g, '');
-        
+
         // Handle different country formats
         switch (selectedCountry) {
             case 'DE':
@@ -89,11 +89,11 @@ const AntPhoneInput = React.forwardRef<HTMLDivElement, {
     };
 
     return (
-        <div 
+        <div
             ref={ref}
             className="phone-input-container"
-            style={{ 
-                display: 'flex', 
+            style={{
+                display: 'flex',
                 alignItems: 'center',
                 border: '1px solid #d9d9d9',
                 borderRadius: size === 'large' ? '6px' : size === 'middle' ? '6px' : '4px',
@@ -142,10 +142,10 @@ const AntPhoneInput = React.forwardRef<HTMLDivElement, {
 });
 
 const LoginForm: React.FC = () => {
-    const { authToken, login, logout, isLoading, user, selectedServer } = useContext(AuthContext);
+    const { authToken, login, logout, isLoading, user, selectedServer } = useAuth();
     const [form] = Form.useForm();
     const [currentServer, setCurrentServer] = useState<ServerRegion>(selectedServer);
-    
+
     // Update currentServer when selectedServer changes
     useEffect(() => {
         setCurrentServer(selectedServer);
@@ -157,11 +157,11 @@ const LoginForm: React.FC = () => {
         console.log('Original phone:', values.phone);
         console.log('Normalized phone:', normalizedPhone);
         console.log('Selected server:', selectedServer);
-        
-        const success = await login({ 
-            ...values, 
-            phone: normalizedPhone, 
-            server: currentServer 
+
+        const success = await login({
+            ...values,
+            phone: normalizedPhone,
+            server: currentServer
         });
         if (success) {
             form.resetFields();

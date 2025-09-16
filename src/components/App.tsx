@@ -1,7 +1,7 @@
-import React, { useContext, useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Layout, ConfigProvider, theme, message } from 'antd';
 import { HashRouter, Routes, Route } from 'react-router-dom';
-import { AuthContext } from '../contexts/AuthContext';
+import { useAuth } from '../machines';
 import { SidebarProvider } from '../contexts/SidebarContext';
 import Navigation from './Navigation';
 import AppHeader from './Header';
@@ -19,7 +19,7 @@ import { MigrationModal } from './MigrationModal';
 const { Content } = Layout;
 
 const App: React.FC = () => {
-    const { authToken, user, isInitializing } = useContext(AuthContext);
+    const { authToken, user, isInitializing } = useAuth();
     const [updateVisible, setUpdateVisible] = useState(false);
     const [updateInfo, setUpdateInfo] = useState<any>(null);
     const [downloading, setDownloading] = useState(false);

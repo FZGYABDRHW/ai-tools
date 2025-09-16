@@ -1,7 +1,7 @@
-import React, { useContext, useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Layout, Card, Form, Input, Button, Select } from 'antd';
 import { UserOutlined, LockOutlined } from '@ant-design/icons';
-import { AuthContext } from '../contexts/AuthContext';
+import { useAuth } from '../machines';
 import ServerSelector from './ServerSelector';
 import { ServerRegion } from '../types';
 import logo from '../logo.png';
@@ -135,7 +135,7 @@ const MultiCountryPhoneInput = ({ value, onChange, placeholder }: {
                     alignItems: 'center'
                 }}
                 className="country-select-no-border"
-                dropdownStyle={{ 
+                dropdownStyle={{
                     zIndex: 9999,
                     borderRadius: '12px',
                     boxShadow: '0 8px 24px rgba(0, 0, 0, 0.12)',
@@ -143,8 +143,8 @@ const MultiCountryPhoneInput = ({ value, onChange, placeholder }: {
                     padding: '8px 0'
                 }}
                 suffixIcon={
-                    <div style={{ 
-                        fontSize: '12px', 
+                    <div style={{
+                        fontSize: '12px',
                         color: '#666',
                         marginRight: '8px',
                         transition: 'transform 0.2s ease'
@@ -169,8 +169,8 @@ const MultiCountryPhoneInput = ({ value, onChange, placeholder }: {
                 )}
             >
                 {countryOptions.map(country => (
-                    <Select.Option 
-                        key={country.value} 
+                    <Select.Option
+                        key={country.value}
                         value={country.value}
                         label={country.label}
                         style={{
@@ -181,32 +181,32 @@ const MultiCountryPhoneInput = ({ value, onChange, placeholder }: {
                             transition: 'all 0.2s ease'
                         }}
                     >
-                        <div style={{ 
-                            display: 'flex', 
-                            alignItems: 'center', 
+                        <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
                             gap: '12px'
                         }}>
-                            <span style={{ 
+                            <span style={{
                                 fontSize: '20px',
                                 filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.1))'
                             }}>
                                 {country.label.split(' ')[0]}
                             </span>
-                            <div style={{ 
-                                display: 'flex', 
+                            <div style={{
+                                display: 'flex',
                                 flexDirection: 'column',
                                 alignItems: 'flex-start'
                             }}>
-                                <span style={{ 
-                                    color: '#333', 
+                                <span style={{
+                                    color: '#333',
                                     fontSize: '14px',
                                     fontWeight: 500,
                                     lineHeight: '1.2'
                                 }}>
                                     {country.label.split(' ').slice(1).join(' ')}
                                 </span>
-                                <span style={{ 
-                                    color: '#666', 
+                                <span style={{
+                                    color: '#666',
                                     fontSize: '12px',
                                     fontWeight: 400
                                 }}>
@@ -239,15 +239,15 @@ const MultiCountryPhoneInput = ({ value, onChange, placeholder }: {
 };
 
 const LoginScreen: React.FC = () => {
-    const { login, isLoading, selectedServer } = useContext(AuthContext);
+    const { login, isLoading, selectedServer } = useAuth();
     const [form] = Form.useForm();
     const [currentServer, setCurrentServer] = useState<ServerRegion>(selectedServer);
-    
+
     // Update currentServer when selectedServer changes
     useEffect(() => {
         setCurrentServer(selectedServer);
     }, [selectedServer]);
-    
+
     // Animation speed multiplier based on loading state
     const animationSpeed = isLoading ? 0.15 : 1; // 6.7x faster when loading
     const animationDepth = isLoading ? 2.5 : 1; // 2.5x deeper when loading
@@ -256,12 +256,12 @@ const LoginScreen: React.FC = () => {
     const handleLogin = async (values: { phone: string; password: string }) => {
         // Normalize phone number by removing all non-digit characters except the plus sign
         const normalizedPhone = values.phone.replace(/[^\d+]/g, '');
-        
-        
-        const success = await login({ 
-            ...values, 
-            phone: normalizedPhone, 
-            server: currentServer 
+
+
+        const success = await login({
+            ...values,
+            phone: normalizedPhone,
+            server: currentServer
         });
         if (success) {
             form.resetFields();
@@ -269,9 +269,9 @@ const LoginScreen: React.FC = () => {
     };
 
     return (
-        <Layout style={{ 
-            minHeight: '100vh', 
-            background: isLoading 
+        <Layout style={{
+            minHeight: '100vh',
+            background: isLoading
                 ? 'linear-gradient(135deg, #e8e8e8 0%, #d8d8d8 100%)'
                 : 'linear-gradient(135deg, #f5f5f5 0%, #e8e8e8 100%)',
             position: 'relative',
@@ -297,7 +297,7 @@ const LoginScreen: React.FC = () => {
                     height: '120px',
                     background: 'radial-gradient(circle, rgba(255, 140, 105, 0.25) 0%, rgba(255, 140, 105, 0.15) 50%, rgba(255, 140, 105, 0.05) 100%)',
                     borderRadius: '50%',
-                    animation: isLoading 
+                    animation: isLoading
                         ? `circleMove1 ${3 * animationSpeed}s linear infinite, float ${6 * animationSpeed}s ease-in-out infinite`
                         : `float ${6 * animationSpeed}s ease-in-out infinite`,
                     transform: `translate(-50%, -50%) translate(${isLoading ? circleRadius : 0}px, 0px) scale(${animationDepth})`,
@@ -312,7 +312,7 @@ const LoginScreen: React.FC = () => {
                     height: '80px',
                     background: 'radial-gradient(circle, rgba(255, 140, 105, 0.3) 0%, rgba(255, 140, 105, 0.2) 50%, rgba(255, 140, 105, 0.1) 100%)',
                     borderRadius: '50%',
-                    animation: isLoading 
+                    animation: isLoading
                         ? `circleMove2 ${4 * animationSpeed}s linear infinite, float ${8 * animationSpeed}s ease-in-out infinite reverse`
                         : `float ${8 * animationSpeed}s ease-in-out infinite reverse`,
                     transform: `translate(-50%, -50%) translate(${isLoading ? circleRadius * 0.8 : 0}px, ${isLoading ? circleRadius * 0.6 : 0}px) scale(${animationDepth})`,
@@ -358,7 +358,7 @@ const LoginScreen: React.FC = () => {
                     boxShadow: `0 ${6 * animationDepth}px ${26 * animationDepth}px rgba(255, 140, 105, ${0.22 * animationDepth})`,
                     transition: 'all 0.8s ease-in-out'
                 }} />
-                
+
                 {/* Geometric Shapes */}
                 <div style={{
                     position: 'absolute',
@@ -421,7 +421,7 @@ const LoginScreen: React.FC = () => {
                     transform: `rotate(0deg) scale(${animationDepth})`,
                     boxShadow: `0 ${3 * animationDepth}px ${15 * animationDepth}px rgba(255, 140, 105, ${0.22 * animationDepth})`
                 }} />
-                
+
                 {/* Enhanced Grid Pattern */}
                 <div style={{
                     position: 'absolute',
@@ -438,7 +438,7 @@ const LoginScreen: React.FC = () => {
                     transform: 'translate(0px, 0px)',
                     opacity: animationDepth
                 }} />
-                
+
                 {/* Additional Animated Lines */}
                 <div style={{
                     position: 'absolute',
@@ -462,7 +462,7 @@ const LoginScreen: React.FC = () => {
                     transform: 'translateX(100%)',
                     boxShadow: `0 0 ${8 * animationDepth}px rgba(255, 140, 105, ${0.25 * animationDepth})`
                 }} />
-                
+
                 {/* Pulsing Elements */}
                 <div style={{
                     position: 'absolute',
@@ -488,7 +488,7 @@ const LoginScreen: React.FC = () => {
                     boxShadow: `0 0 ${15 * animationDepth}px rgba(255, 140, 105, ${0.5 * animationDepth})`,
                     transform: `scale(${animationDepth})`
                 }} />
-                
+
                 {/* Loading-Only Intense Effects */}
                 {isLoading && (
                     <>
@@ -505,7 +505,7 @@ const LoginScreen: React.FC = () => {
                             transform: 'translate(-50%, -50%)',
                             boxShadow: '0 0 30px rgba(255, 140, 105, 0.2)'
                         }} />
-                        
+
                         {/* Energy Bursts */}
                         <div style={{
                             position: 'absolute',
@@ -540,7 +540,7 @@ const LoginScreen: React.FC = () => {
                             animation: 'pulse 0.7s ease-in-out infinite',
                             boxShadow: '0 0 10px rgba(255, 140, 105, 0.3)'
                         }} />
-                        
+
                         {/* Intense Wave Lines */}
                         <div style={{
                             position: 'absolute',
@@ -560,7 +560,7 @@ const LoginScreen: React.FC = () => {
                             animation: 'gridMove 5s linear infinite',
                             opacity: 0.15
                         }} />
-                        
+
                         {/* Central Energy Core */}
                         <div style={{
                             position: 'absolute',
@@ -577,18 +577,18 @@ const LoginScreen: React.FC = () => {
                     </>
                 )}
             </div>
-            
-            <Content style={{ 
-                display: 'flex', 
-                justifyContent: 'center', 
+
+            <Content style={{
+                display: 'flex',
+                justifyContent: 'center',
                 alignItems: 'center',
                 padding: '24px',
                 position: 'relative',
                 zIndex: 1
             }}>
-                <Card 
-                    style={{ 
-                        maxWidth: 450, 
+                <Card
+                    style={{
+                        maxWidth: 450,
                         width: '100%',
                         borderRadius: '12px',
                         boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
@@ -597,14 +597,14 @@ const LoginScreen: React.FC = () => {
                     }}
                 >
                     <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-                        <img 
-                            src={logo} 
-                            alt="Wowworks Logo" 
-                            style={{ 
-                                height: '120px', 
+                        <img
+                            src={logo}
+                            alt="Wowworks Logo"
+                            style={{
+                                height: '120px',
                                 width: 'auto',
                                 marginBottom: '16px'
-                            }} 
+                            }}
                         />
                     </div>
 
@@ -622,9 +622,9 @@ const LoginScreen: React.FC = () => {
                             name="phone"
                             rules={[
                                 { required: true, message: 'Please enter your phone number' },
-                                { 
-                                    pattern: /^\+?[\d\s\-()]+$/, 
-                                    message: 'Please enter a valid phone number' 
+                                {
+                                    pattern: /^\+?[\d\s\-()]+$/,
+                                    message: 'Please enter a valid phone number'
                                 },
                                 {
                                     validator: (_, value) => {
@@ -663,9 +663,9 @@ const LoginScreen: React.FC = () => {
                                 type="primary"
                                 htmlType="submit"
                                 loading={isLoading}
-                                style={{ 
-                                    width: '100%', 
-                                    height: '48px', 
+                                style={{
+                                    width: '100%',
+                                    height: '48px',
                                     borderRadius: '8px',
                                     fontSize: '16px',
                                     fontWeight: 600,

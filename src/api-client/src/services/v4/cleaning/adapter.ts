@@ -6,5 +6,5 @@ export const notificationConfigAdapter = (
     const notificationConfig = response.items.reduce((acc, item) => {
         return [...acc, { isEnabled: item.is_enabled, channel: item.channel }];
     }, []);
-    return response.items.length !== 0 ? notificationConfig : response.items;
+    return notificationConfig;
 };

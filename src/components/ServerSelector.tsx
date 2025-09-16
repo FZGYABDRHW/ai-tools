@@ -1,7 +1,7 @@
-import React, { useContext } from 'react';
+import React from 'react';
 import { Select, Typography } from 'antd';
 import { GlobalOutlined } from '@ant-design/icons';
-import { AuthContext } from '../contexts/AuthContext';
+import { useAuth } from '../machines';
 import { getAvailableServers } from '../config/servers';
 import { ServerRegion } from '../types';
 
@@ -9,7 +9,7 @@ const { Text } = Typography;
 const { Option } = Select;
 
 const ServerSelector: React.FC = () => {
-    const { selectedServer, setSelectedServer } = useContext(AuthContext);
+    const { selectedServer, setSelectedServer } = useAuth();
     const availableServers = getAvailableServers();
 
     const handleServerChange = (value: ServerRegion) => {
@@ -27,7 +27,7 @@ const ServerSelector: React.FC = () => {
             <Select
                 value={selectedServer}
                 onChange={handleServerChange}
-                style={{ 
+                style={{
                     width: 140,
                     borderRadius: '6px'
                 }}
