@@ -13,7 +13,8 @@ export const makeOpenAIService = (apiKey?: string): OpenAIService => {
     const fromArg = apiKey && apiKey.trim();
     const fromSettings = settingsService.getOpenAIKey?.() || '';
     const fromLocal = (typeof localStorage !== 'undefined' && localStorage.getItem('openai_api_key')) || '';
-    return (fromArg || fromSettings || fromLocal || '').trim();
+    const fromEnv = (typeof process !== 'undefined' && (process as any).env && (process as any).env.OPENAI_API_KEY) || '';
+    return (fromArg || fromSettings || fromLocal || fromEnv || '').trim();
   };
 
   return {
@@ -22,8 +23,14 @@ export const makeOpenAIService = (apiKey?: string): OpenAIService => {
         try: async () => {
           const key = getApiKey();
           if (!key) {
+            // Diagnostic: surface missing key clearly in console
+            // Do not log any stored values
+            // eslint-disable-next-line no-console
+            console.warn('[OpenAIService] No API key configured (settings/localStorage/env)');
             throw new Error('OpenAI API key is not configured');
           }
+          // eslint-disable-next-line no-console
+          console.log(`[OpenAIService] Preparing OpenAI request (key length=${key.length})`);
           const client = new OpenAI({ dangerouslyAllowBrowser: true, apiKey: key });
           const res = await client.chat.completions.create({
             model: 'o3',

@@ -10,6 +10,8 @@ export const SchemaDerivationServiceTag = Context.GenericTag<SchemaDerivationSer
 export const makeSchemaDerivationService = (): SchemaDerivationService => ({
   derive: (prompt: string) => Effect.gen(function* () {
     const ai = yield* OpenAIServiceTag;
+    // eslint-disable-next-line no-console
+    console.log('[Preparation] Schema derivation started');
     const system = 'From the user prompt, output ONLY a JSON array of column names for an agile task report. Return only a JSON string.';
     const content = yield* ai.chatJSON(system, prompt);
     let columns: string[] = [];
@@ -20,6 +22,8 @@ export const makeSchemaDerivationService = (): SchemaDerivationService => ({
       }
     } catch {}
     if (!columns.includes('taskId')) columns.unshift('taskId');
+    // eslint-disable-next-line no-console
+    console.log('[Preparation] Schema derivation finished', columns);
     return columns;
   })
 });

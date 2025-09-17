@@ -19,6 +19,8 @@ export const makeReportPreparationService = (): ReportPreparationService => ({
       const fs = yield* FileSystemServiceTag;
       const paramSvc = yield* ParameterExtractionServiceFxTag;
       const schemaSvc = yield* SchemaDerivationServiceTag;
+      // eslint-disable-next-line no-console
+      console.log('[Preparation] Started for report', reportId);
       const { parameters, humanReadable } = yield* paramSvc.extract(prompt);
       const columns = yield* schemaSvc.derive(prompt);
 
@@ -36,6 +38,8 @@ export const makeReportPreparationService = (): ReportPreparationService => ({
       } as any;
 
       yield* fs.saveGenerationState(reportId, initial);
+      // eslint-disable-next-line no-console
+      console.log('[Preparation] State persisted', { columnsCount: columns.length });
       return { parameters, columns };
     })
 });

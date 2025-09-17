@@ -23,7 +23,16 @@ export const makeReportProcessingService = (): ReportProcessingService => ({
     Effect.gen(function* () {
       const fs = yield* FileSystemServiceTag;
 
-      const resultsRef = yield* Ref.make<TableData>({ columns: [...columns], results: [], csv: `${columns.join(',')}\n` });
+      // Resolve effective columns: prefer provided, otherwise use those from prepared state
+      const stInit = yield* fs.getGenerationState(reportId);
+      let effectiveColumns: string[] = Array.isArray(columns) && columns.length > 0
+        ? [...columns]
+        : Array.isArray(stInit?.tableData?.columns)
+          ? [...(stInit!.tableData as any).columns]
+          : [];
+      if (!effectiveColumns.includes('taskId')) effectiveColumns.unshift('taskId');
+
+      const resultsRef = yield* Ref.make<TableData>({ columns: effectiveColumns, results: [], csv: `${effectiveColumns.join(',')}\n` });
 
       // Save status to in_progress
       const st0 = yield* fs.getGenerationState(reportId);
@@ -57,14 +66,14 @@ export const makeReportProcessingService = (): ReportProcessingService => ({
           const ai = yield* OpenAIServiceTag;
           const content = yield* ai.chatJSON(
             'You are an expert task analyst. Return ONLY a valid JSON object with exactly the requested keys. No extra keys or text.',
-            `${prompt}\nReturn JSON with keys: ${columns.join(', ')} for taskId ${taskId}.`
+            `${prompt}\nReturn JSON with keys: ${effectiveColumns.join(', ')} for taskId ${taskId}.`
           );
           const parsed = yield* Effect.try({ try: () => JSON.parse(content || '{}') as Record<string, unknown>, catch: () => ({ raw: content }) as any });
           yield* Ref.update(resultsRef, (td) => {
             const row = { ...parsed, taskId } as Record<string, unknown>;
             const nextResults = [...td.results, row];
             const escape = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
-            const line = columns.map((c) => escape((row as any)[c])).join(',');
+            const line = effectiveColumns.map((c) => escape((row as any)[c])).join(',');
             return { columns: td.columns, results: nextResults, csv: td.csv + line + '\n' };
           });
         });
