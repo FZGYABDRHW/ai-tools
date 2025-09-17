@@ -25,18 +25,32 @@ export const makeTaskSourceService = (): TaskSourceService => ({
     if (parameters?.timeRangeFrom) baseParams.timeRangeFrom = parameters.timeRangeFrom;
     if (parameters?.timeRangeTo) baseParams.timeRangeTo = parameters.timeRangeTo;
 
+    // Diagnostics
+    // eslint-disable-next-line no-console
+    console.log('[TaskSource] start', { method, limit, startOffset, query: baseParams });
+
+    if (typeof service[method] !== 'function') {
+      // eslint-disable-next-line no-console
+      console.error('[TaskSource] Invalid method', method);
+      return Stream.fromIterable<number>([]);
+    }
+
     return Stream.paginateEffect(baseParams as any, (query) =>
       Effect.tryPromise({
         try: async () => {
           const tasks = await service[method](query);
+          // eslint-disable-next-line no-console
+          console.log('[TaskSource] page', { size: tasks?.length || 0, offset: query.offset });
           const next = tasks.length < limit ? undefined : { ...query, offset: (query.offset ?? 0) + limit };
           const ids = tasks.map((t: any) => t.id as number);
           return [[...ids], next] as const;
         },
-        catch: (e) => e as Error
+        catch: (e) => {
+          // eslint-disable-next-line no-console
+          console.error('[TaskSource] error', e);
+          return e as Error;
+        }
       })
     ).pipe(Stream.flattenIterables);
   }
 });
-
-

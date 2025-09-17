@@ -95,7 +95,20 @@ export const makeReportProcessingService = (): ReportProcessingService => ({
       );
 
       // Run processing with watcher and persistence
-      yield* Effect.all([runStream, persistLoop]);
+      // Run with error handling: set failed state if stream errors
+      yield* Effect.all([runStream, persistLoop]).pipe(
+        Effect.catchAll((err) =>
+          Effect.gen(function* () {
+            // eslint-disable-next-line no-console
+            console.error('[Processing] stream failed', err);
+            const st = yield* fs.getGenerationState(reportId);
+            if (st) {
+              yield* fs.saveGenerationState(reportId, { ...st, status: 'failed', errorMessage: String((err as Error)?.message || err) } as any);
+            }
+            return undefined as unknown as void;
+          })
+        )
+      );
 
       // Mark complete
       const finalTd = yield* Ref.get(resultsRef);
@@ -105,5 +118,3 @@ export const makeReportProcessingService = (): ReportProcessingService => ({
       }
     })
 });
-
-

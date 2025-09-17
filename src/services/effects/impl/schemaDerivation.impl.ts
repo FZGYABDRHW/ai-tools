@@ -27,5 +27,3 @@ export const makeSchemaDerivationService = (): SchemaDerivationService => ({
     return columns;
   })
 });
-
-

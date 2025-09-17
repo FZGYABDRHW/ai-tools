@@ -38,6 +38,14 @@ export const makeReportPreparationService = (): ReportPreparationService => ({
       } as any;
 
       yield* fs.saveGenerationState(reportId, initial);
+      // Persist to report record so Results panel can render header immediately
+      try {
+        const existing = (yield* fs.getReport(reportId)) as any;
+        if (existing) {
+          const updated = { ...existing, tableData: initial.tableData, extractedParameters: initial.extractedParameters, updatedAt: new Date().toISOString() };
+          yield* fs.saveReport(updated as any);
+        }
+      } catch {}
       // eslint-disable-next-line no-console
       console.log('[Preparation] State persisted', { columnsCount: columns.length });
       return { parameters, columns };
