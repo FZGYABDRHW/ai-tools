@@ -33,44 +33,15 @@ export default setup({
     syncCheckpoint: fromPromise(async ({ input }: { input: { reportId: string } }) => {
       return effectsApi.getCheckpoint(input.reportId);
     }),
-    generation: fromCallback(({ input, sendBack }) => {
-      const {
-        reportId,
-        prompt,
-        parameters,
-        authToken,
-        server
-      } = input as { reportId: string; prompt: string; parameters?: TaskListParameters; authToken?: string; server?: 'EU' | 'RU' };
-
+    prepareGeneration: fromPromise(async ({ input }: { input: { reportId: string; prompt: string } }) => {
+      return effectsApi.prepareGeneration(input.reportId, input.prompt);
+    }),
+    processing: fromCallback(({ input, sendBack }) => {
+      const { reportId, prompt, parameters, authToken, server } = input as { reportId: string; prompt: string; parameters?: any; authToken?: string; server?: 'EU' | 'RU' };
       const token = authToken || localStorage.getItem('authToken') || '';
       const selectedServer = server || (localStorage.getItem('selectedServer') as 'EU' | 'RU') || 'EU';
-
-      // Handle async operation inside the callback
-      effectsApi.getResumeOffset(reportId).then(startOffset => {
-        void effectsApi.startGeneration({
-          reportId,
-          reportText: prompt,
-          authToken: token,
-          selectedServer,
-          onProgress: (progress) => {
-            const processed = progress?.results?.length || 0;
-            const total = progress?.results?.length || 0;
-            sendBack({ type: 'PROGRESS', processed, total });
-          },
-          onComplete: () => {
-            sendBack({ type: 'COMPLETED' });
-          },
-          onError: (error) => {
-            sendBack({ type: 'FAILED', error: (error as Error)?.message || 'Generation failed' });
-          },
-          startOffset,
-          parameters
-        });
-      });
-
-      return () => {
-        // Cleanup is handled externally via stop/cancel
-      };
+      void effectsApi.startProcessing({ reportId, prompt, authToken: token, server: selectedServer });
+      return () => {};
     })
   }
 }).createMachine({
@@ -85,7 +56,7 @@ export default setup({
           target: 'loading'
         },
         GENERATE: {
-          target: 'generating.preparing',
+          target: 'preparing.extracting',
           actions: assign(({ context, event }) => {
             if (event.type !== 'GENERATE') return {};
             const extracted = event.parameters
@@ -96,31 +67,40 @@ export default setup({
               parameters: extracted.parameters,
               extractedParameters: extracted,
               lifecycle: 'generating' as const,
-              generationPhase: 'preparing' as ReportGenerationPhase,
-              progress: { processed: 0, total: 0, percentage: 0 } as ReportProgress,
+              generationPhase: 'preparing',
+              progress: { processed: 0, total: 0, percentage: 0 },
               error: null
             };
           })
         }
       }
     },
-    loading: {
-      entry: assign({ lifecycle: 'loading' as const, error: null }),
-      invoke: {
-        src: 'loadReport',
-        input: ({ context }) => ({ reportId: context.reportId }),
-        onDone: {
-          target: 'idle',
-          actions: assign(({ event }) => ({ report: event.output as Report, error: null }))
+    // New preparing branch decoupled from processing
+    preparing: {
+      initial: 'extracting',
+      states: {
+        extracting: {
+          entry: assign({ generationPhase: 'preparing' as const }),
+          invoke: {
+            src: 'prepareGeneration',
+            input: ({ context }) => ({ reportId: context.reportId, prompt: context.prompt || context.report?.prompt || '' }),
+            onDone: {
+              target: 'persisted',
+              actions: assign(({ event }) => ({ parameters: (event.output as any)?.parameters }))
+            },
+            onError: {
+              target: '#reportMachine.failed',
+              actions: assign(({ event }) => ({ error: (event.error as Error)?.message || 'Preparation failed' }))
+            }
+          }
         },
-        onError: {
-          target: 'idle',
-          actions: assign(({ event }) => ({ error: (event.error as Error)?.message || 'Failed to load report' }))
+        persisted: {
+          always: '#reportMachine.generating.processing'
         }
       }
     },
     generating: {
-      initial: 'preparing',
+      initial: 'processing',
       on: {
         PAUSE: {
           target: '.paused',
@@ -136,95 +116,10 @@ export default setup({
         }
       },
       states: {
-        preparing: {
-          entry: assign({ generationPhase: 'preparing' as const }),
-          always: [
-            {
-              target: 'preparingFailed',
-              guard: ({ context }) => Boolean(context.extractedParameters && context.extractedParameters.isValid === false),
-              actions: assign(({ context }) => ({
-                error: context.extractedParameters?.errors?.join?.(', ') || 'Invalid parameters'
-              }))
-            }
-          ],
-          invoke: {
-            src: 'syncCheckpoint',
-            input: ({ context }) => ({ reportId: context.reportId }),
-            onDone: {
-              target: 'processing',
-              actions: assign(({ event, context }) => {
-                const cp = event.output as any;
-                const checkpoint = cp ? {
-                  reportId: context.reportId,
-                  status: cp.status,
-                  currentTaskIndex: cp.currentTaskIndex,
-                  totalTasks: cp.totalTasks,
-                  startOffset: cp.startOffset
-                } : null;
-                return { checkpoint };
-              })
-            },
-            onError: {
-              target: 'processing'
-            }
-          },
-          on: {
-            PAUSE: {
-              target: 'preparingPaused',
-              actions: ({ context }) => { void (async () => { await effectsApi.markCheckpointPaused(context.reportId); await effectsApi.updateGenerationStatus(context.reportId, 'paused'); })(); }
-            },
-            CANCEL: {
-              target: 'preparingCancelling'
-            }
-          }
-        },
-        preparingPaused: {
-          entry: [
-            assign({ lifecycle: 'paused' as const, generationPhase: 'preparing' as const }),
-            ({ context }) => { void (async () => { await effectsApi.markCheckpointPaused(context.reportId); await effectsApi.updateGenerationStatus(context.reportId, 'paused'); })(); }
-          ],
-          on: {
-            RESUME: 'preparing',
-            CANCEL: 'preparingCancelling'
-          }
-        },
-        preparingCancelling: {
-          entry: [
-            assign({ lifecycle: 'cancelled' as const }),
-            ({ context }) => { void (async () => { await effectsApi.stopGeneration(context.reportId); await effectsApi.clearGeneration(context.reportId); await effectsApi.clearCheckpoint(context.reportId); })(); }
-          ],
-          always: '#reportMachine.idle'
-        },
-        preparingFailed: {
-          entry: assign({ lifecycle: 'failed' as const }),
-          // User can trigger GENERATE again to retry after fixing prompt/params
-          on: {}
-        },
         processing: {
           entry: assign({ generationPhase: 'processing' as const, lifecycle: 'generating' as const }),
-          on: {
-            PROGRESS: {
-              actions: assign(({ event, context }) => {
-                if (event.type !== 'PROGRESS') return {};
-                const processed = event.processed;
-                const total = context.checkpoint?.totalTasks ?? Math.max(event.processed, context.progress?.total || 0);
-                const percentage = total > 0 ? Math.round((processed / total) * 100) : 0;
-                return { progress: { processed, total, percentage, etaMs: event.etaMs } };
-              })
-            },
-            EXTRACTED_PARAMS: {
-              actions: assign(({ event }) => (event.type === 'EXTRACTED_PARAMS' ? { extractedParameters: event.extracted } : {}))
-            },
-            COMPLETED: {
-              target: 'finalizing'
-            },
-            FAILED: {
-              target: '#reportMachine.failed',
-              actions: assign(({ event }) => (event.type === 'FAILED' ? { error: event.error } : {}))
-            }
-          },
           invoke: {
-            src: 'generation',
+            src: 'processing',
             input: ({ context }) => ({
               reportId: context.reportId,
               prompt: context.prompt || context.report?.prompt || '',
@@ -233,10 +128,6 @@ export default setup({
               server: context.server
             })
           }
-        },
-        finalizing: {
-          entry: assign({ generationPhase: 'finalizing' as const }),
-          always: '#reportMachine.completed'
         },
         paused: {
           entry: ({ context }) => { void (async () => { await effectsApi.stopGeneration(context.reportId); await effectsApi.updateGenerationStatus(context.reportId, 'paused'); })(); },

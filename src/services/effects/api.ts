@@ -19,6 +19,13 @@ import { ReportCheckpointServiceTag, ReportCheckpoint, CreateCheckpointParams, U
 import { ReportLogServiceTag, CreateReportLogParams } from './impl/reportLog.impl';
 import { ReportGenerationServiceTag } from './impl/reportGeneration.impl';
 import { makeFileSystemService, makeReportService, makeReportCheckpointService, makeReportLogService, makeReportGenerationService } from './implementations';
+import { OpenAIServiceTag, makeOpenAIService } from './impl/openai.impl';
+import { ParameterExtractionServiceFxTag, makeParameterExtractionService } from './impl/parameterExtraction.impl';
+import { SchemaDerivationServiceTag, makeSchemaDerivationService } from './impl/schemaDerivation.impl';
+import { TaskSourceServiceTag, makeTaskSourceService } from './impl/taskSource.impl';
+import { ReportPreparationServiceTag, makeReportPreparationService } from './impl/reportPreparation.impl';
+import { ReportProcessingServiceTag, makeReportProcessingService } from './impl/reportProcessing.impl';
+import type { TaskListParameters } from '../parameterExtractionService';
 
 // ============================================================================
 // Runtime Setup
@@ -30,7 +37,14 @@ const adapterServicesLayer = Layer.mergeAll(
   Layer.succeed(ReportServiceTag, makeReportService()),
   Layer.succeed(ReportCheckpointServiceTag, makeReportCheckpointService()),
   Layer.succeed(ReportLogServiceTag, makeReportLogService()),
-  Layer.succeed(ReportGenerationServiceTag, makeReportGenerationService())
+  Layer.succeed(ReportGenerationServiceTag, makeReportGenerationService()),
+  // New Effect services for preparation and processing
+  Layer.succeed(OpenAIServiceTag, makeOpenAIService()),
+  Layer.succeed(ParameterExtractionServiceFxTag, makeParameterExtractionService()),
+  Layer.succeed(SchemaDerivationServiceTag, makeSchemaDerivationService()),
+  Layer.succeed(TaskSourceServiceTag, makeTaskSourceService()),
+  Layer.succeed(ReportPreparationServiceTag, makeReportPreparationService()),
+  Layer.succeed(ReportProcessingServiceTag, makeReportProcessingService())
 );
 
 const runtime = Runtime.make({
@@ -222,6 +236,41 @@ export const startGeneration = (params: StartGenerationParams): Promise<void> =>
     Effect.gen(function* () {
       const service = yield* ReportGenerationServiceTag;
       return yield* service.startGeneration(params);
+    }).pipe(Effect.provide(adapterServicesLayer))
+  );
+};
+
+// New: Run only preparation (extract parameters + derive schema + persist header)
+export const prepareGeneration = (reportId: string, prompt: string): Promise<{ parameters: TaskListParameters; columns: string[] } | null> => {
+  return Runtime.runPromise(runtime)(
+    Effect.gen(function* () {
+      const prep = yield* ReportPreparationServiceTag;
+      const result = yield* prep.prepare(reportId, prompt);
+      return result as any;
+    }).pipe(Effect.provide(adapterServicesLayer))
+  );
+};
+
+// New: Start processing only, using previously prepared state
+export const startProcessing = (args: { reportId: string; prompt: string; authToken: string; server: 'EU' | 'RU'; startOffset?: number; parameters?: TaskListParameters; columns?: string[] }): Promise<void> => {
+  return Runtime.runPromise(runtime)(
+    Effect.gen(function* () {
+      const fs = yield* FileSystemServiceTag;
+      const proc = yield* ReportProcessingServiceTag;
+      // Pull prepared parameters/columns from FS if not provided
+      const st = yield* fs.getGenerationState(args.reportId);
+      const parameters = (args.parameters ?? (st?.parameters as any)) as TaskListParameters;
+      const columns = (args.columns ?? (st?.tableData?.columns as any)) as string[];
+      const startOffset = args.startOffset ?? 0;
+      return yield* proc.process({
+        reportId: args.reportId,
+        prompt: args.prompt,
+        columns,
+        parameters,
+        startOffset,
+        authToken: args.authToken,
+        server: args.server
+      });
     }).pipe(Effect.provide(adapterServicesLayer))
   );
 };

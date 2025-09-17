@@ -1,0 +1,100 @@
+import { Context, Effect, Ref, Schedule, Stream } from 'effect';
+import { FileSystemService, FileSystemServiceTag } from './fileSystem.impl';
+import { TaskSourceServiceTag } from './taskSource.impl';
+import { OpenAIServiceTag } from './openai.impl';
+import { ReportGenerationState, TableData } from '../shared-types';
+
+export interface ReportProcessingService {
+  readonly process: (args: {
+    reportId: string;
+    prompt: string;
+    columns: string[];
+    parameters: any;
+    startOffset: number;
+    authToken: string;
+    server: 'EU' | 'RU';
+  }) => Effect.Effect<void, Error, FileSystemService>;
+}
+
+export const ReportProcessingServiceTag = Context.GenericTag<ReportProcessingService>('ReportProcessingService');
+
+export const makeReportProcessingService = (): ReportProcessingService => ({
+  process: ({ reportId, prompt, columns, parameters, startOffset, authToken, server }) =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystemServiceTag;
+
+      const resultsRef = yield* Ref.make<TableData>({ columns: [...columns], results: [], csv: `${columns.join(',')}\n` });
+
+      // Save status to in_progress
+      const st0 = yield* fs.getGenerationState(reportId);
+      if (st0) {
+        const updated: ReportGenerationState = { ...st0, status: 'in_progress', tableData: yield* Ref.get(resultsRef) } as any;
+        yield* fs.saveGenerationState(reportId, updated);
+      }
+
+      // Command watcher: pause/stop
+      // Lightweight polling loop (non-blocking)
+      const watcher = yield* Effect.forkDaemon(
+        Effect.gen(function* loop() {
+          const cmd = yield* fs.getGenerationCommand(reportId);
+          if (cmd === 'pause' || cmd === 'stop') {
+            const st = yield* fs.getGenerationState(reportId);
+            if (st) yield* fs.saveGenerationState(reportId, { ...st, status: 'paused' });
+            yield* fs.setGenerationCommand(reportId, 'none');
+            yield* Effect.interrupt;
+          }
+          yield* Effect.sleep(200);
+          return yield* loop();
+        })
+      );
+
+      // Build task stream
+      const taskStream = yield* Effect.gen(function* () { const svc = yield* TaskSourceServiceTag; return svc.stream({ authToken, server, startOffset, parameters }); });
+
+      // Process tasks with limited parallelism
+      const processOne = (taskId: number) =>
+        Effect.gen(function* () {
+          const ai = yield* OpenAIServiceTag;
+          const content = yield* ai.chatJSON(
+            'You are an expert task analyst. Return ONLY a valid JSON object with exactly the requested keys. No extra keys or text.',
+            `${prompt}\nReturn JSON with keys: ${columns.join(', ')} for taskId ${taskId}.`
+          );
+          const parsed = yield* Effect.try({ try: () => JSON.parse(content || '{}') as Record<string, unknown>, catch: () => ({ raw: content }) as any });
+          yield* Ref.update(resultsRef, (td) => {
+            const row = { ...parsed, taskId } as Record<string, unknown>;
+            const nextResults = [...td.results, row];
+            const escape = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+            const line = columns.map((c) => escape((row as any)[c])).join(',');
+            return { columns: td.columns, results: nextResults, csv: td.csv + line + '\n' };
+          });
+        });
+
+      const concurrency = 20;
+      const runStream = Stream.runForEach(taskStream, (id) => processOne(id));
+
+      // Periodically persist progress
+      const persistLoop = Effect.forever(
+        Effect.gen(function* () {
+          const td = yield* Ref.get(resultsRef);
+          const st = yield* fs.getGenerationState(reportId);
+          if (st && st.status === 'in_progress') {
+            const processed = td.results.length;
+            yield* fs.saveGenerationState(reportId, { ...st, tableData: td, progress: { processed, total: processed } } as any);
+          }
+          yield* Effect.sleep(200);
+        })
+      );
+
+      // Run processing with watcher and persistence
+      yield* Effect.all([runStream, persistLoop]);
+
+      // Mark complete
+      const finalTd = yield* Ref.get(resultsRef);
+      const st = yield* fs.getGenerationState(reportId);
+      if (st && st.status === 'in_progress') {
+        yield* fs.saveGenerationState(reportId, { ...st, status: 'completed', tableData: finalTd } as any);
+      }
+    })
+});
+
+

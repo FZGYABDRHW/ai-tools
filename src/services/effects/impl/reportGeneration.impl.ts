@@ -34,14 +34,14 @@ export interface ReportGenerationService {
   readonly setToCompleted: (reportId: string) => Effect.Effect<boolean, StorageError, FileSystemService>;
   readonly rerunFromCompleted: (reportId: string) => Effect.Effect<boolean, StorageError, FileSystemService>;
   readonly restartFromFailed: (reportId: string) => Effect.Effect<boolean, StorageError, FileSystemService>;
-  readonly startGeneration: (params: StartGenerationParams) => Effect.Effect<void, GenerationError, FileSystemService>;
+  readonly startGeneration: (params: StartGenerationParams) => Effect.Effect<void, GenerationError, FileSystemService | import('./reportPreparation.impl').ReportPreparationService | import('./reportProcessing.impl').ReportProcessingService | import('./parameterExtraction.impl').ParameterExtractionServiceFx | import('./schemaDerivation.impl').SchemaDerivationService | import('./openai.impl').OpenAIService>;
   readonly stopGeneration: (reportId: string) => Effect.Effect<boolean, StorageError, FileSystemService>;
   readonly clearGeneration: (reportId: string) => Effect.Effect<void, StorageError, FileSystemService>;
   readonly clearExtractedParameters: (reportId: string) => Effect.Effect<void, StorageError, FileSystemService>;
   readonly clearAllReportData: (reportId: string) => Effect.Effect<void, StorageError, FileSystemService>;
   readonly clearAllGenerations: () => Effect.Effect<void, StorageError, FileSystemService>;
   readonly reconnectToGeneration: (reportId: string, callbacks: GenerationCallbacks) => Effect.Effect<boolean, StorageError, FileSystemService>;
-  readonly resumeGeneration: (params: ResumeGenerationParams) => Effect.Effect<void, StorageError, FileSystemService>;
+  readonly resumeGeneration: (params: ResumeGenerationParams) => Effect.Effect<void, StorageError, FileSystemService | import('./reportPreparation.impl').ReportPreparationService | import('./reportProcessing.impl').ReportProcessingService | import('./parameterExtraction.impl').ParameterExtractionServiceFx | import('./schemaDerivation.impl').SchemaDerivationService | import('./openai.impl').OpenAIService>;
 }
 
 // ============================================================================
@@ -54,9 +54,8 @@ import { makeReportService } from './report.impl';
 import { makeReportCheckpointService } from './reportCheckpoint.impl';
 import { makeReportLogService } from './reportLog.impl';
 import { makeFileSystemService } from './fileSystem.impl';
-import { buildServiceInitializer } from '../../../serviceInit';
-import { buildReport } from '../../../reportBuilder';
-import builder from '../../../builder';
+import { ReportPreparationServiceTag } from './reportPreparation.impl';
+import { ReportProcessingServiceTag } from './reportProcessing.impl';
 
 export const makeReportGenerationService = (): ReportGenerationService => {
   return {
@@ -224,8 +223,6 @@ export const makeReportGenerationService = (): ReportGenerationService => {
           throw new GenerationError('Auth token is required', 'VALIDATION_ERROR', params.reportId);
         }
 
-        // No callbacks: UI should poll FS for state
-
         // Get or create report
         let report = yield* makeReportService().getReportById(params.reportId);
         if (!report) {
@@ -269,157 +266,51 @@ export const makeReportGenerationService = (): ReportGenerationService => {
           () => Effect.void
         );
 
-        // Run builder pipeline
-        const si = buildServiceInitializer(params.authToken, (params.selectedServer as any) || 'EU');
-
+        // New: preparation then processing services
         const fs = yield* FileSystemServiceTag;
-        yield* Effect.tryPromise({
-          try: async () => {
-            // File-backed control: poll for commands and abort cooperatively
-            const controller = new AbortController();
-            let stopped = false;
-            const pollControl = (async () => {
-              while (!stopped) {
-                try {
-                  const cmd = await Effect.runPromise(fs.getGenerationCommand(params.reportId));
-                  if (cmd === 'pause' || cmd === 'stop') {
-                    // Persist paused state and abort
-                    try {
-                      const checkpoint = await Effect.runPromise(fs.getCheckpoint(params.reportId));
-                      if (checkpoint) {
-                        await Effect.runPromise(fs.saveCheckpoint(params.reportId, { ...checkpoint, status: 'paused', lastCheckpointTime: Date.now() }));
-                      }
-                      const st = await Effect.runPromise(fs.getGenerationState(params.reportId));
-                      if (st) {
-                        await Effect.runPromise(fs.saveGenerationState(params.reportId, { ...st, status: 'paused' }));
-                      }
-                      await Effect.runPromise(fs.setGenerationCommand(params.reportId, 'none'));
-                    } catch {}
-                    controller.abort();
-                    stopped = true;
-                    break;
-                  }
-                } catch {}
-                await new Promise((r) => setTimeout(r, 200));
-              }
-            })();
-            const onProgress = (progress: TableData) => {
-              if (controller.signal.aborted) return;
-              // Persist progress and ensure status is at least in_progress (unless already paused/failed/completed)
-              Effect.runPromise(
-                fs.getGenerationState(params.reportId).pipe(
-                  Effect.flatMap((st) => {
-                    if (!st) return Effect.succeed(false);
-                    if (st.status === 'paused' || st.status === 'failed' || st.status === 'completed') {
-                      return Effect.succeed(false);
-                    }
-                    const processed = progress.results.length;
-                    const updated: ReportGenerationState = {
-                      reportId: params.reportId,
-                      status: 'in_progress',
-                      progress: { processed, total: processed },
-                      tableData: progress,
-                      startTime: st.startTime || startTime,
-                      parameters: st.parameters,
-                      extractedParameters: (st as any).extractedParameters
-                    };
-                    return fs.saveGenerationState(params.reportId, updated);
-                  })
-                )
-              );
-            };
+        const prep = yield* ReportPreparationServiceTag;
+        const proc = yield* ReportProcessingServiceTag;
 
-            const onParametersExtracted = (extracted: ExtractedParameters) => {
-              if (controller.signal.aborted) return;
-              Effect.runPromise(
-                fs.getGenerationState(params.reportId).pipe(
-                  Effect.flatMap((st) =>
-                    st ? fs.saveGenerationState(params.reportId, { ...st, extractedParameters: extracted }) : Effect.succeed(false)
-                  )
-                )
-              );
-            };
+        yield* prep.prepare(params.reportId, params.reportText);
+        yield* proc.process({
+          reportId: params.reportId,
+          prompt: params.reportText,
+          columns: [],
+          parameters: params.parameters,
+          startOffset: params.startOffset ?? 0,
+          authToken: params.authToken,
+          server: (params.selectedServer as any) || 'EU'
+        });
 
-            const onStatusUpdate = (status: 'preparing' | 'in_progress') => {
-              if (controller.signal.aborted) return;
-              // Only set forward-moving statuses
-              Effect.runPromise(
-                fs.getGenerationState(params.reportId).pipe(
-                  Effect.flatMap((st) => {
-                    if (!st) return Effect.succeed(false);
-                    if (st.status === 'paused' || st.status === 'failed' || st.status === 'completed') return Effect.succeed(false);
-                    return fs.saveGenerationState(params.reportId, { ...st, status });
-                  })
-                )
-              );
-            };
-
-            const result = await buildReport(
-              params.reportText,
-              si,
-              (taskId) => builder(taskId, params.authToken, (params.selectedServer as any) || 'EU'),
-              onProgress,
-              onParametersExtracted,
-              controller.signal,
-              params.startOffset ?? 0,
-              params.parameters,
-              undefined,
-              onStatusUpdate
-            );
-
-            // Completion handling: persist completed status, save report data, mark checkpoint completed
+        // On completion, persist to report log using current state
+        try {
+          const st = yield* fs.getGenerationState(params.reportId);
+          if (st && st.tableData) {
             try {
-              const st = await Effect.runPromise(fs.getGenerationState(params.reportId));
-              if (st) {
-                await Effect.runPromise(fs.saveGenerationState(params.reportId, { ...st, status: 'completed', tableData: result }));
-              }
-              // Save report data for UI
-              try {
-                await Effect.runPromise(
-                  makeReportService().saveReportData(
-                    params.reportId,
-                    { columns: [...result.columns], results: [...result.results], csv: result.csv },
-                    st?.extractedParameters as any
-                  ).pipe(Effect.provide(Layer.succeed(FileSystemServiceTag, makeFileSystemService())))
-                );
-              } catch {}
-              // Mark checkpoint completed
-              try {
-                await Effect.runPromise(
-                  makeReportCheckpointService().markCompleted(params.reportId).pipe(
-                    Effect.provide(Layer.succeed(FileSystemServiceTag, makeFileSystemService()))
-                  )
-                );
-              } catch {}
+              yield* makeReportService().saveReportData(
+                params.reportId,
+                { columns: [...(st.tableData.columns || [])], results: [...(st.tableData.results || [])], csv: st.tableData.csv },
+                (st as any).extractedParameters
+              ).pipe(Effect.provide(Layer.succeed(FileSystemServiceTag, makeFileSystemService())));
             } catch {}
-            // Create a report log
             try {
               const reportName = report?.name ?? 'Custom Operational Report';
               const logParams: CreateReportLogParams = {
                 reportId: params.reportId,
                 reportName,
                 prompt: params.reportText,
-                tableData: result,
-                totalTasks: result.results.length,
-                processedTasks: result.results.length,
+                tableData: st.tableData,
+                totalTasks: st.tableData.results.length,
+                processedTasks: st.tableData.results.length,
                 startTime,
                 status: 'completed'
               };
-              // Persist report log via filesystem-enabled service
-              await Effect.runPromise(
-                makeReportLogService().createFromReportGeneration(logParams).pipe(
-                  Effect.provide(Layer.succeed(FileSystemServiceTag, makeFileSystemService()))
-                )
+              yield* makeReportLogService().createFromReportGeneration(logParams).pipe(
+                Effect.provide(Layer.succeed(FileSystemServiceTag, makeFileSystemService()))
               );
             } catch {}
-          },
-          catch: (error) => new GenerationError(
-            `Generation failed: ${String((error as Error)?.message || error)}`,
-            'UNKNOWN_ERROR',
-            params.reportId,
-            error as Error
-          )
-        });
+          }
+        } catch {}
 
         return;
       }).pipe(Effect.catchAll((e) => Effect.fail(e as GenerationError))),
