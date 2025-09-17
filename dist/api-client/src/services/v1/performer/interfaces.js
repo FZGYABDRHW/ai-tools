@@ -1,0 +1,64 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.WalletActionTypes = exports.STATUS_INVOICING = exports.InvoiceStatuses = exports.RatingType = exports.ON_CUSTOMER_APPROVAL = exports.REJECTED_TASK = exports.DONE_TASK = exports.IN_WORK_TASK = exports.AWAITING_APPROVE_TASK = exports.NEW_TASK = void 0;
+exports.NEW_TASK = 'new';
+exports.AWAITING_APPROVE_TASK = 'awaitingApprove';
+exports.IN_WORK_TASK = 'inWork';
+exports.DONE_TASK = 'done';
+exports.REJECTED_TASK = 'rejected';
+exports.ON_CUSTOMER_APPROVAL = 'onCustomerApproval';
+var RatingType;
+(function (RatingType) {
+    RatingType[RatingType["CONTRACTOR_COMMON"] = 0] = "CONTRACTOR_COMMON";
+    RatingType[RatingType["TASK_RATING"] = 1] = "TASK_RATING";
+    RatingType[RatingType["REPORT"] = 2] = "REPORT";
+    RatingType[RatingType["TASK_UNASSIGN"] = 3] = "TASK_UNASSIGN";
+    RatingType[RatingType["BAN"] = 4] = "BAN";
+    RatingType[RatingType["PERFORMER_REFUSE"] = 5] = "PERFORMER_REFUSE";
+})(RatingType || (exports.RatingType = RatingType = {}));
+var InvoiceStatuses;
+(function (InvoiceStatuses) {
+    InvoiceStatuses["NO_CHOSEN"] = "noChosen";
+    InvoiceStatuses["NOT_ATTACHED"] = "notAttached";
+    InvoiceStatuses["ON_CURATOR_MODERATION"] = "onCuratorModeration";
+    InvoiceStatuses["APPROVED"] = "approved";
+})(InvoiceStatuses || (exports.InvoiceStatuses = InvoiceStatuses = {}));
+var STATUS_INVOICING;
+(function (STATUS_INVOICING) {
+    STATUS_INVOICING["Progress"] = "in_progress";
+    STATUS_INVOICING["Completed"] = "completed";
+    STATUS_INVOICING["Fault"] = "fault";
+    STATUS_INVOICING["Canceled"] = "canceled";
+})(STATUS_INVOICING || (exports.STATUS_INVOICING = STATUS_INVOICING = {}));
+var WalletActionTypes;
+(function (WalletActionTypes) {
+    WalletActionTypes[WalletActionTypes["EXPANDABLE_CONFIRM"] = 1] = "EXPANDABLE_CONFIRM";
+    WalletActionTypes[WalletActionTypes["EXPANDABLE_ADJUSTMENT"] = 2] = "EXPANDABLE_ADJUSTMENT";
+    WalletActionTypes[WalletActionTypes["TASK_CLOSED"] = 3] = "TASK_CLOSED";
+    WalletActionTypes[WalletActionTypes["PAYOUT"] = 4] = "PAYOUT";
+    WalletActionTypes[WalletActionTypes["RETURNING_MONEY_FOR_PAYOUT"] = 5] = "RETURNING_MONEY_FOR_PAYOUT";
+    WalletActionTypes[WalletActionTypes["MANUAL_PAYMENT"] = 6] = "MANUAL_PAYMENT";
+    WalletActionTypes[WalletActionTypes["EXPENDABLE_DELETE"] = 7] = "EXPENDABLE_DELETE";
+    WalletActionTypes[WalletActionTypes["EXPENDABLE_CORRECTION_UP"] = 8] = "EXPENDABLE_CORRECTION_UP";
+    WalletActionTypes[WalletActionTypes["MANUAL_PAYOUT"] = 9] = "MANUAL_PAYOUT";
+    WalletActionTypes[WalletActionTypes["EXPENDABLE_CORRECTION_DOWN"] = 10] = "EXPENDABLE_CORRECTION_DOWN";
+    WalletActionTypes[WalletActionTypes["EXPENDABLE_MAKE_CASHLESS"] = 11] = "EXPENDABLE_MAKE_CASHLESS";
+    WalletActionTypes[WalletActionTypes["EXPANDABLE_PAYOUT"] = 12] = "EXPANDABLE_PAYOUT";
+    WalletActionTypes[WalletActionTypes["MANUAL_EXPENDABLE_PAYMENT"] = 13] = "MANUAL_EXPENDABLE_PAYMENT";
+    WalletActionTypes[WalletActionTypes["MANUAL_EXPENDABLE_PAYOUT"] = 14] = "MANUAL_EXPENDABLE_PAYOUT";
+    WalletActionTypes[WalletActionTypes["EXPENDABLE_MAKE_COMMON"] = 15] = "EXPENDABLE_MAKE_COMMON";
+    WalletActionTypes[WalletActionTypes["INCREASE_IE_WALLET_USING_WORK_WALLET"] = 16] = "INCREASE_IE_WALLET_USING_WORK_WALLET";
+    WalletActionTypes[WalletActionTypes["INCREASE_IE_WALLET_USING_EXPENDABLE_WALLET"] = 17] = "INCREASE_IE_WALLET_USING_EXPENDABLE_WALLET";
+    WalletActionTypes[WalletActionTypes["DECREASE_WORK_WALLET_AFTER_MOVING_TO_IE"] = 18] = "DECREASE_WORK_WALLET_AFTER_MOVING_TO_IE";
+    WalletActionTypes[WalletActionTypes["DECREASE_EXPENDABLE_WALLET_AFTER_MOVING_TO_IE"] = 19] = "DECREASE_EXPENDABLE_WALLET_AFTER_MOVING_TO_IE";
+    WalletActionTypes[WalletActionTypes["CLEANING_CALENDAR_PLAN_CATEGORY_PAYMENT"] = 20] = "CLEANING_CALENDAR_PLAN_CATEGORY_PAYMENT";
+    WalletActionTypes[WalletActionTypes["CLEANING_CALENDAR_PLAN_COMPENSATION_PAYMENT"] = 21] = "CLEANING_CALENDAR_PLAN_COMPENSATION_PAYMENT";
+    WalletActionTypes[WalletActionTypes["CLEANING_INVENTORY_PAYMENT"] = 22] = "CLEANING_INVENTORY_PAYMENT";
+    WalletActionTypes[WalletActionTypes["DECREASE_IE_WALLET_AFTER_REVOKE_IE_PROFILE"] = 23] = "DECREASE_IE_WALLET_AFTER_REVOKE_IE_PROFILE";
+    WalletActionTypes[WalletActionTypes["INCREASE_WORK_WALLET_AFTER_REVOKE_IE_PROFILE"] = 24] = "INCREASE_WORK_WALLET_AFTER_REVOKE_IE_PROFILE";
+    WalletActionTypes[WalletActionTypes["MOTIVATION_REWARD"] = 25] = "MOTIVATION_REWARD";
+    WalletActionTypes[WalletActionTypes["INCREASE_WALLET_AFTER_BALANCE_MOVE"] = 26] = "INCREASE_WALLET_AFTER_BALANCE_MOVE";
+    WalletActionTypes[WalletActionTypes["DECREASE_WALLET_AFTER_BALANCE_MOVE"] = 27] = "DECREASE_WALLET_AFTER_BALANCE_MOVE";
+    WalletActionTypes[WalletActionTypes["DECREASE_WALLET_WITHHOLDING_TAX"] = 28] = "DECREASE_WALLET_WITHHOLDING_TAX";
+})(WalletActionTypes || (exports.WalletActionTypes = WalletActionTypes = {}));
+//# sourceMappingURL=interfaces.js.map

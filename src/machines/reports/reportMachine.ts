@@ -1,8 +1,6 @@
 import { assign, fromCallback, fromPromise, setup } from 'xstate';
 import { Report } from '../../types';
-import { reportService } from '../../services/reportService';
-import { reportGenerationService } from '../../services/reportGenerationService';
-import { reportCheckpointService } from '../../services/reportCheckpointService';
+import * as effectsApi from '../../services/effects/api';
 import { ParameterExtractionService, TaskListParameters } from '../../services/parameterExtractionService';
 import { ReportActorContext, ReportActorEvent, ReportGenerationPhase, ReportProgress } from './types';
 
@@ -29,11 +27,11 @@ export default setup({
   },
   actors: {
     loadReport: fromPromise(async ({ input }: { input: { reportId: string } }) => {
-      const report = await reportService.getReportByIdAsync(input.reportId);
+      const report = await effectsApi.getReportById(input.reportId);
       return report;
     }),
     syncCheckpoint: fromPromise(async ({ input }: { input: { reportId: string } }) => {
-      return reportCheckpointService.getCheckpoint(input.reportId);
+      return effectsApi.getCheckpoint(input.reportId);
     }),
     generation: fromCallback(({ input, sendBack }) => {
       const {
@@ -46,30 +44,29 @@ export default setup({
 
       const token = authToken || localStorage.getItem('authToken') || '';
       const selectedServer = server || (localStorage.getItem('selectedServer') as 'EU' | 'RU') || 'EU';
-      const startOffset = reportCheckpointService.getResumeOffset(reportId);
 
-      void reportGenerationService.startGeneration(
-        reportId,
-        prompt,
-        token,
-        selectedServer,
-        (progress) => {
-          const processed = progress?.results?.length || 0;
-          const total = progress?.results?.length || 0;
-          sendBack({ type: 'PROGRESS', processed, total });
-          if (progress?.extractedParameters) {
-            sendBack({ type: 'EXTRACTED_PARAMS', extracted: progress.extractedParameters });
-          }
-        },
-        () => {
-          sendBack({ type: 'COMPLETED' });
-        },
-        (error) => {
-          sendBack({ type: 'FAILED', error: (error as Error)?.message || 'Generation failed' });
-        },
-        startOffset,
-        parameters
-      );
+      // Handle async operation inside the callback
+      effectsApi.getResumeOffset(reportId).then(startOffset => {
+        void effectsApi.startGeneration({
+          reportId,
+          reportText: prompt,
+          authToken: token,
+          selectedServer,
+          onProgress: (progress) => {
+            const processed = progress?.results?.length || 0;
+            const total = progress?.results?.length || 0;
+            sendBack({ type: 'PROGRESS', processed, total });
+          },
+          onComplete: () => {
+            sendBack({ type: 'COMPLETED' });
+          },
+          onError: (error) => {
+            sendBack({ type: 'FAILED', error: (error as Error)?.message || 'Generation failed' });
+          },
+          startOffset,
+          parameters
+        });
+      });
 
       return () => {
         // Cleanup is handled externally via stop/cancel
@@ -135,7 +132,7 @@ export default setup({
         },
         RESET_TO_READY: {
           target: 'idle',
-          actions: ({ context }) => { void reportGenerationService.resetToReady(context.reportId); }
+          actions: ({ context }) => { void effectsApi.resetToReady(context.reportId); }
         }
       },
       states: {
@@ -174,7 +171,7 @@ export default setup({
           on: {
             PAUSE: {
               target: 'preparingPaused',
-              actions: ({ context }) => { void (async () => { await reportCheckpointService.markPaused(context.reportId); await reportGenerationService.updateGenerationStatus(context.reportId, 'paused'); })(); }
+              actions: ({ context }) => { void (async () => { await effectsApi.markCheckpointPaused(context.reportId); await effectsApi.updateGenerationStatus(context.reportId, 'paused'); })(); }
             },
             CANCEL: {
               target: 'preparingCancelling'
@@ -184,7 +181,7 @@ export default setup({
         preparingPaused: {
           entry: [
             assign({ lifecycle: 'paused' as const, generationPhase: 'preparing' as const }),
-            ({ context }) => { void (async () => { await reportCheckpointService.markPaused(context.reportId); await reportGenerationService.updateGenerationStatus(context.reportId, 'paused'); })(); }
+            ({ context }) => { void (async () => { await effectsApi.markCheckpointPaused(context.reportId); await effectsApi.updateGenerationStatus(context.reportId, 'paused'); })(); }
           ],
           on: {
             RESUME: 'preparing',
@@ -194,7 +191,7 @@ export default setup({
         preparingCancelling: {
           entry: [
             assign({ lifecycle: 'cancelled' as const }),
-            ({ context }) => { void (async () => { await reportGenerationService.stopGeneration(context.reportId); await reportGenerationService.clearGeneration(context.reportId); await reportCheckpointService.clearCheckpoint(context.reportId); })(); }
+            ({ context }) => { void (async () => { await effectsApi.stopGeneration(context.reportId); await effectsApi.clearGeneration(context.reportId); await effectsApi.clearCheckpoint(context.reportId); })(); }
           ],
           always: '#reportMachine.idle'
         },
@@ -242,16 +239,16 @@ export default setup({
           always: '#reportMachine.completed'
         },
         paused: {
-          entry: ({ context }) => { void (async () => { await reportGenerationService.stopGeneration(context.reportId); await reportGenerationService.updateGenerationStatus(context.reportId, 'paused'); })(); },
+          entry: ({ context }) => { void (async () => { await effectsApi.stopGeneration(context.reportId); await effectsApi.updateGenerationStatus(context.reportId, 'paused'); })(); },
           on: {
             RESUME: {
               target: 'processing',
-              actions: ({ context }) => { void reportCheckpointService.resumeCheckpoint(context.reportId); }
+              actions: ({ context }) => { void effectsApi.resumeCheckpoint(context.reportId); }
             }
           }
         },
         cancelled: {
-          entry: ({ context }) => { void (async () => { await reportGenerationService.stopGeneration(context.reportId); await reportGenerationService.clearGeneration(context.reportId); await reportCheckpointService.clearCheckpoint(context.reportId); })(); },
+          entry: ({ context }) => { void (async () => { await effectsApi.stopGeneration(context.reportId); await effectsApi.clearGeneration(context.reportId); await effectsApi.clearCheckpoint(context.reportId); })(); },
           always: '#reportMachine.idle'
         }
       }
@@ -261,7 +258,7 @@ export default setup({
       on: {
         RERUN_FROM_COMPLETED: {
           target: 'idle',
-          actions: ({ context }) => { void reportGenerationService.rerunFromCompleted(context.reportId); }
+          actions: ({ context }) => { void effectsApi.rerunFromCompleted(context.reportId); }
         }
       }
     },
@@ -270,7 +267,7 @@ export default setup({
       on: {
         RESTART_FROM_FAILED: {
           target: 'idle',
-          actions: ({ context }) => { void reportGenerationService.restartFromFailed(context.reportId); }
+          actions: ({ context }) => { void effectsApi.restartFromFailed(context.reportId); }
         }
       }
     }

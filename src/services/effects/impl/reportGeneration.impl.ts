@@ -21,26 +21,26 @@ import { CreateReportLogParams } from './reportLog.impl';
 // ============================================================================
 
 export interface ReportGenerationService {
-  readonly getActiveGenerations: () => Effect.Effect<Map<string, ReportGenerationState>, never, never>;
-  readonly getGenerationState: (reportId: string) => Effect.Effect<ReportGenerationState | null, never, never>;
+  readonly getActiveGenerations: () => Effect.Effect<Map<string, ReportGenerationState>, StorageError, FileSystemService>;
+  readonly getGenerationState: (reportId: string) => Effect.Effect<ReportGenerationState | null, StorageError, FileSystemService>;
   readonly setCallbacks: (reportId: string, callbacks: GenerationCallbacks) => Effect.Effect<void, never, never>;
   readonly getCallbacks: (reportId: string) => Effect.Effect<GenerationCallbacks | null, never, never>;
   readonly clearCallbacks: (reportId: string) => Effect.Effect<void, never, never>;
-  readonly isGenerating: (reportId: string) => Effect.Effect<boolean, never, never>;
-  readonly getGenerationStatus: (reportId: string) => Effect.Effect<GenerationStatus | null, never, never>;
+  readonly isGenerating: (reportId: string) => Effect.Effect<boolean, StorageError, FileSystemService>;
+  readonly getGenerationStatus: (reportId: string) => Effect.Effect<GenerationStatus | null, StorageError, FileSystemService>;
   readonly updateGenerationStatus: (reportId: string, status: GenerationStatus, errorMessage?: string) => Effect.Effect<void, StorageError, FileSystemService>;
   readonly resetToReady: (reportId: string) => Effect.Effect<boolean, StorageError, FileSystemService>;
-  readonly setToPaused: (reportId: string) => Effect.Effect<boolean, never, never>;
-  readonly setToCompleted: (reportId: string) => Effect.Effect<boolean, never, never>;
+  readonly setToPaused: (reportId: string) => Effect.Effect<boolean, StorageError, FileSystemService>;
+  readonly setToCompleted: (reportId: string) => Effect.Effect<boolean, StorageError, FileSystemService>;
   readonly rerunFromCompleted: (reportId: string) => Effect.Effect<boolean, StorageError, FileSystemService>;
   readonly restartFromFailed: (reportId: string) => Effect.Effect<boolean, StorageError, FileSystemService>;
   readonly startGeneration: (params: StartGenerationParams) => Effect.Effect<void, GenerationError, FileSystemService>;
   readonly stopGeneration: (reportId: string) => Effect.Effect<boolean, StorageError, FileSystemService>;
   readonly clearGeneration: (reportId: string) => Effect.Effect<void, StorageError, FileSystemService>;
-  readonly clearExtractedParameters: (reportId: string) => Effect.Effect<void, never, never>;
+  readonly clearExtractedParameters: (reportId: string) => Effect.Effect<void, StorageError, FileSystemService>;
   readonly clearAllReportData: (reportId: string) => Effect.Effect<void, StorageError, FileSystemService>;
-  readonly clearAllGenerations: () => Effect.Effect<void, never, never>;
-  readonly reconnectToGeneration: (reportId: string, callbacks: GenerationCallbacks) => Effect.Effect<boolean, never, never>;
+  readonly clearAllGenerations: () => Effect.Effect<void, StorageError, FileSystemService>;
+  readonly reconnectToGeneration: (reportId: string, callbacks: GenerationCallbacks) => Effect.Effect<boolean, StorageError, FileSystemService>;
   readonly resumeGeneration: (params: ResumeGenerationParams) => Effect.Effect<void, StorageError, FileSystemService>;
 }
 
@@ -59,80 +59,68 @@ import { buildReport } from '../../../reportBuilder';
 import builder from '../../../builder';
 
 export const makeReportGenerationService = (): ReportGenerationService => {
-  // Internal state management
-  const activeGenerations = new Map<string, ReportGenerationState>();
-  const generationCallbacks = new Map<string, GenerationCallbacks>();
-
   return {
-    getActiveGenerations: () => Effect.sync(() => activeGenerations),
+    getActiveGenerations: () =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystemServiceTag;
+        const all = yield* fs.getAllGenerationStates();
+        const map = new Map<string, ReportGenerationState>();
+        for (const st of all as ReadonlyArray<ReportGenerationState>) {
+          map.set(st.reportId, st);
+        }
+        return map;
+      }),
 
     getGenerationState: (reportId: string) =>
-      Effect.sync(() => activeGenerations.get(reportId) || null),
-
-    setCallbacks: (reportId: string, callbacks: GenerationCallbacks) =>
-      Effect.sync(() => {
-        generationCallbacks.set(reportId, callbacks);
+      Effect.gen(function* () {
+        const fs = yield* FileSystemServiceTag;
+        return yield* fs.getGenerationState(reportId);
       }),
 
-    getCallbacks: (reportId: string) =>
-      Effect.sync(() => generationCallbacks.get(reportId) || null),
-
-    clearCallbacks: (reportId: string) =>
-      Effect.sync(() => {
-        generationCallbacks.delete(reportId);
-      }),
+    // No-ops: in-memory callbacks removed
+    setCallbacks: (_reportId: string, _callbacks: GenerationCallbacks) => Effect.succeed<void>(undefined),
+    getCallbacks: (_reportId: string) => Effect.succeed<GenerationCallbacks | null>(null),
+    clearCallbacks: (_reportId: string) => Effect.succeed<void>(undefined),
 
     isGenerating: (reportId: string) =>
-      Effect.sync(() => {
-        const state = activeGenerations.get(reportId);
-        return state?.status === 'preparing' || state?.status === 'in_progress';
+      Effect.gen(function* () {
+        const fs = yield* FileSystemServiceTag;
+        const state = yield* fs.getGenerationState(reportId);
+        return (state?.status === 'preparing' || state?.status === 'in_progress') ?? false;
       }),
 
     getGenerationStatus: (reportId: string) =>
-      Effect.sync(() => {
-        const state = activeGenerations.get(reportId);
-        return state?.status || null;
+      Effect.gen(function* () {
+        const fs = yield* FileSystemServiceTag;
+        const state = yield* fs.getGenerationState(reportId);
+        return state?.status ?? null;
       }),
 
     updateGenerationStatus: (reportId: string, status: GenerationStatus, errorMessage?: string) =>
       Effect.gen(function* () {
         const fs = yield* FileSystemServiceTag;
-        const state = activeGenerations.get(reportId);
-        if (!state) {
+        const existing = yield* fs.getGenerationState(reportId);
+        if (!existing) {
           return yield* Effect.fail(new StorageError(`Generation state not found: ${reportId}`, 'read', reportId));
         }
-        const updatedState: ReportGenerationState = {
-          ...state,
+        const updated: ReportGenerationState = {
+          ...existing,
           status,
           errorMessage
         };
-        activeGenerations.set(reportId, updatedState);
-
-        // Save to file system
-        const stateToSave: Omit<ReportGenerationState, 'abortController'> = {
-          reportId: updatedState.reportId,
-          status: updatedState.status,
-          progress: updatedState.progress,
-          tableData: updatedState.tableData,
-          startTime: updatedState.startTime,
-          errorMessage: updatedState.errorMessage,
-          parameters: updatedState.parameters,
-          extractedParameters: updatedState.extractedParameters
-        };
-        yield* fs.saveGenerationState(reportId, stateToSave);
+        yield* fs.saveGenerationState(reportId, updated);
       }),
 
     resetToReady: (reportId: string) =>
       Effect.gen(function* () {
         const fs = yield* FileSystemServiceTag;
-        const state = activeGenerations.get(reportId);
+        const state = yield* fs.getGenerationState(reportId);
         if (state?.status === 'in_progress') {
           // Stop generation if in progress
           const updatedState = { ...state, status: 'failed' as GenerationStatus };
-          activeGenerations.set(reportId, updatedState);
+          yield* fs.saveGenerationState(reportId, updatedState);
         }
         // Clear generation state
-        activeGenerations.delete(reportId);
         yield* fs.deleteGenerationState(reportId);
 
         // Clear checkpoint
@@ -152,22 +140,24 @@ export const makeReportGenerationService = (): ReportGenerationService => {
       }).pipe(Effect.mapError((error) => new StorageError(`Failed to reset to ready: ${error.message}`, 'write', reportId, error))),
 
     setToPaused: (reportId: string) =>
-      Effect.sync(() => {
-        const state = activeGenerations.get(reportId);
+      Effect.gen(function* () {
+        const fs = yield* FileSystemServiceTag;
+        const state = yield* fs.getGenerationState(reportId);
         if (state && (state.status === 'preparing' || state.status === 'in_progress' || state.status === 'failed')) {
-          const updatedState = { ...state, status: 'paused' as GenerationStatus };
-          activeGenerations.set(reportId, updatedState);
+          const updatedState: ReportGenerationState = { ...state, status: 'paused' };
+          yield* fs.saveGenerationState(reportId, updatedState);
           return true;
         }
         return false;
       }),
 
     setToCompleted: (reportId: string) =>
-      Effect.sync(() => {
-        const state = activeGenerations.get(reportId);
+      Effect.gen(function* () {
+        const fs = yield* FileSystemServiceTag;
+        const state = yield* fs.getGenerationState(reportId);
         if (state && (state.status === 'preparing' || state.status === 'in_progress' || state.status === 'paused')) {
-          const updatedState = { ...state, status: 'completed' as GenerationStatus };
-          activeGenerations.set(reportId, updatedState);
+          const updatedState: ReportGenerationState = { ...state, status: 'completed' };
+          yield* fs.saveGenerationState(reportId, updatedState);
           return true;
         }
         return false;
@@ -180,10 +170,9 @@ export const makeReportGenerationService = (): ReportGenerationService => {
         if (!report) {
           return yield* Effect.fail(new StorageError(`Report ${reportId} not found for rerun`, 'read', reportId));
         }
-        const state = activeGenerations.get(reportId);
+        const state = yield* fs.getGenerationState(reportId);
         if (state && state.status === 'completed') {
           // Clear generation state
-          activeGenerations.delete(reportId);
           yield* fs.deleteGenerationState(reportId);
 
           // Clear report data
@@ -205,10 +194,9 @@ export const makeReportGenerationService = (): ReportGenerationService => {
         if (!report) {
           return yield* Effect.fail(new StorageError(`Report ${reportId} not found for restart`, 'read', reportId));
         }
-        const state = activeGenerations.get(reportId);
+        const state = yield* fs.getGenerationState(reportId);
         if (state && state.status === 'failed') {
           // Clear generation state
-          activeGenerations.delete(reportId);
           yield* fs.deleteGenerationState(reportId);
 
           // Clear report data
@@ -236,12 +224,7 @@ export const makeReportGenerationService = (): ReportGenerationService => {
           throw new GenerationError('Auth token is required', 'VALIDATION_ERROR', params.reportId);
         }
 
-        // Set callbacks
-        generationCallbacks.set(params.reportId, {
-          onProgress: params.onProgress,
-          onComplete: params.onComplete,
-          onError: params.onError
-        });
+        // No callbacks: UI should poll FS for state
 
         // Get or create report
         let report = yield* makeReportService().getReportById(params.reportId);
@@ -262,7 +245,10 @@ export const makeReportGenerationService = (): ReportGenerationService => {
           startTime,
           parameters: params.parameters
         };
-        activeGenerations.set(params.reportId, initialState);
+        {
+          const fs = yield* FileSystemServiceTag;
+          yield* fs.saveGenerationState(params.reportId, initialState);
+        }
 
         // Attempt to create initial checkpoint if missing (ignore errors)
         yield* Effect.catchAll(
@@ -286,37 +272,86 @@ export const makeReportGenerationService = (): ReportGenerationService => {
         // Run builder pipeline
         const si = buildServiceInitializer(params.authToken, (params.selectedServer as any) || 'EU');
 
+        const fs = yield* FileSystemServiceTag;
         yield* Effect.tryPromise({
           try: async () => {
+            // File-backed control: poll for commands and abort cooperatively
+            const controller = new AbortController();
+            let stopped = false;
+            const pollControl = (async () => {
+              while (!stopped) {
+                try {
+                  const cmd = await Effect.runPromise(fs.getGenerationCommand(params.reportId));
+                  if (cmd === 'pause' || cmd === 'stop') {
+                    // Persist paused state and abort
+                    try {
+                      const checkpoint = await Effect.runPromise(fs.getCheckpoint(params.reportId));
+                      if (checkpoint) {
+                        await Effect.runPromise(fs.saveCheckpoint(params.reportId, { ...checkpoint, status: 'paused', lastCheckpointTime: Date.now() }));
+                      }
+                      const st = await Effect.runPromise(fs.getGenerationState(params.reportId));
+                      if (st) {
+                        await Effect.runPromise(fs.saveGenerationState(params.reportId, { ...st, status: 'paused' }));
+                      }
+                      await Effect.runPromise(fs.setGenerationCommand(params.reportId, 'none'));
+                    } catch {}
+                    controller.abort();
+                    stopped = true;
+                    break;
+                  }
+                } catch {}
+                await new Promise((r) => setTimeout(r, 200));
+              }
+            })();
             const onProgress = (progress: TableData) => {
-              // Update in-memory state and notify callback
-              const st = activeGenerations.get(params.reportId);
-              const processed = progress.results.length;
-              const updated: ReportGenerationState = {
-                reportId: params.reportId,
-                status: 'in_progress',
-                progress: { processed, total: processed },
-                tableData: progress,
-                startTime: st?.startTime ?? startTime,
-                parameters: st?.parameters,
-                extractedParameters: st?.extractedParameters
-              };
-              activeGenerations.set(params.reportId, updated);
-              generationCallbacks.get(params.reportId)?.onProgress?.(progress as any);
+              if (controller.signal.aborted) return;
+              // Persist progress and ensure status is at least in_progress (unless already paused/failed/completed)
+              Effect.runPromise(
+                fs.getGenerationState(params.reportId).pipe(
+                  Effect.flatMap((st) => {
+                    if (!st) return Effect.succeed(false);
+                    if (st.status === 'paused' || st.status === 'failed' || st.status === 'completed') {
+                      return Effect.succeed(false);
+                    }
+                    const processed = progress.results.length;
+                    const updated: ReportGenerationState = {
+                      reportId: params.reportId,
+                      status: 'in_progress',
+                      progress: { processed, total: processed },
+                      tableData: progress,
+                      startTime: st.startTime || startTime,
+                      parameters: st.parameters,
+                      extractedParameters: (st as any).extractedParameters
+                    };
+                    return fs.saveGenerationState(params.reportId, updated);
+                  })
+                )
+              );
             };
 
             const onParametersExtracted = (extracted: ExtractedParameters) => {
-              const st = activeGenerations.get(params.reportId);
-              if (st) {
-                activeGenerations.set(params.reportId, { ...st, extractedParameters: extracted });
-              }
+              if (controller.signal.aborted) return;
+              Effect.runPromise(
+                fs.getGenerationState(params.reportId).pipe(
+                  Effect.flatMap((st) =>
+                    st ? fs.saveGenerationState(params.reportId, { ...st, extractedParameters: extracted }) : Effect.succeed(false)
+                  )
+                )
+              );
             };
 
             const onStatusUpdate = (status: 'preparing' | 'in_progress') => {
-              const st = activeGenerations.get(params.reportId);
-              if (st) {
-                activeGenerations.set(params.reportId, { ...st, status });
-              }
+              if (controller.signal.aborted) return;
+              // Only set forward-moving statuses
+              Effect.runPromise(
+                fs.getGenerationState(params.reportId).pipe(
+                  Effect.flatMap((st) => {
+                    if (!st) return Effect.succeed(false);
+                    if (st.status === 'paused' || st.status === 'failed' || st.status === 'completed') return Effect.succeed(false);
+                    return fs.saveGenerationState(params.reportId, { ...st, status });
+                  })
+                )
+              );
             };
 
             const result = await buildReport(
@@ -325,18 +360,38 @@ export const makeReportGenerationService = (): ReportGenerationService => {
               (taskId) => builder(taskId, params.authToken, (params.selectedServer as any) || 'EU'),
               onProgress,
               onParametersExtracted,
-              undefined,
+              controller.signal,
               params.startOffset ?? 0,
               params.parameters,
               undefined,
               onStatusUpdate
             );
 
-            // Completion handling
-            const finalState = activeGenerations.get(params.reportId);
-            if (finalState) {
-              activeGenerations.set(params.reportId, { ...finalState, status: 'completed', tableData: result });
-            }
+            // Completion handling: persist completed status, save report data, mark checkpoint completed
+            try {
+              const st = await Effect.runPromise(fs.getGenerationState(params.reportId));
+              if (st) {
+                await Effect.runPromise(fs.saveGenerationState(params.reportId, { ...st, status: 'completed', tableData: result }));
+              }
+              // Save report data for UI
+              try {
+                await Effect.runPromise(
+                  makeReportService().saveReportData(
+                    params.reportId,
+                    { columns: [...result.columns], results: [...result.results], csv: result.csv },
+                    st?.extractedParameters as any
+                  ).pipe(Effect.provide(Layer.succeed(FileSystemServiceTag, makeFileSystemService())))
+                );
+              } catch {}
+              // Mark checkpoint completed
+              try {
+                await Effect.runPromise(
+                  makeReportCheckpointService().markCompleted(params.reportId).pipe(
+                    Effect.provide(Layer.succeed(FileSystemServiceTag, makeFileSystemService()))
+                  )
+                );
+              } catch {}
+            } catch {}
             // Create a report log
             try {
               const reportName = report?.name ?? 'Custom Operational Report';
@@ -357,8 +412,6 @@ export const makeReportGenerationService = (): ReportGenerationService => {
                 )
               );
             } catch {}
-
-            generationCallbacks.get(params.reportId)?.onComplete?.(result as any);
           },
           catch: (error) => new GenerationError(
             `Generation failed: ${String((error as Error)?.message || error)}`,
@@ -374,7 +427,7 @@ export const makeReportGenerationService = (): ReportGenerationService => {
     stopGeneration: (reportId: string) =>
       Effect.gen(function* () {
         const fs = yield* FileSystemServiceTag;
-        const state = activeGenerations.get(reportId);
+        const state = yield* fs.getGenerationState(reportId);
         if (state?.status === 'in_progress') {
           // Mark checkpoint as paused
           const checkpoint = yield* fs.getCheckpoint(reportId);
@@ -384,8 +437,8 @@ export const makeReportGenerationService = (): ReportGenerationService => {
           }
 
           // Update generation status
-          const updatedState = { ...state, status: 'paused' as GenerationStatus };
-          activeGenerations.set(reportId, updatedState);
+          const updatedState = { ...state, status: 'paused' as GenerationStatus } as ReportGenerationState;
+          yield* fs.saveGenerationState(reportId, updatedState);
           return true;
         }
         return false;
@@ -394,16 +447,16 @@ export const makeReportGenerationService = (): ReportGenerationService => {
     clearGeneration: (reportId: string) =>
       Effect.gen(function* () {
         const fs = yield* FileSystemServiceTag;
-        activeGenerations.delete(reportId);
         yield* fs.deleteGenerationState(reportId);
       }),
 
     clearExtractedParameters: (reportId: string) =>
-      Effect.sync(() => {
-        const state = activeGenerations.get(reportId);
+      Effect.gen(function* () {
+        const fs = yield* FileSystemServiceTag;
+        const state = yield* fs.getGenerationState(reportId);
         if (state) {
-          const updatedState = { ...state, extractedParameters: undefined };
-          activeGenerations.set(reportId, updatedState);
+          const updatedState: ReportGenerationState = { ...state, extractedParameters: undefined };
+          yield* fs.saveGenerationState(reportId, updatedState);
         }
       }),
 
@@ -411,7 +464,6 @@ export const makeReportGenerationService = (): ReportGenerationService => {
       Effect.gen(function* () {
         const fs = yield* FileSystemServiceTag;
         // Clear generation state
-        activeGenerations.delete(reportId);
         yield* fs.deleteGenerationState(reportId);
 
         // Clear checkpoint
@@ -430,22 +482,19 @@ export const makeReportGenerationService = (): ReportGenerationService => {
       }),
 
     clearAllGenerations: () =>
-      Effect.sync(() => {
-        activeGenerations.clear();
-        generationCallbacks.clear();
+      Effect.gen(function* () {
+        const fs = yield* FileSystemServiceTag;
+        const all = yield* fs.getAllGenerationStates();
+        for (const st of all as ReadonlyArray<ReportGenerationState>) {
+          yield* fs.deleteGenerationState(st.reportId);
+        }
       }),
 
-    reconnectToGeneration: (reportId: string, callbacks: GenerationCallbacks) =>
+    reconnectToGeneration: (reportId: string, _callbacks: GenerationCallbacks) =>
       Effect.gen(function* () {
-        const state = activeGenerations.get(reportId);
-        if (state && (state.status === 'preparing' || state.status === 'in_progress')) {
-          generationCallbacks.set(reportId, callbacks);
-          if (state.tableData && callbacks.onProgress) {
-            callbacks.onProgress(state.tableData);
-          }
-          return true;
-        }
-        return false;
+        const fs = yield* FileSystemServiceTag;
+        const state = yield* fs.getGenerationState(reportId);
+        return (state?.status === 'preparing' || state?.status === 'in_progress') ?? false;
       }),
 
     resumeGeneration: (params: ResumeGenerationParams) =>
@@ -476,9 +525,9 @@ export const makeReportGenerationService = (): ReportGenerationService => {
           onError: params.onError,
           startOffset
         };
-        // This is where the actual generation logic would go
-        // For now, we'll just return successfully
-        return;
+        return yield* makeReportGenerationService().startGeneration(startParams).pipe(
+          Effect.mapError((e) => new StorageError(`Failed to resume generation: ${e instanceof Error ? e.message : String(e)}`, 'read', params.reportId))
+        );
       })
   };
 };

@@ -27,9 +27,7 @@ import {
     SettingOutlined
 } from '@ant-design/icons';
 import { Report } from '../types';
-import { reportService } from '../services/reportService';
-import { reportGenerationService } from '../services/reportGenerationService';
-import { reportCheckpointService } from '../services/reportCheckpointService';
+import * as effectsApi from '../services/effects/api';
 import { useNavigate } from 'react-router-dom';
 import ResumableReportsModal from './ResumableReportsModal';
 import { settingsService } from '../services/settingsService';
@@ -37,7 +35,117 @@ import { settingsService } from '../services/settingsService';
 const { Text, Title } = Typography;
 const { Search } = Input;
 
+const StatusTag: React.FC<{ reportId: string }> = ({ reportId }) => {
+    const [status, setStatus] = React.useState<any>(null);
+    const [progress, setProgress] = React.useState<any>(null);
+    React.useEffect(() => {
+        let mounted = true;
+        (async () => {
+            const s = await effectsApi.getGenerationStatus(reportId);
+            const st = await effectsApi.getGenerationState(reportId);
+            if (mounted) {
+                setStatus(s);
+                setProgress(st?.progress ?? null);
+            }
+        })();
+        return () => { mounted = false; };
+    }, [reportId]);
+
+    switch (status) {
+        case 'preparing':
+            return (
+                <Tag color="cyan" style={{ marginLeft: 8 }}>
+                    🔧 Preparing...
+                </Tag>
+            );
+        case 'in_progress':
+            return (
+                <Tag color="blue" style={{ marginLeft: 8 }}>
+                    🔄 Generating...
+                    {progress ? ` (${progress.processed}/${progress.total})` : ''}
+                </Tag>
+            );
+        case 'paused':
+            return (
+                <Tag color="orange" style={{ marginLeft: 8 }}>
+                    ⏸️ Paused
+                    {progress ? ` (${progress.processed} completed)` : ''}
+                </Tag>
+            );
+        case 'failed':
+            return (
+                <Tag color="red" style={{ marginLeft: 8 }}>
+                    ❌ Failed
+                </Tag>
+            );
+        case 'completed':
+            return (
+                <Tag color="green" style={{ marginLeft: 8 }}>
+                    ✅ Completed
+                </Tag>
+            );
+        case 'ready':
+            return (
+                <Tag color="purple" style={{ marginLeft: 8 }}>
+                    🚀 Ready
+                </Tag>
+            );
+        default:
+            return null;
+    }
+};
+
+const ActionsCell: React.FC<{ record: Report; onOpen: (r: Report) => void; onStop: (id: string) => void; onPause: (id: string) => void; onComplete: (id: string) => void; onReset: (id: string) => void; onRerun: (id: string) => void; onRestart: (id: string) => void; }> = ({ record, onOpen, onStop, onPause, onComplete, onReset, onRerun, onRestart }) => {
+    const navigate = useNavigate();
+    const [status, setStatus] = React.useState<any>(null);
+    React.useEffect(() => {
+        let mounted = true;
+        (async () => {
+            const s = await effectsApi.getGenerationStatus(record.id);
+            if (mounted) setStatus(s);
+        })();
+        return () => { mounted = false; };
+    }, [record.id]);
+
+    return (
+        <Space>
+            {status === 'ready' && (
+                <Tooltip title={!settingsService.hasValidOpenAIKey() ? "Configure OpenAI API key in Settings to start generation" : ""} placement="bottom">
+                    <Button type="primary" size="small" icon={<PlayCircleOutlined />} onClick={() => onOpen(record)} disabled={!settingsService.hasValidOpenAIKey()}>Start Generation</Button>
+                </Tooltip>
+            )}
+            {status === 'preparing' && (
+                <>
+                    <Button danger size="small" icon={<DeleteOutlined />} onClick={() => onReset(record.id)}>Reset</Button>
+                    <Button size="small" icon={<PauseCircleOutlined />} onClick={() => onPause(record.id)}>Pause</Button>
+                </>
+            )}
+            {status === 'in_progress' && (
+                <>
+                    <Button danger size="small" icon={<DeleteOutlined />} onClick={() => onReset(record.id)}>Reset</Button>
+                    <Button size="small" icon={<PauseCircleOutlined />} onClick={() => onStop(record.id)}>Pause</Button>
+                    <Button type="default" size="small" icon={<CheckCircleOutlined />} onClick={() => onComplete(record.id)}>Complete</Button>
+                </>
+            )}
+            {status === 'paused' && (
+                <>
+                    <Button size="small" icon={<ReloadOutlined />} onClick={() => onReset(record.id)}>Reset</Button>
+                    <Button size="small" icon={<PlayCircleOutlined />} onClick={() => onOpen(record)} disabled={!settingsService.hasValidOpenAIKey()}>Resume</Button>
+                </>
+            )}
+            {status === 'completed' && (
+                <Button size="small" onClick={() => onRerun(record.id)}>Rerun</Button>
+            )}
+            {status === 'failed' && (
+                <Button size="small" onClick={() => onRestart(record.id)}>Restart</Button>
+            )}
+            <Button size="small" icon={<HistoryOutlined />} onClick={() => navigate(`/report-logs?reportId=${record.id}`)}>Logs</Button>
+        </Space>
+    );
+};
+
 const ReportsPage: React.FC = () => {
+    // Legacy facades removed; use effectsApi Promise functions directly
     const [reports, setReports] = useState<Report[]>([]);
     const [filteredReports, setFilteredReports] = useState<Report[]>([]);
     const [searchText, setSearchText] = useState('');
@@ -53,10 +161,11 @@ const ReportsPage: React.FC = () => {
     useEffect(() => {
         loadReports();
         // Clean up any orphaned data on page load
-        const cleanedCount = reportService.cleanupOrphanedData();
-        if (cleanedCount > 0) {
-            console.log(`Cleaned up ${cleanedCount} orphaned data entries`);
-        }
+        effectsApi.cleanupOrphanedData().then(cleanedCount => {
+            if (cleanedCount > 0) {
+                console.log(`Cleaned up ${cleanedCount} orphaned data entries`);
+            }
+        });
     }, []);
 
     useEffect(() => {
@@ -65,8 +174,11 @@ const ReportsPage: React.FC = () => {
 
     // Monitor active generations
     useEffect(() => {
-        const updateActiveGenerations = () => {
-            setActiveGenerations(reportGenerationService.getActiveGenerations());
+        const updateActiveGenerations = async () => {
+            try {
+                const map = await effectsApi.getActiveGenerations();
+                setActiveGenerations(map);
+            } catch {}
         };
 
         // Update immediately
@@ -82,7 +194,7 @@ const ReportsPage: React.FC = () => {
         setLoading(true);
         try {
             // Use the async method that waits for sync to complete
-            const allReports = await reportService.getAllReportsWithSync();
+            const allReports = await effectsApi.getAllReportsWithSync();
             setReports(allReports);
         } catch (error) {
             message.error('Failed to load reports');
@@ -105,7 +217,7 @@ const ReportsPage: React.FC = () => {
 
     const handleCreateReport = async (values: { name: string }) => {
         try {
-            const newReport = await reportService.createReport({
+            const newReport = await effectsApi.createReport({
                 name: values.name,
                 prompt: '' // Empty prompt, user will fill it in the editor
             });
@@ -126,7 +238,7 @@ const ReportsPage: React.FC = () => {
         if (!editingReport) return;
 
         try {
-            const updatedReport = await reportService.updateReport(editingReport.id, values);
+            const updatedReport = await effectsApi.updateReport(editingReport.id, values);
             if (updatedReport) {
                 message.success('Report updated successfully!');
                 setIsEditModalVisible(false);
@@ -141,9 +253,9 @@ const ReportsPage: React.FC = () => {
         }
     };
 
-    const handleDeleteReport = (reportId: string) => {
+    const handleDeleteReport = async (reportId: string) => {
         // Get cleanup summary to show what will be removed
-        const cleanupSummary = reportService.getCleanupSummary(reportId);
+        const cleanupSummary = await effectsApi.getCleanupSummary();
         const report = reports.find(r => r.id === reportId);
 
         let description = `Are you sure you want to delete "${report?.name || 'this report'}"?`;
@@ -170,7 +282,7 @@ const ReportsPage: React.FC = () => {
             cancelText: 'Cancel',
             onOk: async () => {
         try {
-            const success = await reportService.deleteReport(reportId);
+            const success = await effectsApi.deleteReport(reportId);
             if (success) {
                 message.success('Report deleted successfully!');
                 loadReports();
@@ -194,22 +306,22 @@ const ReportsPage: React.FC = () => {
         navigate(`/report-logs?reportId=${report.id}`, { state: { selectedReportId: report.id } });
     };
 
-    const handleStopGeneration = (reportId: string) => {
-        if (reportGenerationService.stopGeneration(reportId)) {
+    const handleStopGeneration = async (reportId: string) => {
+        if (await effectsApi.stopGeneration(reportId)) {
             message.success('Report generation stopped');
             loadReports(); // Refresh to update status
         }
     };
 
-    const handleSetToPaused = (reportId: string) => {
-        if (reportGenerationService.setToPaused(reportId)) {
+    const handleSetToPaused = async (reportId: string) => {
+        if (await effectsApi.setToPaused(reportId)) {
             message.success('Report set to paused');
             loadReports(); // Refresh to update status
         }
     };
 
-    const handleSetToCompleted = (reportId: string) => {
-        if (reportGenerationService.setToCompleted(reportId)) {
+    const handleSetToCompleted = async (reportId: string) => {
+        if (await effectsApi.setToCompleted(reportId)) {
             message.success('Report marked as completed');
             loadReports(); // Refresh to update status
         }
@@ -223,7 +335,7 @@ const ReportsPage: React.FC = () => {
             okType: 'default',
             cancelText: 'Cancel',
             onOk: async () => {
-                const ok = await reportGenerationService.resetToReady(reportId);
+                const ok = await effectsApi.resetToReady(reportId);
                 if (ok) {
                     message.success('Report reset to ready state');
                     loadReports(); // Refresh to update status
@@ -241,8 +353,8 @@ const ReportsPage: React.FC = () => {
             okText: 'Rerun',
             okType: 'default',
             cancelText: 'Cancel',
-            onOk: () => {
-                if (reportGenerationService.rerunFromCompleted(reportId)) {
+            onOk: async () => {
+                if (await effectsApi.rerunFromCompleted(reportId)) {
                     message.success('Report ready for rerun');
                     loadReports(); // Refresh to update status
                 } else {
@@ -259,8 +371,8 @@ const ReportsPage: React.FC = () => {
             okText: 'Restart',
             okType: 'default',
             cancelText: 'Cancel',
-            onOk: () => {
-                if (reportGenerationService.restartFromFailed(reportId)) {
+            onOk: async () => {
+                if (await effectsApi.restartFromFailed(reportId)) {
                     message.success('Report ready for restart');
                     loadReports(); // Refresh to update status
                 } else {
@@ -280,14 +392,14 @@ const ReportsPage: React.FC = () => {
             onOk: async () => {
                 try {
                     // Get current report data
-                    const report = reportService.getReportById(reportId);
+                    const report = await effectsApi.getReportById(reportId);
                     if (!report) {
                         message.error('Report not found');
                         return;
                     }
 
                     // Get current generation state and table data
-                    const generationState = reportGenerationService.getGenerationState(reportId);
+                    const generationState = await effectsApi.getGenerationState(reportId);
                     const currentTableData = generationState?.tableData || report.tableData;
 
                     if (!currentTableData || currentTableData.results.length === 0) {
@@ -295,28 +407,25 @@ const ReportsPage: React.FC = () => {
                         return;
                     }
 
-                    // Import reportLogService
-                    const { reportLogService } = await import('../services/reportLogService');
-
                     // Create report log with current results
-                    await reportLogService.createFromReportGeneration(
+                    await effectsApi.createReportLogFromGeneration({
                         reportId,
-                        report.name,
-                        report.prompt,
-                        currentTableData,
-                        currentTableData.results.length,
-                        currentTableData.results.length,
-                        Date.now(),
-                        'completed'
-                    );
+                        reportName: report.name,
+                        prompt: report.prompt,
+                        tableData: currentTableData as any,
+                        totalTasks: currentTableData.results.length,
+                        processedTasks: currentTableData.results.length,
+                        startTime: Date.now(),
+                        status: 'completed'
+                    });
 
                     // Stop generation first if it's in progress
-                    if (reportGenerationService.isGenerating(reportId)) {
-                        await reportGenerationService.stopGeneration(reportId);
+                    if (await effectsApi.isGenerating(reportId)) {
+                        await effectsApi.stopGeneration(reportId);
                     }
 
                     // Reset to ready
-                    const ok = await reportGenerationService.resetToReady(reportId);
+                    const ok = await effectsApi.resetToReady(reportId);
                     if (ok) {
                         message.success('Report generation completed and log created successfully!');
                         loadReports(); // Refresh to update status
@@ -331,68 +440,20 @@ const ReportsPage: React.FC = () => {
         });
     };
 
-    const isGenerating = (reportId: string) => {
-        return reportGenerationService.isGenerating(reportId);
+    const isGenerating = async (reportId: string) => {
+        return await effectsApi.isGenerating(reportId);
     };
 
-    const getGenerationStatus = (reportId: string) => {
-        return reportGenerationService.getGenerationStatus(reportId);
+    const getGenerationStatus = async (reportId: string) => {
+        return await effectsApi.getGenerationStatus(reportId);
     };
 
-    const getGenerationProgress = (reportId: string) => {
-        const state = reportGenerationService.getGenerationState(reportId);
+    const getGenerationProgress = async (reportId: string) => {
+        const state = await effectsApi.getGenerationState(reportId);
         return state?.progress;
     };
 
-    const getStatusTag = (record: Report) => {
-        const status = getGenerationStatus(record.id);
-        const progress = getGenerationProgress(record.id);
-
-        switch (status) {
-            case 'preparing':
-                return (
-                    <Tag color="cyan" style={{ marginLeft: 8 }}>
-                        🔧 Preparing...
-                    </Tag>
-                );
-            case 'in_progress':
-                return (
-                    <Tag color="blue" style={{ marginLeft: 8 }}>
-                        🔄 Generating...
-                        {progress ? ` (${progress.processed}/${progress.total})` : ''}
-                    </Tag>
-                );
-            case 'paused':
-                return (
-                    <Tag color="orange" style={{ marginLeft: 8 }}>
-                        ⏸️ Paused
-                        {progress ? ` (${progress.processed} completed)` : ''}
-                    </Tag>
-                );
-            case 'failed':
-                return (
-                    <Tag color="red" style={{ marginLeft: 8 }}>
-                        ❌ Failed
-                    </Tag>
-                );
-            case 'completed':
-                return (
-                    <Tag color="green" style={{ marginLeft: 8 }}>
-                        ✅ Completed
-                    </Tag>
-                );
-            case 'ready':
-                return (
-                    <Tag color="purple" style={{ marginLeft: 8 }}>
-                        🚀 Ready
-                    </Tag>
-                );
-            default:
-                return record.lastGeneratedAt ? (
-                    <Tag color="green" style={{ marginLeft: 8 }}>Generated</Tag>
-                ) : null;
-        }
-    };
+    // Removed invalid hooks usage in getStatusTag; use StatusTag component instead
 
     const formatDate = (dateString: string) => {
         return new Date(dateString).toLocaleDateString() + ' ' +
@@ -420,7 +481,7 @@ const ReportsPage: React.FC = () => {
                     >
                         {text}
                     </Text>
-                    {getStatusTag(record)}
+                    <StatusTag reportId={record.id} />
                 </div>
             ),
             sorter: (a: Report, b: Report) => a.name.localeCompare(b.name),
@@ -435,164 +496,43 @@ const ReportsPage: React.FC = () => {
         {
             title: 'Actions',
             key: 'actions',
-            render: (_, record: Report) => {
-                const status = getGenerationStatus(record.id);
-
-                return (
-                    <Space>
-                        {/* Ready state - only start generation */}
-                        {status === 'ready' && (
-                            <Tooltip
-                                title={!settingsService.hasValidOpenAIKey() ? "Configure OpenAI API key in Settings to start generation" : ""}
-                                placement="bottom"
-                            >
-                                <Button
-                                    type="primary"
-                                    size="small"
-                                    icon={<PlayCircleOutlined />}
-                                    onClick={() => handleOpenReport(record)}
-                                    disabled={!settingsService.hasValidOpenAIKey()}
-                                >
-                                    Start Generation
-                                </Button>
-                            </Tooltip>
-                        )}
-
-                        {/* Preparing state - can pause */}
-                        {status === 'preparing' && (
-                            <>
-                                <Button
-                                    danger
-                                    size="small"
-                                    icon={<DeleteOutlined />}
-                                    onClick={() => handleStopGeneration(record.id)}
-                                >
-                                    Stop
-                                </Button>
-                            </>
-                        )}
-
-                        {/* In Progress state - can pause or complete */}
-                        {status === 'in_progress' && (
-                            <>
-                                <Button
-                                    danger
-                                    size="small"
-                                    icon={<DeleteOutlined />}
-                                    onClick={() => handleStopGeneration(record.id)}
-                                >
-                                    Stop
-                                </Button>
-                                <Button
-                                    type="default"
-                                    size="small"
-                                    icon={<PauseCircleOutlined />}
-                                    onClick={() => handleSetToPaused(record.id)}
-                                >
-                                    Pause
-                                </Button>
-                                <Button
-                                    type="primary"
-                                    size="small"
-                                    icon={<CheckCircleOutlined />}
-                                    onClick={() => handleCompleteGeneration(record.id)}
-                                >
-                                    Complete Generation
-                                </Button>
-                            </>
-                        )}
-
-                        {/* Paused state - can resume or reset */}
-                        {status === 'paused' && (
-                            <>
-                                <Tooltip
-                                    title={!settingsService.hasValidOpenAIKey() ? "Configure OpenAI API key in Settings to resume generation" : ""}
-                                    placement="bottom"
-                                >
-                                    <Button
-                                        type="default"
-                                        size="small"
-                                        icon={<PlayCircleOutlined />}
-                                        onClick={() => handleOpenReport(record)}
-                                        disabled={!settingsService.hasValidOpenAIKey()}
-                                    >
-                                        Resume
-                                    </Button>
-                                </Tooltip>
-                                <Button
-                                    type="default"
-                                    size="small"
-                                    icon={<EditOutlined />}
-                                    onClick={() => handleResetToReady(record.id)}
-                                >
-                                    Reset
-                                </Button>
-                            </>
-                        )}
-
-                        {/* Completed state - can rerun */}
-                        {status === 'completed' && (
-                            <Tooltip
-                                title={!settingsService.hasValidOpenAIKey() ? "Configure OpenAI API key in Settings to rerun generation" : ""}
-                                placement="bottom"
-                            >
-                                <Button
-                                    type="default"
-                                    size="small"
-                                    icon={<ReloadOutlined />}
-                                    onClick={() => handleRerunFromCompleted(record.id)}
-                                    disabled={!settingsService.hasValidOpenAIKey()}
-                                >
-                                    Rerun
-                                </Button>
-                            </Tooltip>
-                        )}
-
-                        {/* Failed state - can restart */}
-                        {status === 'failed' && (
-                            <Tooltip
-                                title={!settingsService.hasValidOpenAIKey() ? "Configure OpenAI API key in Settings to restart generation" : ""}
-                                placement="bottom"
-                            >
-                                <Button
-                                    type="default"
-                                    size="small"
-                                    icon={<ReloadOutlined />}
-                                    onClick={() => handleRestartFromFailed(record.id)}
-                                    disabled={!settingsService.hasValidOpenAIKey()}
-                                >
-                                    Restart
-                                </Button>
-                            </Tooltip>
-                        )}
-
-                        {/* Common actions for all states */}
-                        <Button
-                            type="primary"
-                            size="small"
-                            icon={<HistoryOutlined />}
-                            onClick={() => handleViewReportLogs(record)}
-                        >
-                            View Logs
-                        </Button>
-                <Popconfirm
-                    title="Are you sure you want to delete this report?"
-                    onConfirm={() => handleDeleteReport(record.id)}
-                    okText="Yes"
-                    cancelText="No"
-                >
+            render: (_: any, record: Report) => (
+                <Space>
+                    <ActionsCell
+                        record={record}
+                        onOpen={handleOpenReport}
+                        onStop={handleStopGeneration}
+                        onPause={handleStopGeneration}
+                        onComplete={handleCompleteGeneration}
+                        onReset={handleResetToReady}
+                        onRerun={handleRerunFromCompleted}
+                        onRestart={handleRestartFromFailed}
+                    />
                     <Button
-                        type="default"
-                        danger
+                        type="primary"
                         size="small"
-                        icon={<DeleteOutlined />}
+                        icon={<HistoryOutlined />}
+                        onClick={() => handleViewReportLogs(record)}
                     >
-                        Delete
+                        View Logs
                     </Button>
-                </Popconfirm>
-                    </Space>
-                );
-            }
+                    <Popconfirm
+                        title="Are you sure you want to delete this report?"
+                        onConfirm={() => handleDeleteReport(record.id)}
+                        okText="Yes"
+                        cancelText="No"
+                    >
+                        <Button
+                            type="default"
+                            danger
+                            size="small"
+                            icon={<DeleteOutlined />}
+                        >
+                            Delete
+                        </Button>
+                    </Popconfirm>
+                </Space>
+            )
         },
     ];
 
@@ -648,7 +588,7 @@ const ReportsPage: React.FC = () => {
                     </div>
                     <Space>
                         {(() => {
-                            const resumableCount = reportCheckpointService.getResumableCheckpoints().length;
+                            const resumableCount = 0; // effectsApi does not support listing resumables yet
                             return resumableCount > 0 ? (
                                 <Tooltip
                                     title={!settingsService.hasValidOpenAIKey() ? "Configure OpenAI API key in Settings to resume reports" : ""}

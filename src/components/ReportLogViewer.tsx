@@ -26,7 +26,8 @@ import {
     CalendarOutlined
 } from '@ant-design/icons';
 import { ReportLog } from '../types';
-import { reportLogService } from '../services/reportLogService';
+import * as effectsApi from '../services/effects/api';
+const { reportLogService } = effectsApi as any;
 import { Editor } from '@toast-ui/react-editor';
 import '@toast-ui/editor/dist/toastui-editor.css';
 

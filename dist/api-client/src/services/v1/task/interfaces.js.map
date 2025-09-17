@@ -1,0 +1,1 @@
+{"version":3,"file":"interfaces.js","sourceRoot":"","sources":["../../../../../../src/api-client/src/services/v1/task/interfaces.ts"],"names":[],"mappings":";;;AAWa,QAAA,YAAY,GAAiB;IACtC,aAAa,EAAE,CAAC;IAChB,GAAG,EAAE,CAAC;IACN,OAAO,EAAE,CAAC;IACV,gBAAgB,EAAE,CAAC;IACnB,IAAI,EAAE,CAAC;IACP,QAAQ,EAAE,CAAC;IACX,KAAK,EAAE,CAAC;IACR,QAAQ,EAAE,CAAC;CACd,CAAC"}

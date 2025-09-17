@@ -57,7 +57,7 @@ class DownloadService {
       };
 
       const stats = await (window.electronAPI as any)?.download?.getDownloadStats(defaultOptions);
-      return stats;
+      return stats || { fileCount: 0, totalSize: 0 };
     } catch (error) {
       console.error('Failed to get download stats:', error);
       return { fileCount: 0, totalSize: 0 };

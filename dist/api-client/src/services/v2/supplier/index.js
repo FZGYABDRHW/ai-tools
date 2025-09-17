@@ -1,0 +1,18 @@
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.SupplierService = void 0;
+const BaseServiceV2_1 = __importDefault(require("../BaseServiceV2"));
+class SupplierService extends BaseServiceV2_1.default {
+    constructor() {
+        super(...arguments);
+        this.url = `${this.baseUrl}/supplier`;
+        this.createSupplier = (params, options) => this.http
+            .post(`${this.url}`, params, options)
+            .then(resp => resp.data.response);
+    }
+}
+exports.SupplierService = SupplierService;
+//# sourceMappingURL=index.js.map

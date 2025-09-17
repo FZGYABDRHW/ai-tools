@@ -25,7 +25,8 @@ import {
     FileTextOutlined
 } from '@ant-design/icons';
 import { Report } from '../types';
-import { reportService } from '../services/reportService';
+import * as effectsApi from '../services/effects/api';
+const { reportService } = effectsApi as any;
 
 const { Text, Title } = Typography;
 const { Search } = Input;

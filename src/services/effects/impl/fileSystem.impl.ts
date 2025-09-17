@@ -35,6 +35,10 @@ export interface FileSystemService {
   readonly getAllGenerationStates: () => Effect.Effect<readonly Omit<ReportGenerationState, 'abortController'>[], StorageError, never>;
   readonly saveGenerationState: (reportId: string, state: Omit<ReportGenerationState, 'abortController'>) => Effect.Effect<boolean, StorageError, never>;
   readonly deleteGenerationState: (reportId: string) => Effect.Effect<boolean, StorageError, never>;
+
+  // Generation control command (file-backed)
+  readonly getGenerationCommand: (reportId: string) => Effect.Effect<'none' | 'pause' | 'stop' | 'resume', StorageError, never>;
+  readonly setGenerationCommand: (reportId: string, command: 'none' | 'pause' | 'stop' | 'resume') => Effect.Effect<boolean, StorageError, never>;
 }
 
 // ============================================================================
@@ -222,5 +226,28 @@ export const makeFileSystemService = (): FileSystemService => ({
         return false;
       },
       catch: (error) => new StorageError(`Failed to delete generation state: ${reportId}`, 'delete', reportId, error as Error)
+    }),
+
+  // Generation control command operations
+  getGenerationCommand: (reportId: string) =>
+    Effect.tryPromise({
+      try: async () => {
+        if ((window.electronAPI as any)?.fileSystem?.getGenerationCommand) {
+          return await (window.electronAPI as any).fileSystem.getGenerationCommand(reportId);
+        }
+        return 'none' as const;
+      },
+      catch: (error) => new StorageError(`Failed to get generation command: ${reportId}`, 'read', reportId, error as Error)
+    }),
+
+  setGenerationCommand: (reportId: string, command: 'none' | 'pause' | 'stop' | 'resume') =>
+    Effect.tryPromise({
+      try: async () => {
+        if ((window.electronAPI as any)?.fileSystem?.setGenerationCommand) {
+          return await (window.electronAPI as any).fileSystem.setGenerationCommand(reportId, command);
+        }
+        return false;
+      },
+      catch: (error) => new StorageError(`Failed to set generation command: ${reportId}`, 'write', reportId, error as Error)
     })
 });

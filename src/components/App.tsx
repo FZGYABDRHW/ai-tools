@@ -1,3 +1,4 @@
+import * as effectsApi from '../services/effects/api';
 import React, { useState, useEffect } from 'react';
 import { Layout, ConfigProvider, theme, message } from 'antd';
 import { HashRouter, Routes, Route } from 'react-router-dom';
@@ -28,6 +29,7 @@ const App: React.FC = () => {
     const [currentVersion, setCurrentVersion] = useState<string>('');
     const [showMigration, setShowMigration] = useState(false);
     const [migrationChecked, setMigrationChecked] = useState(false);
+    const [syncAttempted, setSyncAttempted] = useState(false);
 
     console.log('App: authToken:', authToken, 'user:', user, 'isInitializing:', isInitializing);
 
@@ -60,22 +62,20 @@ const App: React.FC = () => {
 
             // Force sync both reports and report logs from file system to localStorage
             try {
-                const { reportService } = await import('../services/reportService');
-                const { reportLogService } = await import('../services/reportLogService');
-
                 // Sync both reports and report logs in parallel
                 const [reportsSyncSuccess, reportLogsSyncSuccess] = await Promise.all([
-                    reportService.forceSyncFromFileSystem(),
-                    reportLogService.forceSyncFromFileSystem()
+                    effectsApi.forceSyncFromFileSystemReports(),
+                    effectsApi.forceSyncFromFileSystemLogs()
                 ]);
 
                 console.log('Reports synced from file system after migration:', reportsSyncSuccess);
                 console.log('Report logs synced from file system after migration:', reportLogsSyncSuccess);
 
                 if (reportsSyncSuccess || reportLogsSyncSuccess) {
-                    // Force a page refresh to show the synced data
-                    console.log('Data synced successfully after migration, refreshing page...');
-                    window.location.reload();
+                    console.log('Data synced successfully after migration');
+                    // No reload; UI reads from file system on demand
+                } else {
+                    console.log('No sync needed after migration, continuing without reload');
                 }
             } catch (error) {
                 console.error('Failed to sync data after migration:', error);
@@ -96,15 +96,21 @@ const App: React.FC = () => {
 
         // Sync reports and report logs from file system if migration was completed previously
         const syncDataOnStartup = async () => {
+            // Prevent infinite reload by checking if we've already attempted sync
+            if (syncAttempted) {
+                console.log('Sync already attempted, skipping to prevent infinite reload');
+                return;
+            }
+
             try {
+                setSyncAttempted(true);
                 const migrationCompleted = await (window.electronAPI as any)?.migration?.hasCompletedMigration();
                 console.log('Migration completed on startup:', migrationCompleted);
                 if (migrationCompleted) {
-                    const { reportService } = await import('../services/reportService');
-                    const { reportLogService } = await import('../services/reportLogService');
+                    // compatibility removed; using effectsApi only
 
-                    const hasReports = reportService.hasReports();
-                    const hasReportLogs = reportLogService.hasReportLogs();
+                    const hasReports = await effectsApi.hasReports();
+                    const hasReportLogs = await effectsApi.hasReportLogs();
                     console.log('Has reports in localStorage:', hasReports);
                     console.log('Has report logs in localStorage:', hasReportLogs);
 
@@ -113,18 +119,21 @@ const App: React.FC = () => {
 
                         // Sync both reports and report logs in parallel
                         const [reportsSyncSuccess, reportLogsSyncSuccess] = await Promise.all([
-                            hasReports ? Promise.resolve(true) : reportService.forceSyncFromFileSystem(),
-                            hasReportLogs ? Promise.resolve(true) : reportLogService.forceSyncFromFileSystem()
+                            hasReports ? Promise.resolve(true) : effectsApi.forceSyncFromFileSystemReports(),
+                            hasReportLogs ? Promise.resolve(true) : effectsApi.forceSyncFromFileSystemLogs()
                         ]);
 
                         console.log('Reports sync success:', reportsSyncSuccess);
                         console.log('Report logs sync success:', reportLogsSyncSuccess);
 
+                        // Only reload if sync was actually successful and we have new data
                         if (reportsSyncSuccess || reportLogsSyncSuccess) {
-                            // Force a page refresh to show the synced data
-                            console.log('Data synced successfully, refreshing page...');
-                            window.location.reload();
+                            console.log('Data synced successfully, continuing without reload');
+                        } else {
+                            console.log('No sync needed or sync failed, continuing without reload');
                         }
+                    } else {
+                        console.log('Data already exists in localStorage, no sync needed');
                     }
                 }
             } catch (error) {

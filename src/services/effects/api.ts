@@ -18,30 +18,20 @@ import { ReportServiceTag } from './impl/report.impl';
 import { ReportCheckpointServiceTag, ReportCheckpoint, CreateCheckpointParams, UpdateCheckpointParams } from './impl/reportCheckpoint.impl';
 import { ReportLogServiceTag, CreateReportLogParams } from './impl/reportLog.impl';
 import { ReportGenerationServiceTag } from './impl/reportGeneration.impl';
-import {
-  createReportServiceAdapter,
-  createReportCheckpointServiceAdapter,
-  createReportLogServiceAdapter,
-  createReportGenerationServiceAdapter,
-  migrateLegacyData,
-  isMigrationNeeded
-} from './adapters';
-import { makeFileSystemService } from './implementations';
+import { makeFileSystemService, makeReportService, makeReportCheckpointService, makeReportLogService, makeReportGenerationService } from './implementations';
 
 // ============================================================================
 // Runtime Setup
 // ============================================================================
 
-// Create runtime with adapter services for backward compatibility
-const createAdapterServicesLayer = () => {
-  return Layer.mergeAll(
-    Layer.succeed(FileSystemServiceTag, makeFileSystemService()),
-    Layer.succeed(ReportServiceTag, createReportServiceAdapter()),
-    Layer.succeed(ReportCheckpointServiceTag, createReportCheckpointServiceAdapter()),
-    Layer.succeed(ReportLogServiceTag, createReportLogServiceAdapter()),
-    Layer.succeed(ReportGenerationServiceTag, createReportGenerationServiceAdapter())
-  );
-};
+// Build live services layer once (no in-memory caches)
+const adapterServicesLayer = Layer.mergeAll(
+  Layer.succeed(FileSystemServiceTag, makeFileSystemService()),
+  Layer.succeed(ReportServiceTag, makeReportService()),
+  Layer.succeed(ReportCheckpointServiceTag, makeReportCheckpointService()),
+  Layer.succeed(ReportLogServiceTag, makeReportLogService()),
+  Layer.succeed(ReportGenerationServiceTag, makeReportGenerationService())
+);
 
 const runtime = Runtime.make({
   context: Context.empty(),
@@ -56,22 +46,7 @@ const runtime = Runtime.make({
 /**
  * Initialize the Effect-based services and migrate legacy data if needed
  */
-export const initializeServices = (): Promise<void> => {
-  return Runtime.runPromise(runtime)(
-    pipe(
-      Effect.sync(() => {
-        if (isMigrationNeeded()) {
-          console.log('Migrating legacy data to new format...');
-        }
-      }),
-      Effect.flatMap(() => migrateLegacyData()),
-      Effect.catchAll((error) => {
-        console.error('Migration failed:', error);
-        return Effect.succeed(undefined);
-      })
-    )
-  );
-};
+export const initializeServices = (): Promise<void> => Promise.resolve();
 
 // ============================================================================
 // Report Generation Service API
@@ -85,7 +60,7 @@ export const getActiveGenerations = (): Promise<Map<string, ReportGenerationStat
     Effect.gen(function* () {
       const service = yield* ReportGenerationServiceTag;
       return yield* service.getActiveGenerations();
-    }).pipe(Effect.provide(createAdapterServicesLayer()))
+    }).pipe(Effect.provide(adapterServicesLayer))
   );
 };
 
@@ -97,7 +72,7 @@ export const getGenerationState = (reportId: string): Promise<ReportGenerationSt
     Effect.gen(function* () {
       const service = yield* ReportGenerationServiceTag;
       return yield* service.getGenerationState(reportId);
-    }).pipe(Effect.provide(createAdapterServicesLayer()))
+    }).pipe(Effect.provide(adapterServicesLayer))
   );
 };
 
@@ -109,7 +84,7 @@ export const setGenerationCallbacks = (reportId: string, callbacks: GenerationCa
     Effect.gen(function* () {
       const service = yield* ReportGenerationServiceTag;
       return yield* service.setCallbacks(reportId, callbacks);
-    }).pipe(Effect.provide(createAdapterServicesLayer()))
+    }).pipe(Effect.provide(adapterServicesLayer))
   );
 };
 
@@ -121,7 +96,7 @@ export const getGenerationCallbacks = (reportId: string): Promise<GenerationCall
     Effect.gen(function* () {
       const service = yield* ReportGenerationServiceTag;
       return yield* service.getCallbacks(reportId);
-    }).pipe(Effect.provide(createAdapterServicesLayer()))
+    }).pipe(Effect.provide(adapterServicesLayer))
   );
 };
 
@@ -133,7 +108,7 @@ export const clearGenerationCallbacks = (reportId: string): Promise<void> => {
     Effect.gen(function* () {
       const service = yield* ReportGenerationServiceTag;
       return yield* service.clearCallbacks(reportId);
-    }).pipe(Effect.provide(createAdapterServicesLayer()))
+    }).pipe(Effect.provide(adapterServicesLayer))
   );
 };
 
@@ -145,7 +120,7 @@ export const isGenerating = (reportId: string): Promise<boolean> => {
     Effect.gen(function* () {
       const service = yield* ReportGenerationServiceTag;
       return yield* service.isGenerating(reportId);
-    }).pipe(Effect.provide(createAdapterServicesLayer()))
+    }).pipe(Effect.provide(adapterServicesLayer))
   );
 };
 
@@ -157,7 +132,7 @@ export const getGenerationStatus = (reportId: string): Promise<GenerationStatus 
     Effect.gen(function* () {
       const service = yield* ReportGenerationServiceTag;
       return yield* service.getGenerationStatus(reportId);
-    }).pipe(Effect.provide(createAdapterServicesLayer()))
+    }).pipe(Effect.provide(adapterServicesLayer))
   );
 };
 
@@ -173,7 +148,7 @@ export const updateGenerationStatus = (
     Effect.gen(function* () {
       const service = yield* ReportGenerationServiceTag;
       return yield* service.updateGenerationStatus(reportId, status, errorMessage);
-    }).pipe(Effect.provide(createAdapterServicesLayer()))
+    }).pipe(Effect.provide(adapterServicesLayer))
   );
 };
 
@@ -185,7 +160,7 @@ export const resetToReady = (reportId: string): Promise<boolean> => {
     Effect.gen(function* () {
       const service = yield* ReportGenerationServiceTag;
       return yield* service.resetToReady(reportId);
-    }).pipe(Effect.provide(createAdapterServicesLayer()))
+    }).pipe(Effect.provide(adapterServicesLayer))
   );
 };
 
@@ -195,9 +170,11 @@ export const resetToReady = (reportId: string): Promise<boolean> => {
 export const setToPaused = (reportId: string): Promise<boolean> => {
   return Runtime.runPromise(runtime)(
     Effect.gen(function* () {
+      const fs = yield* FileSystemServiceTag;
+      yield* fs.setGenerationCommand(reportId, 'pause');
       const service = yield* ReportGenerationServiceTag;
       return yield* service.setToPaused(reportId);
-    }).pipe(Effect.provide(createAdapterServicesLayer()))
+    }).pipe(Effect.provide(adapterServicesLayer))
   );
 };
 
@@ -209,7 +186,7 @@ export const setToCompleted = (reportId: string): Promise<boolean> => {
     Effect.gen(function* () {
       const service = yield* ReportGenerationServiceTag;
       return yield* service.setToCompleted(reportId);
-    }).pipe(Effect.provide(createAdapterServicesLayer()))
+    }).pipe(Effect.provide(adapterServicesLayer))
   );
 };
 
@@ -221,7 +198,7 @@ export const rerunFromCompleted = (reportId: string): Promise<boolean> => {
     Effect.gen(function* () {
       const service = yield* ReportGenerationServiceTag;
       return yield* service.rerunFromCompleted(reportId);
-    }).pipe(Effect.provide(createAdapterServicesLayer()))
+    }).pipe(Effect.provide(adapterServicesLayer))
   );
 };
 
@@ -233,7 +210,7 @@ export const restartFromFailed = (reportId: string): Promise<boolean> => {
     Effect.gen(function* () {
       const service = yield* ReportGenerationServiceTag;
       return yield* service.restartFromFailed(reportId);
-    }).pipe(Effect.provide(createAdapterServicesLayer()))
+    }).pipe(Effect.provide(adapterServicesLayer))
   );
 };
 
@@ -245,7 +222,7 @@ export const startGeneration = (params: StartGenerationParams): Promise<void> =>
     Effect.gen(function* () {
       const service = yield* ReportGenerationServiceTag;
       return yield* service.startGeneration(params);
-    }).pipe(Effect.provide(createAdapterServicesLayer()))
+    }).pipe(Effect.provide(adapterServicesLayer))
   );
 };
 
@@ -255,9 +232,12 @@ export const startGeneration = (params: StartGenerationParams): Promise<void> =>
 export const stopGeneration = (reportId: string): Promise<boolean> => {
   return Runtime.runPromise(runtime)(
     Effect.gen(function* () {
+      const fs = yield* FileSystemServiceTag;
+      // File-backed control: set command to pause (stop)
+      yield* fs.setGenerationCommand(reportId, 'pause');
       const service = yield* ReportGenerationServiceTag;
       return yield* service.stopGeneration(reportId);
-    }).pipe(Effect.provide(createAdapterServicesLayer()))
+    }).pipe(Effect.provide(adapterServicesLayer))
   );
 };
 
@@ -269,7 +249,7 @@ export const clearGeneration = (reportId: string): Promise<void> => {
     Effect.gen(function* () {
       const service = yield* ReportGenerationServiceTag;
       return yield* service.clearGeneration(reportId);
-    }).pipe(Effect.provide(createAdapterServicesLayer()))
+    }).pipe(Effect.provide(adapterServicesLayer))
   );
 };
 
@@ -281,7 +261,7 @@ export const clearExtractedParameters = (reportId: string): Promise<void> => {
     Effect.gen(function* () {
       const service = yield* ReportGenerationServiceTag;
       return yield* service.clearExtractedParameters(reportId);
-    }).pipe(Effect.provide(createAdapterServicesLayer()))
+    }).pipe(Effect.provide(adapterServicesLayer))
   );
 };
 
@@ -293,7 +273,7 @@ export const clearAllReportData = (reportId: string): Promise<void> => {
     Effect.gen(function* () {
       const service = yield* ReportGenerationServiceTag;
       return yield* service.clearAllReportData(reportId);
-    }).pipe(Effect.provide(createAdapterServicesLayer()))
+    }).pipe(Effect.provide(adapterServicesLayer))
   );
 };
 
@@ -305,7 +285,7 @@ export const clearAllGenerations = (): Promise<void> => {
     Effect.gen(function* () {
       const service = yield* ReportGenerationServiceTag;
       return yield* service.clearAllGenerations();
-    }).pipe(Effect.provide(createAdapterServicesLayer()))
+    }).pipe(Effect.provide(adapterServicesLayer))
   );
 };
 
@@ -317,7 +297,7 @@ export const reconnectToGeneration = (reportId: string, callbacks: GenerationCal
     Effect.gen(function* () {
       const service = yield* ReportGenerationServiceTag;
       return yield* service.reconnectToGeneration(reportId, callbacks);
-    }).pipe(Effect.provide(createAdapterServicesLayer()))
+    }).pipe(Effect.provide(adapterServicesLayer))
   );
 };
 
@@ -327,9 +307,11 @@ export const reconnectToGeneration = (reportId: string, callbacks: GenerationCal
 export const resumeGeneration = (params: ResumeGenerationParams): Promise<void> => {
   return Runtime.runPromise(runtime)(
     Effect.gen(function* () {
+      const fs = yield* FileSystemServiceTag;
+      yield* fs.setGenerationCommand(params.reportId, 'resume');
       const service = yield* ReportGenerationServiceTag;
       return yield* service.resumeGeneration(params);
-    }).pipe(Effect.provide(createAdapterServicesLayer()))
+    }).pipe(Effect.provide(adapterServicesLayer))
   );
 };
 
@@ -345,7 +327,7 @@ export const getReportById = (id: string): Promise<Report | null> => {
     Effect.gen(function* () {
       const service = yield* ReportServiceTag;
       return yield* service.getReportById(id);
-    }).pipe(Effect.provide(createAdapterServicesLayer()))
+    }).pipe(Effect.provide(adapterServicesLayer))
   );
 };
 
@@ -357,7 +339,7 @@ export const createReport = (request: { name: string; prompt: string }): Promise
     Effect.gen(function* () {
       const service = yield* ReportServiceTag;
       return yield* service.createReport(request);
-    }).pipe(Effect.provide(createAdapterServicesLayer()))
+    }).pipe(Effect.provide(adapterServicesLayer))
   );
 };
 
@@ -373,7 +355,7 @@ export const saveReportData = (
     Effect.gen(function* () {
       const service = yield* ReportServiceTag;
       return yield* service.saveReportData(id, tableData, extractedParameters);
-    }).pipe(Effect.provide(createAdapterServicesLayer()))
+    }).pipe(Effect.provide(adapterServicesLayer))
   );
 };
 
@@ -385,7 +367,7 @@ export const clearReportData = (id: string): Promise<Report | null> => {
     Effect.gen(function* () {
       const service = yield* ReportServiceTag;
       return yield* service.clearReportData(id);
-    }).pipe(Effect.provide(createAdapterServicesLayer()))
+    }).pipe(Effect.provide(adapterServicesLayer))
   );
 };
 
@@ -401,7 +383,7 @@ export const getCheckpoint = (reportId: string): Promise<ReportCheckpoint | null
     Effect.gen(function* () {
       const service = yield* ReportCheckpointServiceTag;
       return yield* service.getCheckpoint(reportId);
-    }).pipe(Effect.provide(createAdapterServicesLayer()))
+    }).pipe(Effect.provide(adapterServicesLayer))
   );
 };
 
@@ -413,7 +395,7 @@ export const hasCheckpoint = (reportId: string): Promise<boolean> => {
     Effect.gen(function* () {
       const service = yield* ReportCheckpointServiceTag;
       return yield* service.hasCheckpoint(reportId);
-    }).pipe(Effect.provide(createAdapterServicesLayer()))
+    }).pipe(Effect.provide(adapterServicesLayer))
   );
 };
 
@@ -425,7 +407,7 @@ export const canResume = (reportId: string): Promise<boolean> => {
     Effect.gen(function* () {
       const service = yield* ReportCheckpointServiceTag;
       return yield* service.canResume(reportId);
-    }).pipe(Effect.provide(createAdapterServicesLayer()))
+    }).pipe(Effect.provide(adapterServicesLayer))
   );
 };
 
@@ -437,7 +419,7 @@ export const createCheckpoint = (params: CreateCheckpointParams): Promise<void> 
     Effect.gen(function* () {
       const service = yield* ReportCheckpointServiceTag;
       return yield* service.createCheckpoint(params);
-    }).pipe(Effect.provide(createAdapterServicesLayer()))
+    }).pipe(Effect.provide(adapterServicesLayer))
   );
 };
 
@@ -449,7 +431,7 @@ export const updateCheckpoint = (params: UpdateCheckpointParams): Promise<void> 
     Effect.gen(function* () {
       const service = yield* ReportCheckpointServiceTag;
       return yield* service.updateCheckpoint(params);
-    }).pipe(Effect.provide(createAdapterServicesLayer()))
+    }).pipe(Effect.provide(adapterServicesLayer))
   );
 };
 
@@ -461,7 +443,7 @@ export const markCheckpointCompleted = (reportId: string): Promise<void> => {
     Effect.gen(function* () {
       const service = yield* ReportCheckpointServiceTag;
       return yield* service.markCompleted(reportId);
-    }).pipe(Effect.provide(createAdapterServicesLayer()))
+    }).pipe(Effect.provide(adapterServicesLayer))
   );
 };
 
@@ -473,7 +455,7 @@ export const markCheckpointFailed = (reportId: string, errorMessage: string): Pr
     Effect.gen(function* () {
       const service = yield* ReportCheckpointServiceTag;
       return yield* service.markFailed(reportId, errorMessage);
-    }).pipe(Effect.provide(createAdapterServicesLayer()))
+    }).pipe(Effect.provide(adapterServicesLayer))
   );
 };
 
@@ -485,7 +467,7 @@ export const markCheckpointPaused = (reportId: string): Promise<void> => {
     Effect.gen(function* () {
       const service = yield* ReportCheckpointServiceTag;
       return yield* service.markPaused(reportId);
-    }).pipe(Effect.provide(createAdapterServicesLayer()))
+    }).pipe(Effect.provide(adapterServicesLayer))
   );
 };
 
@@ -497,7 +479,7 @@ export const resumeCheckpoint = (reportId: string): Promise<ReportCheckpoint | n
     Effect.gen(function* () {
       const service = yield* ReportCheckpointServiceTag;
       return yield* service.resumeCheckpoint(reportId);
-    }).pipe(Effect.provide(createAdapterServicesLayer()))
+    }).pipe(Effect.provide(adapterServicesLayer))
   );
 };
 
@@ -509,7 +491,7 @@ export const clearCheckpoint = (reportId: string): Promise<void> => {
     Effect.gen(function* () {
       const service = yield* ReportCheckpointServiceTag;
       return yield* service.clearCheckpoint(reportId);
-    }).pipe(Effect.provide(createAdapterServicesLayer()))
+    }).pipe(Effect.provide(adapterServicesLayer))
   );
 };
 
@@ -521,7 +503,7 @@ export const getResumeOffset = (reportId: string): Promise<number> => {
     Effect.gen(function* () {
       const service = yield* ReportCheckpointServiceTag;
       return yield* service.getResumeOffset(reportId);
-    }).pipe(Effect.provide(createAdapterServicesLayer()))
+    }).pipe(Effect.provide(adapterServicesLayer))
   );
 };
 
@@ -537,7 +519,7 @@ export const createReportLogFromGeneration = (params: CreateReportLogParams): Pr
     Effect.gen(function* () {
       const service = yield* ReportLogServiceTag;
       return yield* service.createFromReportGeneration(params);
-    }).pipe(Effect.provide(createAdapterServicesLayer()))
+    }).pipe(Effect.provide(adapterServicesLayer))
   );
 };
 
@@ -547,12 +529,13 @@ export const createReportLogFromGeneration = (params: CreateReportLogParams): Pr
 
 // Reports
 export const getAllReports = async (): Promise<Report[]> => {
-  try {
-    const reports = await (window as any).electronAPI?.fileSystem?.getAllReports?.();
-    return Array.isArray(reports) ? reports : [];
-  } catch {
-    return [];
-  }
+  return Runtime.runPromise(runtime)(
+    Effect.gen(function* () {
+      const fs = yield* FileSystemServiceTag;
+      const all = yield* fs.getAllReports();
+      return all as Report[];
+    }).pipe(Effect.provide(adapterServicesLayer))
+  );
 };
 
 export const getAllReportsWithSync = async (): Promise<Report[]> => {
@@ -560,24 +543,25 @@ export const getAllReportsWithSync = async (): Promise<Report[]> => {
 };
 
 export const updateReport = async (id: string, updates: Partial<Report>): Promise<Report | null> => {
-  try {
-    const existing = await getReportById(id);
-    if (!existing) return null;
-    const updated: Report = { ...existing, ...updates, updatedAt: new Date().toISOString() } as Report;
-    await (window as any).electronAPI?.fileSystem?.saveReport?.(updated);
-    return updated;
-  } catch {
-    return null;
-  }
+  return Runtime.runPromise(runtime)(
+    Effect.gen(function* () {
+      const fs = yield* FileSystemServiceTag;
+      const existing = (yield* fs.getReport(id)) as Report | null;
+      if (!existing) return null;
+      const updated: Report = { ...existing, ...updates, updatedAt: new Date().toISOString() } as Report;
+      const ok = yield* fs.saveReport(updated);
+      return ok ? updated : null;
+    }).pipe(Effect.provide(adapterServicesLayer))
+  );
 };
 
 export const deleteReport = async (id: string): Promise<boolean> => {
-  try {
-    const ok = await (window as any).electronAPI?.fileSystem?.deleteReport?.(id);
-    return !!ok;
-  } catch {
-    return false;
-  }
+  return Runtime.runPromise(runtime)(
+    Effect.gen(function* () {
+      const fs = yield* FileSystemServiceTag;
+      return yield* fs.deleteReport(id);
+    }).pipe(Effect.provide(adapterServicesLayer))
+  );
 };
 
 export const exportReports = async (): Promise<string> => {
@@ -586,15 +570,17 @@ export const exportReports = async (): Promise<string> => {
 };
 
 export const importReports = async (data: string): Promise<boolean> => {
-  try {
-    const reports = JSON.parse(data) as Report[];
-    for (const r of reports) {
-      await (window as any).electronAPI?.fileSystem?.saveReport?.(r);
-    }
-    return true;
-  } catch {
-    return false;
-  }
+  return Runtime.runPromise(runtime)(
+    Effect.gen(function* () {
+      const fs = yield* FileSystemServiceTag;
+      const reports = JSON.parse(data) as Report[];
+      for (const r of reports) {
+        const ok = yield* fs.saveReport(r);
+        if (!ok) return false;
+      }
+      return true;
+    }).pipe(Effect.provide(adapterServicesLayer))
+  );
 };
 
 export const hasReportLogs = async (): Promise<boolean> => {
@@ -608,40 +594,36 @@ export const hasReports = async (): Promise<boolean> => {
 };
 
 export const getAllReportLogsWithSync = async (): Promise<ReportLog[]> => {
-  try {
-    const reports = await getAllReports();
-    const all: ReportLog[] = [];
-    for (const r of reports) {
-      const rs = await (window as any).electronAPI?.fileSystem?.getReportLogs?.(r.id);
-      if (Array.isArray(rs)) all.push(...rs);
-    }
-    return all;
-  } catch {
-    return [];
-  }
+  return Runtime.runPromise(runtime)(
+    Effect.gen(function* () {
+      const fs = yield* FileSystemServiceTag;
+      const all = yield* fs.getAllReportLogs();
+      return all as ReportLog[];
+    }).pipe(Effect.provide(adapterServicesLayer))
+  );
 };
 
 export const getReportLogByIdWithSync = async (id: string): Promise<ReportLog | null> => {
-  const all = await getAllReportLogsWithSync();
-  return all.find((l: any) => l.id === id) ?? null;
+  return Runtime.runPromise(runtime)(
+    Effect.gen(function* () {
+      const fs = yield* FileSystemServiceTag;
+      return (yield* fs.getReportLog(id)) as ReportLog | null;
+    }).pipe(Effect.provide(adapterServicesLayer))
+  );
 };
 
 export const deleteReportLog = async (id: string): Promise<boolean> => {
-  try {
-    await (window as any).electronAPI?.fileSystem?.deleteReportLog?.(id);
-    return true;
-  } catch {
-    return false;
-  }
+  return Runtime.runPromise(runtime)(
+    Effect.gen(function* () {
+      const fs = yield* FileSystemServiceTag;
+      return yield* fs.deleteReportLog(id);
+    }).pipe(Effect.provide(adapterServicesLayer))
+  );
 };
 
 export const cleanupOrphanedData = async (): Promise<number> => {
-  try {
-    const n = await (window as any).electronAPI?.fileSystem?.cleanupOrphanedData?.();
-    return typeof n === 'number' ? n : 0;
-  } catch {
-    return 0;
-  }
+  // Placeholder for a future FS-backed cleanup; return 0 for now
+  return 0;
 };
 
 export const getCleanupSummary = async (): Promise<{ orphanedReports: number; orphanedCheckpoints: number; orphanedLogs: number; hasGenerationState: boolean; hasCheckpoint: boolean; isGenerating: boolean; checkpointStatus: string }> => {
@@ -667,125 +649,7 @@ export const forceSyncFromFileSystemLogs = async (): Promise<boolean> => {
   return all.length > 0;
 };
 
-// ============================================================================
-// Facade objects to satisfy legacy imports (no business logic; thin cache only)
-// ============================================================================
-
-let cachedReports: Report[] = [];
-let cachedGenerations: Map<string, ReportGenerationState> = new Map();
-
-export const primeReportsCache = async (): Promise<void> => {
-  try {
-    cachedReports = await getAllReports();
-  } catch {
-    cachedReports = [];
-  }
-};
-
-export const reportService = {
-  getReportById: (id: string): Report | null => cachedReports.find(r => r.id === id) ?? null,
-  getReportByIdAsync: (id: string) => getReportById(id),
-  async getAllReportsWithSync(): Promise<Report[]> { cachedReports = await getAllReportsWithSync(); return cachedReports; },
-  getAllReports(): Report[] { return cachedReports; },
-  async createReport(req: { name: string; prompt: string }): Promise<Report> { const r = await createReport(req); cachedReports = [r, ...cachedReports.filter(x => x.id !== r.id)]; return r; },
-  async updateReport(id: string, updates: Partial<Report>): Promise<Report | null> { const r = await updateReport(id, updates); if (r) cachedReports = [r, ...cachedReports.filter(x => x.id !== id)]; return r; },
-  async deleteReport(id: string): Promise<boolean> { const ok = await deleteReport(id); if (ok) cachedReports = cachedReports.filter(r => r.id !== id); return ok; },
-  exportReports: () => exportReports(),
-  importReports: (data: string) => importReports(data),
-  cleanupOrphanedData: () => cleanupOrphanedData(),
-  getCleanupSummary: () => getCleanupSummary(),
-  forceSyncFromFileSystem: async (): Promise<boolean> => { const r = await forceSyncFromFileSystemReports(); if (r) cachedReports = await getAllReports(); return r; },
-  hasReports: (): boolean => cachedReports.length > 0
-};
-
-export const reportLogService = {
-  createReportLogFromGeneration: (params: CreateReportLogParams) => createReportLogFromGeneration(params),
-  createFromReportGeneration: async (
-    reportId: string,
-    reportName: string,
-    prompt: string,
-    tableData: TableData,
-    processed: number,
-    total: number,
-    timestamp: number,
-    status: 'completed' | 'failed' | 'paused'
-  ): Promise<ReportLog> => {
-    const safeStatus = status === 'paused' ? 'failed' : status; // map unsupported to allowed set
-    return await createReportLogFromGeneration({
-      reportId,
-      reportName,
-      prompt,
-      tableData,
-      totalTasks: total,
-      processedTasks: processed,
-      startTime: timestamp,
-      status: safeStatus as 'completed' | 'failed'
-    });
-  },
-  getAllReportLogsWithSync: () => getAllReportLogsWithSync(),
-  getReportLogByIdWithSync: (id: string) => getReportLogByIdWithSync(id),
-  deleteReportLog: (id: string) => deleteReportLog(id),
-  clearAllReportLogs: async (): Promise<boolean> => false,
-  hasReportLogs: () => hasReportLogs()
-};
-
-export const reportCheckpointService = {
-  getCheckpoint: (reportId: string) => getCheckpoint(reportId),
-  hasCheckpoint: (reportId: string) => hasCheckpoint(reportId),
-  canResume: (reportId: string) => canResume(reportId),
-  createCheckpoint: (p: CreateCheckpointParams) => createCheckpoint(p),
-  updateCheckpoint: (p: UpdateCheckpointParams) => updateCheckpoint(p),
-  markCompleted: (reportId: string) => markCheckpointCompleted(reportId),
-  markFailed: (reportId: string, msg: string) => markCheckpointFailed(reportId, msg),
-  markPaused: (reportId: string) => markCheckpointPaused(reportId),
-  resumeCheckpoint: (reportId: string) => resumeCheckpoint(reportId),
-  clearCheckpoint: (reportId: string) => clearCheckpoint(reportId),
-  getResumeOffset: (reportId: string) => getResumeOffset(reportId),
-  getResumableCheckpoints: (): any[] => []
-};
-
-export const reportGenerationService = {
-  getActiveGenerations: (): Map<string, ReportGenerationState> => cachedGenerations,
-  async getGenerationStateAsync(reportId: string): Promise<ReportGenerationState | null> {
-    const st = await getGenerationState(reportId);
-    if (st) cachedGenerations.set(reportId, st);
-    return st;
-  },
-  getGenerationState: (reportId: string): ReportGenerationState | null => cachedGenerations.get(reportId) ?? null,
-  isGenerating: (reportId: string): boolean => (cachedGenerations.get(reportId)?.status === 'in_progress'),
-  getGenerationStatus: (reportId: string): GenerationStatus => (cachedGenerations.get(reportId)?.status ?? 'ready') as GenerationStatus,
-  updateGenerationStatus: async (reportId: string, status: GenerationStatus, errorMessage?: string): Promise<void> => {
-    await updateGenerationStatus(reportId, status, errorMessage);
-    const current = cachedGenerations.get(reportId) ?? { reportId, status: 'ready', progress: null, tableData: null, startTime: Date.now() } as ReportGenerationState;
-    cachedGenerations.set(reportId, { ...current, status });
-  },
-  resetToReady: async (reportId: string): Promise<boolean> => { const ok = await resetToReady(reportId); if (ok) cachedGenerations.set(reportId, { reportId, status: 'ready', progress: null, tableData: null, startTime: Date.now() } as ReportGenerationState); return ok; },
-  setToPaused: async (reportId: string): Promise<boolean> => { const ok = await setToPaused(reportId); if (ok) { const cur = cachedGenerations.get(reportId); if (cur) cachedGenerations.set(reportId, { ...cur, status: 'paused' }); } return ok; },
-  setToCompleted: async (reportId: string): Promise<boolean> => { const ok = await setToCompleted(reportId); if (ok) { const cur = cachedGenerations.get(reportId); if (cur) cachedGenerations.set(reportId, { ...cur, status: 'completed' }); } return ok; },
-  rerunFromCompleted: (reportId: string) => rerunFromCompleted(reportId),
-  restartFromFailed: (reportId: string) => restartFromFailed(reportId),
-  startGeneration: async (
-    reportId: string,
-    reportText: string,
-    authToken: string,
-    selectedServer: string,
-    onProgress: (progress: TableData) => void,
-    onComplete: (result: TableData) => void,
-    onError: (error: any) => void,
-    startOffset?: number,
-    parameters?: any
-  ): Promise<void> => {
-    await startGeneration({ reportId, reportText, authToken, selectedServer, onProgress, onComplete, onError, startOffset, parameters } as any);
-    const cur = cachedGenerations.get(reportId) ?? { reportId, status: 'in_progress', progress: null, tableData: null, startTime: Date.now() } as ReportGenerationState;
-    cachedGenerations.set(reportId, { ...cur, status: 'in_progress' });
-  },
-  resumeGeneration: (params: ResumeGenerationParams) => resumeGeneration(params),
-  stopGeneration: async (reportId: string): Promise<boolean> => { const ok = await stopGeneration(reportId); if (ok) { const cur = cachedGenerations.get(reportId); if (cur) cachedGenerations.set(reportId, { ...cur, status: 'paused' }); } return ok; },
-  clearGeneration: async (reportId: string): Promise<void> => { await clearGeneration(reportId); cachedGenerations.delete(reportId); },
-  clearAllReportData: async (): Promise<void> => {},
-  reconnectToGeneration: async (_reportId: string, _callbacks: any): Promise<boolean> => true,
-  clearExtractedParameters: (reportId: string) => clearExtractedParameters(reportId)
-};
+// Facade caches removed; use Promise APIs above for all operations
 
 // ============================================================================
 // Error Handling Helpers
@@ -828,9 +692,7 @@ export const handleCheckpointError = (error: CheckpointError): void => {
 /**
  * Check if migration is needed
  */
-export const checkMigrationNeeded = (): boolean => {
-  return isMigrationNeeded();
-};
+export const checkMigrationNeeded = (): boolean => false;
 
 /**
  * Get service health status
@@ -869,7 +731,7 @@ export const getServiceHealth = (): Promise<{
         checkpointService,
         logService
       };
-    }).pipe(Effect.provide(createAdapterServicesLayer()))
+    }).pipe(Effect.provide(adapterServicesLayer))
   );
 };
 

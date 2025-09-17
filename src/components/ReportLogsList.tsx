@@ -24,7 +24,8 @@ import {
     ClockCircleOutlined
 } from '@ant-design/icons';
 import { ReportLog } from '../types';
-import { reportLogService } from '../services/reportLogService';
+import * as effectsApi from '../services/effects/api';
+const { reportLogService } = effectsApi as any;
 
 const { Text, Title } = Typography;
 const { Search } = Input;

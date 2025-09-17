@@ -1,5 +1,6 @@
 import { assign, fromPromise, setup } from 'xstate';
-import { reportService } from '../../services/reportService';
+import * as effectsApi from '../../services/effects/api';
+const { reportService } = effectsApi as any;
 import { Report } from '../../types';
 import { ReportsListContext, ReportsListEvent } from './types';
 

@@ -70,12 +70,12 @@ export async function buildReport(
   // 0) Extract parameters from the prompt using OpenAI if not provided
   let extractedParameters = parameters;
   if (!extractedParameters) {
-    // Check for abort signal before making the parameter extraction call
+    // Check/abort before making the parameter extraction call
     if (abortSignal?.aborted) {
       throw new Error('Aborted');
     }
 
-    const parameterCompletion = await openai.chat.completions.create({
+    const parameterCompletionPromise = openai.chat.completions.create({
       model: 'o3',
       messages: [
         {
@@ -113,6 +113,19 @@ Calculate dates dynamically using the current date provided above. Return only t
         { role: 'user', content: rawPrompt },
       ],
     });
+
+    const parameterCompletion = await Promise.race([
+      parameterCompletionPromise,
+      new Promise<never>((_, reject) => {
+        if (abortSignal?.aborted) {
+          reject(new Error('Aborted'));
+          return;
+        }
+        const abortListener = () => reject(new Error('Aborted'));
+        abortSignal?.addEventListener('abort', abortListener, { once: true });
+        parameterCompletionPromise.finally(() => abortSignal?.removeEventListener('abort', abortListener));
+      })
+    ]);
 
     console.log('Parameter extraction result:', parameterCompletion.choices[0].message.content);
 
@@ -187,13 +200,26 @@ Calculate dates dynamically using the current date provided above. Return only t
       throw new Error('Aborted');
     }
 
-    const schemaCompletion = await openai.chat.completions.create({
+    const schemaCompletionPromise = openai.chat.completions.create({
       model: 'o3',
       messages: [
         { role: 'system', content: 'You are an analyst. From the user prompt, output ONLY a JSON array of column names for an agile task report. Return only a JSON string.' },
         { role: 'user', content: rawPrompt },
       ],
     });
+
+    const schemaCompletion = await Promise.race([
+      schemaCompletionPromise,
+      new Promise<never>((_, reject) => {
+        if (abortSignal?.aborted) {
+          reject(new Error('Aborted'));
+          return;
+        }
+        const abortListener = () => reject(new Error('Aborted'));
+        abortSignal?.addEventListener('abort', abortListener, { once: true });
+        schemaCompletionPromise.finally(() => abortSignal?.removeEventListener('abort', abortListener));
+      })
+    ]);
     console.log(schemaCompletion.choices[0].message.content);
     try {
       columns = JSON.parse(schemaCompletion.choices[0].message.content ?? '[]');
@@ -427,6 +453,9 @@ Calculate dates dynamically using the current date provided above. Return only t
   });
 
   // 3) Build CSV from the collected rows
+  if (abortSignal?.aborted) {
+    throw new Error('Aborted');
+  }
   const escapeCsv = (v: unknown) =>
     `"${String(v ?? '').replace(/"/g, '""')}"`;
   const header = columns.join(',');

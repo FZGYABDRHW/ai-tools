@@ -1,0 +1,1 @@
+{"version":3,"file":"BaseServiceAdmin.js","sourceRoot":"","sources":["../../../../../src/api-client/src/services/admin/BaseServiceAdmin.ts"],"names":[],"mappings":";;;;;AAAA,iEAA8D;AAE9D,MAAM,WAAW,GAAG,OAAO,CAAC;AAE5B,MAAqB,gBAAiB,SAAQ,qBAAW;IACrD,YAAY,MAAuB,EAAE;QACjC,KAAK,CAAC,EAAE,GAAG,GAAG,EAAE,OAAO,EAAE,WAAW,EAAE,CAAC,CAAC;IAC5C,CAAC;CACJ;AAJD,mCAIC"}

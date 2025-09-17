@@ -48,7 +48,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       selectedServer: state.context.selectedServer,
       error: state.context.error
     });
-    previousStateRef.current = typeof state.value === 'string' ? state.value : null;
+    if (previousStateRef && previousStateRef.current !== undefined) {
+      previousStateRef.current = typeof state.value === 'string' ? state.value : null;
+    }
   }, [state]);
 
   // Initialize authentication on mount
@@ -110,7 +112,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   // Handle logout success (only when transitioning from loggingOut -> idle)
   useEffect(() => {
-    const prev = previousStateRef.current;
+    const prev = previousStateRef?.current;
     if (prev === 'loggingOut' && state.matches('idle') && !state.context.authToken && !state.context.user) {
       console.log('AuthProvider: User logged out successfully');
       message.success('Logout successful!');

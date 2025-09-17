@@ -1,0 +1,1 @@
+{"version":3,"file":"BaseServiceV2.js","sourceRoot":"","sources":["../../../../../src/api-client/src/services/v2/BaseServiceV2.ts"],"names":[],"mappings":";;;;;AAAA,iEAA8D;AAE9D,MAAM,WAAW,GAAG,IAAI,CAAC;AAEzB,MAAqB,aAAc,SAAQ,qBAAW;IAClD,YAAY,MAAuB,EAAE;QACjC,KAAK,CAAC,EAAE,GAAG,GAAG,EAAE,OAAO,EAAE,WAAW,EAAE,CAAC,CAAC;IAC5C,CAAC;CACJ;AAJD,gCAIC"}

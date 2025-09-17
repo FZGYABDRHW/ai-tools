@@ -1,0 +1,99 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Recovered Reports</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .report { border: 1px solid #ccc; margin: 10px 0; padding: 15px; border-radius: 5px; }
+        .report h3 { margin-top: 0; color: #333; }
+        .report-id { font-size: 12px; color: #666; }
+        .report-prompt { background: #f5f5f5; padding: 10px; border-radius: 3px; margin: 10px 0; }
+        .report-dates { font-size: 12px; color: #666; }
+    </style>
+</head>
+<body>
+    <h1>Recovered Reports (3)</h1>
+    <p>These reports were found in the file system and can be recovered.</p>
+
+    
+        <div class="report">
+            <h3>test for migration</h3>
+            <div class="report-id">ID: mfjz15mughrs6p8pvnw</div>
+            <div class="report-dates">
+                Created: 9/14/2025, 7:30:43 PM<br>
+                Updated: 9/17/2025, 6:53:56 PM
+            </div>
+            <div class="report-prompt">
+                <strong>Prompt:</strong><br>
+                ## Report Fields<br><br>**Test Name**: Название теста (Текст, до 255 символов).**Test Date**: Дата проведения теста (В формате DD.MM.YYYY).**Result**: Результат теста (Возможные значения: пройдено, не пройдено).**Tester**: Имя тестировщика (Текст, до 100 символов).**Duration**: Длительность теста (В минутах, целое число).**Comments**: Комментарии к тесту (Текст, до 500 символов).<br><br>## 
+            </div>
+        </div>
+    
+        <div class="report">
+            <h3>an another test report for test</h3>
+            <div class="report-id">ID: mfjz5el2thqrj1sw58k</div>
+            <div class="report-dates">
+                Created: 9/14/2025, 7:34:01 PM<br>
+                Updated: 9/16/2025, 8:28:36 PM
+            </div>
+            <div class="report-prompt">
+                <strong>Prompt:</strong><br>
+                test
+            </div>
+        </div>
+    
+        <div class="report">
+            <h3>test</h3>
+            <div class="report-id">ID: mfmwr0yl0jgdgxctmysn</div>
+            <div class="report-dates">
+                Created: 9/16/2025, 8:50:09 PM<br>
+                Updated: 9/17/2025, 6:55:44 PM
+            </div>
+            <div class="report-prompt">
+                <strong>Prompt:</strong><br>
+                ## Report Fields<br><br>* **Описание задания**: текстовое описание текущего задания (до 500 символов).<br>* **Дата создания**: дата создания задания в формате DD.MM.YYYY.<br>* **Куратор**: имя куратора, ответственного за задание (до 100 символов).<br>* **Клиент**: имя клиента, связанного с заданием (до 100 символов).<br>* **Техническое выполнение**: статус выполнения технической части задания (возможные значения: выполнено, не выполнено).<br>* **Прошло дней с выполнения**: количество дней с момента выполнения технической части задания (целое число, в днях).<br>* **Напоминания мастеру**: количество отправленных мастеру напоминаний о необходимости предоставить документы (целое число).<br>* **Звонки мастеру**: количество звонков мастеру (целое число).<br>* **Дата последнего действия**: дата последнего обновления или изменения задания в формате DD.MM.YYYY.<br><br>## Filtering Criteria<br><br>* **Status**: в работе<br>* **Limit**: максимальное количество возвращаемых элементов 10
+            </div>
+        </div>
+    
+
+    <script>
+        // Store reports in localStorage for the app to use
+        const reports = [
+  {
+    "id": "mfjz15mughrs6p8pvnw",
+    "name": "test for migration",
+    "prompt": "## Report Fields\n\n**Test Name**: Название теста (Текст, до 255 символов).**Test Date**: Дата проведения теста (В формате DD.MM.YYYY).**Result**: Результат теста (Возможные значения: пройдено, не пройдено).**Tester**: Имя тестировщика (Текст, до 100 символов).**Duration**: Длительность теста (В минутах, целое число).**Comments**: Комментарии к тесту (Текст, до 500 символов).\n\n## ",
+    "createdAt": "2025-09-14T17:30:43.014Z",
+    "updatedAt": "2025-09-17T16:53:56.300Z"
+  },
+  {
+    "id": "mfjz5el2thqrj1sw58k",
+    "name": "an another test report for test",
+    "prompt": "test",
+    "createdAt": "2025-09-14T17:34:01.238Z",
+    "updatedAt": "2025-09-16T18:28:36.846Z"
+  },
+  {
+    "id": "mfmwr0yl0jgdgxctmysn",
+    "name": "test",
+    "prompt": "## Report Fields\n\n* **Описание задания**: текстовое описание текущего задания (до 500 символов).\n* **Дата создания**: дата создания задания в формате DD.MM.YYYY.\n* **Куратор**: имя куратора, ответственного за задание (до 100 символов).\n* **Клиент**: имя клиента, связанного с заданием (до 100 символов).\n* **Техническое выполнение**: статус выполнения технической части задания (возможные значения: выполнено, не выполнено).\n* **Прошло дней с выполнения**: количество дней с момента выполнения технической части задания (целое число, в днях).\n* **Напоминания мастеру**: количество отправленных мастеру напоминаний о необходимости предоставить документы (целое число).\n* **Звонки мастеру**: количество звонков мастеру (целое число).\n* **Дата последнего действия**: дата последнего обновления или изменения задания в формате DD.MM.YYYY.\n\n## Filtering Criteria\n\n* **Status**: в работе\n* **Limit**: максимальное количество возвращаемых элементов 10",
+    "createdAt": "2025-09-16T18:50:09.693Z",
+    "updatedAt": "2025-09-17T16:55:44.575Z"
+  }
+];
+        localStorage.setItem('reports', JSON.stringify(reports));
+        console.log('✅ Reports synced to localStorage:', reports.length);
+
+        // Also store in a global variable for easy access
+        window.recoveredReports = reports;
+
+        // Show success message
+        document.body.insertAdjacentHTML('afterbegin',
+            '<div style="background: #d4edda; color: #155724; padding: 15px; border-radius: 5px; margin-bottom: 20px;">' +
+            '✅ Reports have been synced to localStorage! You can now close this window and your reports should appear in the app.' +
+            '</div>'
+        );
+    </script>
+</body>
+</html>

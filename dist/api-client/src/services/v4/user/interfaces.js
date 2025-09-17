@@ -1,0 +1,61 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.LoginByEmailPortal = exports.DepartmentType = exports.REPORT_ANNOTATION = exports.DELETE_BAN_ANNOTATION = exports.COMMON_ANNOTATION = exports.PerformerTypes = exports.ROLE_CONTRACTOR_COMPANY = exports.ROLE_HELP_DESK_USER = exports.ROLE_ORGANIZATION_BETA_TESTER = exports.ROLE_MODERATOR = exports.ROLE_ORGANIZATION_SIMPLE_TASK_ADMIN = exports.ROLE_ORGANIZATION_SIMPLE_TASK_CREATOR = exports.ROLE_DOCUMENT_MANAGER = exports.ROLE_VIP_ADMIN = exports.ROLE_ORGANIZATION_BASE = exports.ROLE_CURATOR_IT_TEAM = exports.ROLE_CURATOR_CLEANING_TEAM = exports.ROLE_NEWBIE_CURATOR = exports.ROLE_INDIVIDUAL_ENTREPRENEUR = exports.ROLE_CURATOR_MAINTENANCE_TEAM = exports.ROLE_HUNTER_CLEANING_TEAM = exports.ROLE_WOWWORKS = exports.ROLE_HUNTER_ADMIN = exports.ROLE_TEST_ACCOUNT = exports.ROLE_QA = exports.ROLE_SELF_DELETED = exports.ROLE_PURCHASING_MANAGER = exports.ROLE_CLEANING_ADMIN = exports.ROLE_ADMIN = exports.ROLE_PERFORMER = exports.ROLE_ORGANIZATION_ADMIN = exports.ROLE_ORGANIZATION_USER = exports.ROLE_X5_MANAGER_USER = exports.ROLE_CURATOR = exports.ROLE_CURATOR_B2B2C = exports.ROLE_CURATOR_ADMIN = exports.ROLE_SALES_MANAGER = exports.ROLE_ACCOUNT_MANAGER = exports.ROLE_SHOP = exports.ROLE_HUNTER_B2B2C = exports.ROLE_HUNTER = exports.ROLE_BLOCKED = void 0;
+exports.ROLE_BLOCKED = 'roleBlocked';
+exports.ROLE_HUNTER = 'roleHunter';
+exports.ROLE_HUNTER_B2B2C = 'roleHunterB2B2C';
+exports.ROLE_SHOP = 'roleShop';
+exports.ROLE_ACCOUNT_MANAGER = 'roleAccountManager';
+exports.ROLE_SALES_MANAGER = 'roleSalesManager';
+exports.ROLE_CURATOR_ADMIN = 'roleCuratorAdmin';
+exports.ROLE_CURATOR_B2B2C = 'roleCuratorB2B2C';
+exports.ROLE_CURATOR = 'roleCurator';
+exports.ROLE_X5_MANAGER_USER = 'x5ManagerRole';
+exports.ROLE_ORGANIZATION_USER = 'roleOrganizationUser';
+exports.ROLE_ORGANIZATION_ADMIN = 'roleOrganizationAdmin';
+exports.ROLE_PERFORMER = 'rolePerformer';
+exports.ROLE_ADMIN = 'roleAdmin';
+exports.ROLE_CLEANING_ADMIN = 'roleCleaningAdmin';
+exports.ROLE_PURCHASING_MANAGER = 'purchasingManager';
+exports.ROLE_SELF_DELETED = 'roleSelfDeleted';
+exports.ROLE_QA = 'roleQA';
+exports.ROLE_TEST_ACCOUNT = 'roleTestAccount';
+exports.ROLE_HUNTER_ADMIN = 'roleHunterAdmin';
+exports.ROLE_WOWWORKS = 'roleWowworks';
+exports.ROLE_HUNTER_CLEANING_TEAM = 'hunterCleaningTeam';
+exports.ROLE_CURATOR_MAINTENANCE_TEAM = 'curatorMaintenanceTeam';
+exports.ROLE_INDIVIDUAL_ENTREPRENEUR = 'roleIndividualEntrepreneur';
+exports.ROLE_NEWBIE_CURATOR = 'roleNewbieCurator';
+exports.ROLE_CURATOR_CLEANING_TEAM = 'curatorCleaningTeam';
+exports.ROLE_CURATOR_IT_TEAM = 'curatorItTeam';
+exports.ROLE_ORGANIZATION_BASE = 'roleOrganizationBase';
+exports.ROLE_VIP_ADMIN = 'roleVipAdmin';
+exports.ROLE_DOCUMENT_MANAGER = 'roleDocumentManager';
+exports.ROLE_ORGANIZATION_SIMPLE_TASK_CREATOR = 'roleOrganizationSimpleTaskCreator';
+exports.ROLE_ORGANIZATION_SIMPLE_TASK_ADMIN = 'roleOrganizationSimpleTaskAdmin';
+exports.ROLE_MODERATOR = 'roleModerator';
+exports.ROLE_ORGANIZATION_BETA_TESTER = 'roleOrganizationBetaTester';
+exports.ROLE_HELP_DESK_USER = 'roleHelpdeskUser';
+exports.ROLE_CONTRACTOR_COMPANY = 'roleContractorCompany';
+var PerformerTypes;
+(function (PerformerTypes) {
+    PerformerTypes["Common"] = "type_performer_common";
+    PerformerTypes["Ie"] = "type_performer_individual_entrepreneur";
+    PerformerTypes["SelfEmployed"] = "type_performer_self_employed";
+})(PerformerTypes || (exports.PerformerTypes = PerformerTypes = {}));
+exports.COMMON_ANNOTATION = 0;
+exports.DELETE_BAN_ANNOTATION = 1;
+exports.REPORT_ANNOTATION = 3;
+var DepartmentType;
+(function (DepartmentType) {
+    DepartmentType["B2B2C"] = "B2B2C";
+    DepartmentType["B2C"] = "B2C";
+    DepartmentType["DELIVERY"] = "delivery";
+})(DepartmentType || (exports.DepartmentType = DepartmentType = {}));
+// TODO Name is not correct and this interface into config?
+var LoginByEmailPortal;
+(function (LoginByEmailPortal) {
+    LoginByEmailPortal["COMPANY"] = "company";
+    LoginByEmailPortal["CONTRACTOR_COMPANY"] = "contractor-company";
+})(LoginByEmailPortal || (exports.LoginByEmailPortal = LoginByEmailPortal = {}));
+//# sourceMappingURL=interfaces.js.map

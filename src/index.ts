@@ -75,8 +75,8 @@ const createWindow = (): void => {
   // and load the index.html of the app.
   mainWindow.loadURL(MAIN_WINDOW_WEBPACK_ENTRY);
 
-  // DevTools disabled for production
-  // mainWindow.webContents.openDevTools(); // Disabled for production
+  // DevTools enabled for debugging
+  mainWindow.webContents.openDevTools(); // Enabled for debugging
 };
 
 // Settings IPC handlers

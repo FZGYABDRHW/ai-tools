@@ -1,0 +1,1 @@
+{"version":3,"file":"BaseServiceCurator.js","sourceRoot":"","sources":["../../../../../src/api-client/src/services/curator/BaseServiceCurator.ts"],"names":[],"mappings":";;;;;AAAA,iEAA8D;AAE9D,MAAM,WAAW,GAAG,SAAS,CAAC;AAE9B,MAAqB,kBAAmB,SAAQ,qBAAW;IACvD,YAAY,MAAuB,EAAE;QACjC,KAAK,CAAC,EAAE,GAAG,GAAG,EAAE,OAAO,EAAE,WAAW,EAAE,CAAC,CAAC;IAC5C,CAAC;CACJ;AAJD,qCAIC"}

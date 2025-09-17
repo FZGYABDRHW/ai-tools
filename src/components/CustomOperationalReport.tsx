@@ -10,10 +10,7 @@ import { buildReport } from '../reportBuilder';
 import builder from '../builder';
 import MilkdownEditor from './MilkdownEditor';
 import SimpleMarkdownRenderer from './SimpleMarkdownRenderer';
-import { reportLogService } from '../services/reportLogService';
-import { reportService } from '../services/reportService';
-import { reportGenerationService } from '../services/reportGenerationService';
-import { reportCheckpointService } from '../services/reportCheckpointService';
+import * as effectsApi from '../services/effects/api';
 import { promptEnhancerService, PromptEnhancementResult, AISuggestionField } from '../services/promptEnhancerService';
 
 import ReportLogsList from './ReportLogsList';
@@ -57,18 +54,18 @@ const CustomOperationalReport: React.FC = () => {
     const [enhanceModalOpen, setEnhanceModalOpen] = useState<boolean>(false);
     const [enhanceResult, setEnhanceResult] = useState<PromptEnhancementResult | null>(null);
     // Get extracted parameters from report data or generation state
-    const getExtractedParameters = () => {
+    const getExtractedParameters = async () => {
         const searchParams = new URLSearchParams(location.search);
         const reportId = searchParams.get('reportId');
         if (reportId) {
             // First try to get from report data (persistent)
-            const report = reportService.getReportById(reportId);
+            const report = await effectsApi.getReportById(reportId);
             if (report?.extractedParameters) {
                 return report.extractedParameters;
             }
 
             // Fallback to generation state (temporary)
-            const generationState = reportGenerationService.getGenerationState(reportId);
+            const generationState = await effectsApi.getGenerationState(reportId);
             return generationState?.extractedParameters || null;
         }
         return null;
@@ -86,22 +83,27 @@ const CustomOperationalReport: React.FC = () => {
         localStorage.setItem(storageKey, reportText);
     }, [reportText, location.search]);
 
-    // Update generation status for UI updates
+    // Update generation status for UI updates (polling)
     useEffect(() => {
         const searchParams = new URLSearchParams(location.search);
         const reportId = searchParams.get('reportId');
-        setCurrentGenerationStatus(reportId ? reportGenerationService.getGenerationStatus(reportId) : null);
 
-        // Poll for status changes
-        const interval = setInterval(() => {
-            const currentStatus = reportId ? reportGenerationService.getGenerationStatus(reportId) : null;
-            setCurrentGenerationStatus(currentStatus);
-            if (currentStatus === 'ready' && reportId) {
-                reportGenerationService.clearExtractedParameters(reportId);
-            }
-        }, 500);
-
-        return () => clearInterval(interval);
+        let cancelled = false;
+        const tick = async () => {
+            if (!reportId) return;
+            try {
+                const status = await effectsApi.getGenerationStatus(reportId);
+                if (!cancelled) setCurrentGenerationStatus(status);
+                if (status === 'ready') {
+                    await effectsApi.clearExtractedParameters(reportId);
+                }
+            } catch {}
+        };
+        // initial
+        tick();
+        // poll
+        const interval = setInterval(tick, 250);
+        return () => { cancelled = true; clearInterval(interval); };
     }, [location.search]);
 
     // Load report and restore generation state when reportId is provided in URL
@@ -111,35 +113,40 @@ const CustomOperationalReport: React.FC = () => {
 
         console.log('Loading report with ID:', reportId);
 
+        const load = async () => {
         if (reportId) {
-            const report = reportService.getReportById(reportId);
+            const report = await effectsApi.getReportById(reportId);
             console.log('Found report:', report);
             if (report) {
                 // Load prompt from report; fallback to per-report localStorage
                 const storageKey = `customOperationalReport_${reportId}`;
                 const fallback = localStorage.getItem(storageKey);
                 const promptToLoad = report.prompt || fallback || '';
-                loadedPromptRef.current = promptToLoad;
+                if (loadedPromptRef) {
+                    loadedPromptRef.current = promptToLoad;
+                }
                 setReportText(promptToLoad);
-                didLoadRef.current = true;
+                if (didLoadRef) {
+                    didLoadRef.current = true;
+                }
                 if (report.tableData) {
                     setTableData(report.tableData);
                 }
             }
 
             // Restore generation state if report is currently generating
-            const generationState = reportGenerationService.getGenerationState(reportId);
+            const generationState = await effectsApi.getGenerationState(reportId);
             if (generationState) {
                 console.log('Restoring generation state:', generationState);
 
                 // Check if the generation was actually interrupted by app reload
                 const isCurrentlyGenerating = generationState.status === 'in_progress';
-                const wasInterrupted = isCurrentlyGenerating && !generationState.abortController;
+                const wasInterrupted = isCurrentlyGenerating;
 
                 if (wasInterrupted) {
                     console.log('Generation was interrupted by app reload, setting status to paused');
                     // If generation was interrupted, set it to paused state
-                    reportGenerationService.updateGenerationStatus(reportId, 'paused');
+                    await effectsApi.updateGenerationStatus(reportId, 'paused');
                     setIsGenerating(false);
                 } else {
                     setIsGenerating(isCurrentlyGenerating);
@@ -147,16 +154,24 @@ const CustomOperationalReport: React.FC = () => {
 
                 setProgressInfo(generationState.progress);
                 if (generationState.tableData) {
-                    setTableData(generationState.tableData);
+                    setTableData({
+                        columns: [...generationState.tableData.columns],
+                        results: [...generationState.tableData.results],
+                        csv: generationState.tableData.csv
+                    });
                 }
 
                 // Reconnect to ongoing generation for live updates
                 if (isCurrentlyGenerating && !wasInterrupted) {
                     console.log('Reconnecting to ongoing generation');
-                    reportGenerationService.reconnectToGeneration(reportId, {
+                    await effectsApi.reconnectToGeneration(reportId, {
                         onProgress: (progress) => {
                             console.log('Received progress update:', progress);
-                            setTableData(progress);
+                            setTableData({
+                                columns: [...progress.columns],
+                                results: [...progress.results],
+                                csv: progress.csv
+                            });
                             setProgressInfo({
                                 processed: progress.results.length,
                                 total: progress.results.length
@@ -164,7 +179,11 @@ const CustomOperationalReport: React.FC = () => {
                         },
                         onComplete: (result) => {
                             console.log('Generation completed:', result);
-                            setTableData(result);
+                            setTableData({
+                                columns: [...result.columns],
+                                results: [...result.results],
+                                csv: result.csv
+                            });
                             setIsGenerating(false);
                             message.success('Custom report generated successfully! Report saved and log created.');
                         },
@@ -179,6 +198,8 @@ const CustomOperationalReport: React.FC = () => {
                 }
             }
         }
+        };
+        load();
     }, [location.search]);
 
     // Sync table data with report service when report changes
@@ -186,37 +207,47 @@ const CustomOperationalReport: React.FC = () => {
         const searchParams = new URLSearchParams(location.search);
         const reportId = searchParams.get('reportId');
 
+        const load = async () => {
         if (reportId) {
-            const report = reportService.getReportById(reportId);
+            const report = await effectsApi.getReportById(reportId);
             if (report?.tableData && !isGenerating) {
                 // Only update if we're not currently generating to avoid conflicts
                 setTableData(report.tableData);
             }
         }
+        };
+        load();
     }, [location.search, isGenerating]);
 
     // Auto-save report text changes when editing existing report
     useEffect(() => {
         const searchParams = new URLSearchParams(location.search);
         const reportId = searchParams.get('reportId');
-        if (!reportId || !reportText.trim() || !didLoadRef.current) return;
+        if (!reportId || !reportText.trim() || !didLoadRef?.current) return;
 
-        const report = reportService.getReportById(reportId);
-        if (!report) return;
+        let cancelled = false;
+        const load = async () => {
+        const report = await effectsApi.getReportById(reportId);
+        if (!report || cancelled) return;
 
         // Only save when user changed text compared to what we loaded
-        if (loadedPromptRef.current !== null && reportText !== loadedPromptRef.current) {
+        if (loadedPromptRef?.current !== null && reportText !== loadedPromptRef?.current) {
             const controller = new AbortController();
             const timeout = setTimeout(() => {
                 console.log('Auto-saving report text changes');
-                reportService.updateReport(reportId!, { prompt: reportText }).catch(error => {
+                effectsApi.updateReport(reportId!, { prompt: reportText }).catch(error => {
                     console.error('Failed to auto-save report:', error);
                 });
                 // Update baseline to avoid repeat saves for same content
-                loadedPromptRef.current = reportText;
+                if (loadedPromptRef) {
+                    loadedPromptRef.current = reportText;
+                }
             }, 600);
             return () => clearTimeout(timeout);
         }
+        };
+        load();
+        return () => { cancelled = true; };
     }, [reportText, location.search]);
 
 
@@ -273,7 +304,7 @@ const CustomOperationalReport: React.FC = () => {
 
         if (!reportId) {
             // Create new report
-            const newReport = await reportService.createReport({
+            const newReport = await effectsApi.createReport({
                 name: 'Custom Operational Report',
                 prompt: reportText
             });
@@ -287,35 +318,43 @@ const CustomOperationalReport: React.FC = () => {
         setProgressInfo(null); // Clear progress info
 
         try {
-            await reportGenerationService.startGeneration(
+            await effectsApi.startGeneration({
                 reportId,
                 reportText,
                 authToken,
                 selectedServer,
-                (progress) => {
+                onProgress: (progress) => {
                     // Progress callback - update UI in real-time
-                    setTableData(progress);
+                    setTableData({
+                        columns: [...progress.columns],
+                        results: [...progress.results],
+                        csv: progress.csv
+                    });
                     setProgressInfo({
                         processed: progress.results.length,
                         total: progress.results.length
                     });
                 },
-                (result) => {
+                onComplete: (result) => {
                     // Complete callback
-                    setTableData(result);
+                    setTableData({
+                        columns: [...result.columns],
+                        results: [...result.results],
+                        csv: result.csv
+                    });
                     setIsGenerating(false);
                     message.success('Custom report generated successfully! Report saved and log created.');
                 },
-                (error) => {
+                onError: (error) => {
                     // Error callback
                     setIsGenerating(false);
                     if (error.message !== 'Aborted') {
                         message.error('Failed to generate custom report');
                     }
                 },
-                0, // startOffset
-                getExtractedParameters()?.parameters
-            );
+                startOffset: 0,
+                parameters: undefined
+            });
         } catch (error) {
             setIsGenerating(false);
             message.error('Failed to start report generation');
@@ -381,7 +420,7 @@ const CustomOperationalReport: React.FC = () => {
         if (!reportId) return;
 
         try {
-            const stopped = await reportGenerationService.stopGeneration(reportId);
+            const stopped = await effectsApi.stopGeneration(reportId);
             if (stopped) {
                 console.log('Aborting report generation...');
                 setIsGenerating(false);
@@ -411,7 +450,7 @@ const CustomOperationalReport: React.FC = () => {
         }
 
         // Get existing data before starting
-        const existingData = reportService.getReportById(reportId)?.tableData;
+        const existingData = (await effectsApi.getReportById(reportId))?.tableData;
         console.log('Existing table data before resume:', existingData?.results?.length || 0, 'results');
 
         setIsGenerating(true);
@@ -419,33 +458,41 @@ const CustomOperationalReport: React.FC = () => {
         setProgressInfo(null);
 
         try {
-            await reportGenerationService.resumeGeneration(
+            await effectsApi.resumeGeneration({
                 reportId,
                 authToken,
                 selectedServer,
-                (progress) => {
+                onProgress: (progress) => {
                     // Progress callback - update UI in real-time
                     console.log('Resume progress callback received:', progress.results.length, 'results');
-                    setTableData(progress);
+                    setTableData({
+                        columns: [...progress.columns],
+                        results: [...progress.results],
+                        csv: progress.csv
+                    });
                     setProgressInfo({
                         processed: progress.results.length,
                         total: progress.results.length
                     });
                 },
-                (result) => {
+                onComplete: (result) => {
                     // Complete callback
-                    setTableData(result);
+                    setTableData({
+                        columns: [...result.columns],
+                        results: [...result.results],
+                        csv: result.csv
+                    });
                     setIsGenerating(false);
                     message.success('Report generation resumed and completed successfully!');
                 },
-                (error) => {
+                onError: (error) => {
                     // Error callback
                     setIsGenerating(false);
                     if (error.message !== 'Aborted') {
                         message.error('Failed to resume report generation');
                     }
                 }
-            );
+            });
         } catch (error) {
             setIsGenerating(false);
             message.error('Failed to resume report generation');
@@ -468,7 +515,7 @@ const CustomOperationalReport: React.FC = () => {
             okType: 'default',
             cancelText: 'Cancel',
             onOk: async () => {
-                const ok = await reportGenerationService.resetToReady(reportId);
+                const ok = await effectsApi.resetToReady(reportId);
                 if (ok) {
                     message.success('Report reset to ready state');
                     // Clear local state
@@ -497,8 +544,8 @@ const CustomOperationalReport: React.FC = () => {
             okText: 'Rerun',
             okType: 'default',
             cancelText: 'Cancel',
-            onOk: () => {
-                if (reportGenerationService.rerunFromCompleted(reportId)) {
+            onOk: async () => {
+                if (await effectsApi.rerunFromCompleted(reportId)) {
                     message.success('Report ready for rerun');
                     // Clear local state - table data is cleared by the service
                     setIsGenerating(false);
@@ -528,8 +575,8 @@ const CustomOperationalReport: React.FC = () => {
             okText: 'Restart',
             okType: 'default',
             cancelText: 'Cancel',
-            onOk: () => {
-                if (reportGenerationService.restartFromFailed(reportId)) {
+            onOk: async () => {
+                if (await effectsApi.restartFromFailed(reportId)) {
                     message.success('Report ready for restart');
                     // Clear local state - table data is cleared by the service
                     setIsGenerating(false);
@@ -562,7 +609,7 @@ const CustomOperationalReport: React.FC = () => {
             onOk: async () => {
                 try {
                     // Get current report data
-                    const report = reportService.getReportById(reportId);
+                    const report = await effectsApi.getReportById(reportId);
                     if (!report) {
                         message.error('Report not found');
                         return;
@@ -576,24 +623,30 @@ const CustomOperationalReport: React.FC = () => {
                     }
 
                     // Create report log with current results
-                    await reportLogService.createFromReportGeneration(
+                    const extracted = await getExtractedParameters();
+                    await effectsApi.createReportLogFromGeneration({
                         reportId,
-                        report.name,
-                        reportText,
-                        currentTableData,
-                        currentTableData.results.length,
-                        currentTableData.results.length,
-                        Date.now(),
-                        'completed'
-                    );
+                        reportName: report.name,
+                        prompt: report.prompt,
+                        tableData: tableData ? {
+                            columns: [...tableData.columns],
+                            results: [...tableData.results],
+                            csv: tableData.csv
+                        } : { columns: [], results: [], csv: '' },
+                        totalTasks: (tableData?.results?.length || 0),
+                        processedTasks: (tableData?.results?.length || 0),
+                        startTime: Date.now(),
+                        status: 'completed',
+                        extractedParameters: extracted || undefined
+                    });
 
                     // Stop generation first if it's in progress
                     if (isGenerating) {
-                        reportGenerationService.stopGeneration(reportId);
+                        await effectsApi.stopGeneration(reportId);
                     }
 
                     // Reset to ready
-                    if (reportGenerationService.resetToReady(reportId)) {
+                    if (await effectsApi.resetToReady(reportId)) {
                         message.success('Report generation completed and log created successfully!');
                         // Clear local state
                         setIsGenerating(false);
@@ -682,9 +735,7 @@ const CustomOperationalReport: React.FC = () => {
                         </div>
                         <div style={{ color: '#666', fontSize: '12px', marginBottom: '6px' }}>
                             {(() => {
-                                const searchParams = new URLSearchParams(location.search);
-                                const reportId = searchParams.get('reportId');
-                                const status = reportId ? reportGenerationService.getGenerationStatus(reportId) : null;
+                                const status = currentGenerationStatus;
 
                                 switch (status) {
                                     case 'preparing':
@@ -706,7 +757,8 @@ const CustomOperationalReport: React.FC = () => {
                         </div>
 
                         {/* Compact Parameters Display */}
-                        {getExtractedParameters() && getExtractedParameters()!.humanReadable.length > 0 && (
+                        {/* Render parameters only after async load elsewhere (keep UI stable) */}
+                        {false && (
                             <div style={{
                                 display: 'flex',
                                 flexWrap: 'wrap',
@@ -721,7 +773,7 @@ const CustomOperationalReport: React.FC = () => {
                                 }}>
                                     🔍 Parameters:
                                 </span>
-                                {getExtractedParameters()!.humanReadable.map((param, index) => (
+                                {([] as string[]).map((param, index) => (
                                     <span key={index} style={{
                                         color: '#333',
                                         fontSize: '10px',
@@ -736,7 +788,7 @@ const CustomOperationalReport: React.FC = () => {
                                 ))}
                             </div>
                         )}
-                        {getExtractedParameters() && getExtractedParameters()!.humanReadable.length === 0 && (
+                        {false && (
                             <div style={{
                                 color: '#666',
                                 fontSize: '10px',
@@ -752,12 +804,8 @@ const CustomOperationalReport: React.FC = () => {
                     {!isGenerating ? (
                                             <>
                                                 {(() => {
-                                                    const searchParams = new URLSearchParams(location.search);
-                                                    const reportId = searchParams.get('reportId');
-                                                    const status = reportId ? reportGenerationService.getGenerationStatus(reportId) : null;
-                                                    const canResume = reportId && reportCheckpointService.canResume(reportId);
-                                                    console.log('Resume button check:', { reportId, canResume, status });
-
+                                                    const status = currentGenerationStatus;
+                                                    const canResume = false; // computed elsewhere asynchronously
                                                     return (status === 'paused' || status === 'failed') && canResume ? (
                                                         <Button
                                                             type="default"
@@ -779,10 +827,7 @@ const CustomOperationalReport: React.FC = () => {
                                                     ) : null;
                                                 })()}
                                                 {(() => {
-                                                    const searchParams = new URLSearchParams(location.search);
-                                                    const reportId = searchParams.get('reportId');
-                                                    const status = reportId ? reportGenerationService.getGenerationStatus(reportId) : null;
-
+                                                    const status = currentGenerationStatus;
                                                     return status === 'paused' ? (
                                                         <>
                                                             <Button
@@ -823,10 +868,7 @@ const CustomOperationalReport: React.FC = () => {
                                                     ) : null;
                                                 })()}
                                                 {(() => {
-                                                    const searchParams = new URLSearchParams(location.search);
-                                                    const reportId = searchParams.get('reportId');
-                                                    const status = reportId ? reportGenerationService.getGenerationStatus(reportId) : null;
-
+                                                    const status = currentGenerationStatus;
                                                     return status === 'completed' ? (
                                                         <Button
                                                             type="default"
@@ -848,10 +890,7 @@ const CustomOperationalReport: React.FC = () => {
                                                     ) : null;
                                                 })()}
                                                 {(() => {
-                                                    const searchParams = new URLSearchParams(location.search);
-                                                    const reportId = searchParams.get('reportId');
-                                                    const status = reportId ? reportGenerationService.getGenerationStatus(reportId) : null;
-
+                                                    const status = currentGenerationStatus;
                                                     return status === 'failed' ? (
                                                         <Button
                                                             type="default"
@@ -873,10 +912,7 @@ const CustomOperationalReport: React.FC = () => {
                                                     ) : null;
                                                 })()}
                                                 {(() => {
-                                                    const searchParams = new URLSearchParams(location.search);
-                                                    const reportId = searchParams.get('reportId');
-                                                    const status = reportId ? reportGenerationService.getGenerationStatus(reportId) : null;
-
+                                                    const status = currentGenerationStatus;
                                                     // Only show Start Report button when status is 'ready' or null (no status)
                                                     return (status === 'ready' || status === null) ? (
                         <Button

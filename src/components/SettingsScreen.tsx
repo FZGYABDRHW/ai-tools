@@ -91,9 +91,10 @@ const SettingsScreen: React.FC = () => {
   const loadDownloadStats = async () => {
     try {
       const stats = await downloadService.getDownloadStats(downloadOptions);
-      setDownloadStats(stats);
+      setDownloadStats(stats || { fileCount: 0, totalSize: 0 });
     } catch (error) {
       console.error('Failed to load download stats:', error);
+      setDownloadStats({ fileCount: 0, totalSize: 0 });
     }
   };
 
@@ -231,7 +232,7 @@ const SettingsScreen: React.FC = () => {
                 <div>
                   <Text strong>Available for download:</Text><br/>
                   <Text type="secondary">
-                    {downloadStats.fileCount} files ({formatFileSize(downloadStats.totalSize)})
+                    {downloadStats?.fileCount || 0} files ({formatFileSize(downloadStats?.totalSize || 0)})
                   </Text>
                 </div>
                 <Button
@@ -327,8 +328,8 @@ const SettingsScreen: React.FC = () => {
           <Card size="small" style={{ background: '#f8f9fa' }}>
             <Title level={5} style={{ margin: 0 }}>Download Summary</Title>
             <Text>
-              <strong>Files to download:</strong> {downloadStats.fileCount}<br/>
-              <strong>Total size:</strong> {formatFileSize(downloadStats.totalSize)}
+              <strong>Files to download:</strong> {downloadStats?.fileCount || 0}<br/>
+              <strong>Total size:</strong> {formatFileSize(downloadStats?.totalSize || 0)}
             </Text>
           </Card>
         </Space>

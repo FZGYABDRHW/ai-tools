@@ -1,7 +1,7 @@
 import { setup, createActor, assign } from 'xstate';
 import reportMachine from './reportMachine';
 import { ReportsRegistryContext, ReportsRegistryEvent } from './types';
-import { reportGenerationService } from '../../services/reportGenerationService';
+import * as effectsApi from '../../services/effects/api';
 
 type ReportActorRef = any;
 
@@ -32,17 +32,23 @@ export default setup({
           const limit = settingsService.getConcurrencyLimit();
           context.concurrencyLimit = limit;
         } catch {}
-        const active = reportGenerationService.getActiveGenerations();
-        const nextActors = { ...context.actors } as Record<string, ReportActorRef>;
-        const subs = { ...(context.subscriptions || {}) } as NonNullable<ReportsRegistryContext['subscriptions']>;
-        active.forEach((_state, id) => {
-          if (!nextActors[id]) {
-            const ref = createActor(reportMachine, { input: { reportId: id } });
-            ref.start();
-            nextActors[id] = ref;
-          }
-        });
-        return { actors: nextActors, subscriptions: subs };
+        // Load active generations from effect api (file-backed)
+        // Note: XState assign can accept async; if needed, move to a dedicated invocation
+        // Async update of active generations; keep context unchanged synchronously
+        if (effectsApi.getActiveGenerations) {
+          effectsApi.getActiveGenerations().then((active: Map<string, any>) => {
+            const nextActors = { ...context.actors } as Record<string, ReportActorRef>;
+            const subs = { ...(context.subscriptions || {}) } as NonNullable<ReportsRegistryContext['subscriptions']>;
+            active.forEach((_state: any, id: string) => {
+              if (!nextActors[id]) {
+                const ref = createActor(reportMachine, { input: { reportId: id } });
+                ref.start();
+                nextActors[id] = ref;
+              }
+            });
+          }).catch(() => {});
+        }
+        return {};
       }),
       on: {
         REGISTER: {
@@ -61,7 +67,9 @@ export default setup({
                 (self as any).send({ type: 'CHILD_PROGRESS', id: event.id, processed: snapshot?.context?.progress?.processed || 0, total: snapshot?.context?.progress?.total || 0 });
               }
             });
-            subscriptions[event.id] = { unsubscribe: () => subscription.unsubscribe?.() };
+            if (subscription && typeof subscription.unsubscribe === 'function') {
+              subscriptions[event.id] = { unsubscribe: () => subscription.unsubscribe() };
+            }
             return { actors: { ...context.actors, [event.id]: ref }, subscriptions };
           })
         },
@@ -74,8 +82,8 @@ export default setup({
             const nextGenerating = new Set(context.generating);
             nextGenerating.delete(event.id);
             const subs = { ...(context.subscriptions || {}) };
-            if (subs[event.id]) {
-              subs[event.id]?.unsubscribe?.();
+            if (subs[event.id] && typeof subs[event.id].unsubscribe === 'function') {
+              subs[event.id].unsubscribe();
               delete subs[event.id];
             }
             return { actors: rest, generating: nextGenerating, subscriptions: subs };
