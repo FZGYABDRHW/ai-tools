@@ -42,6 +42,28 @@ export default setup({
       const selectedServer = server || (localStorage.getItem('selectedServer') as 'EU' | 'RU') || 'EU';
       void effectsApi.startProcessing({ reportId, prompt, authToken: token, server: selectedServer });
       return () => {};
+    }),
+    observeProgress: fromCallback(({ input, sendBack }) => {
+      const { reportId } = input as { reportId: string };
+      let cancelled = false;
+      const tick = async () => {
+        try {
+          const state = await effectsApi.getGenerationState(reportId);
+          if (!state || cancelled) return;
+          const processed = state.tableData?.results?.length || 0;
+          const total = processed;
+          sendBack({ type: 'PROGRESS', processed, total });
+          if (state.status === 'completed') {
+            sendBack({ type: 'COMPLETED' });
+          } else if (state.status === 'failed') {
+            sendBack({ type: 'FAILED', error: state.errorMessage || 'Generation failed' } as any);
+          }
+        } catch { /* ignore */ }
+      };
+      const interval = setInterval(tick, 250);
+      // initial
+      void tick();
+      return () => { cancelled = true; clearInterval(interval); };
     })
   }
 }).createMachine({
@@ -133,16 +155,22 @@ export default setup({
       states: {
         processing: {
           entry: assign({ generationPhase: 'processing' as const, lifecycle: 'generating' as const }),
-          invoke: {
-            src: 'processing',
-            input: ({ context }) => ({
-              reportId: context.reportId,
-              prompt: context.prompt || context.report?.prompt || '',
-              parameters: context.parameters,
-              authToken: context.authToken,
-              server: context.server
-            })
-          }
+          invoke: [
+            {
+              src: 'processing',
+              input: ({ context }) => ({
+                reportId: context.reportId,
+                prompt: context.prompt || context.report?.prompt || '',
+                parameters: context.parameters,
+                authToken: context.authToken,
+                server: context.server
+              })
+            },
+            {
+              src: 'observeProgress',
+              input: ({ context }) => ({ reportId: context.reportId })
+            }
+          ]
         },
         paused: {
           entry: ({ context }) => { void (async () => { await effectsApi.stopGeneration(context.reportId); await effectsApi.updateGenerationStatus(context.reportId, 'paused'); })(); },
