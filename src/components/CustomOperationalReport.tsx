@@ -687,6 +687,8 @@ const CustomOperationalReport: React.FC = () => {
                                 const status = reportId ? reportGenerationService.getGenerationStatus(reportId) : null;
 
                                 switch (status) {
+                                    case 'preparing':
+                                        return '🔧 Preparing generation... (Extracting parameters and generating schema)';
                                     case 'in_progress':
                                         return '🔄 Processing tasks...';
                                     case 'paused':
@@ -983,7 +985,7 @@ const CustomOperationalReport: React.FC = () => {
                                     letterSpacing: '0.5px'
                                 }}>
                                     Editor
-                                    {(currentGenerationStatus === 'in_progress' || currentGenerationStatus === 'paused') && (
+                                    {(currentGenerationStatus === 'preparing' || currentGenerationStatus === 'in_progress' || currentGenerationStatus === 'paused') && (
                                         <span style={{
                                             fontSize: '12px',
                                             marginLeft: '8px',
@@ -996,7 +998,7 @@ const CustomOperationalReport: React.FC = () => {
                             </div>
 
                             {/* Prompt Enhancer Button (hidden in read-only) */}
-                            {!(currentGenerationStatus === 'in_progress' || currentGenerationStatus === 'paused') && (
+                            {!(currentGenerationStatus === 'preparing' || currentGenerationStatus === 'in_progress' || currentGenerationStatus === 'paused') && (
                                 <div style={{ position: 'relative' }}>
                                     <Button
                                         type="text"
@@ -1035,7 +1037,7 @@ const CustomOperationalReport: React.FC = () => {
                                 value={reportText}
                                 onChange={setReportText}
                                 placeholder="Write your prompt here..."
-                                                readOnly={currentGenerationStatus === 'in_progress' || currentGenerationStatus === 'paused'}
+                                                readOnly={currentGenerationStatus === 'preparing' || currentGenerationStatus === 'in_progress' || currentGenerationStatus === 'paused'}
                             />
                         </div>
                     </div>

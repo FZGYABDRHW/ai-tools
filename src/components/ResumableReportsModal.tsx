@@ -23,7 +23,7 @@ const ResumableReportsModal: React.FC<ResumableReportsModalProps> = ({
         const seconds = Math.floor(milliseconds / 1000);
         const minutes = Math.floor(seconds / 60);
         const hours = Math.floor(minutes / 60);
-        
+
         if (hours > 0) {
             return `${hours}h ${minutes % 60}m`;
         } else if (minutes > 0) {
@@ -87,7 +87,7 @@ const ResumableReportsModal: React.FC<ResumableReportsModalProps> = ({
                         const report = reportService.getReportById(checkpoint.reportId);
                         const progressPercentage = reportCheckpointService.getProgressPercentage(checkpoint.reportId);
                         const estimatedTimeRemaining = reportCheckpointService.getEstimatedTimeRemaining(checkpoint.reportId);
-                        
+
                         return (
                             <List.Item
                                 actions={[
@@ -111,7 +111,9 @@ const ResumableReportsModal: React.FC<ResumableReportsModalProps> = ({
                                     title={
                                         <Space>
                                             <Text strong>{report?.name || 'Custom Report'}</Text>
-                                            <Tag color={checkpoint.status === 'in_progress' ? 'blue' : 'orange'}>
+                                            <Tag color={
+                                                checkpoint.status === 'in_progress' ? 'blue' : 'orange'
+                                            }>
                                                 {checkpoint.status === 'in_progress' ? 'In Progress' : 'Paused'}
                                             </Tag>
                                         </Space>

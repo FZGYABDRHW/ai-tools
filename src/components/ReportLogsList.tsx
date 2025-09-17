@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { 
-    Card, 
-    Table, 
-    Button, 
-    Input, 
-    Space, 
-    Typography, 
+import {
+    Card,
+    Table,
+    Button,
+    Input,
+    Space,
+    Typography,
     Tag,
     Tooltip,
     Popconfirm,
@@ -15,9 +15,9 @@ import {
     Row,
     Col
 } from 'antd';
-import { 
-    SearchOutlined, 
-    DeleteOutlined, 
+import {
+    SearchOutlined,
+    DeleteOutlined,
     EyeOutlined,
     FileTextOutlined,
     CalendarOutlined,
@@ -52,17 +52,21 @@ const ReportLogsList: React.FC<ReportLogsListProps> = ({ onViewLog, selectedRepo
         filterLogs();
     }, [reportLogs, searchText, statusFilter, dateRange]);
 
-    const loadReportLogs = () => {
+    const loadReportLogs = async () => {
         setLoading(true);
         try {
             let logs: ReportLog[];
             if (selectedReportId) {
-                logs = reportLogService.getReportLogsByReportId(selectedReportId);
+                // For specific report, get all logs first with sync, then filter
+                const allLogs = await reportLogService.getAllReportLogsWithSync();
+                logs = allLogs.filter(log => log.reportId === selectedReportId);
             } else {
-                logs = reportLogService.getAllReportLogs();
+                // For all logs, use the sync method
+                logs = await reportLogService.getAllReportLogsWithSync();
             }
             setReportLogs(logs);
         } catch (error) {
+            console.error('Failed to load report logs:', error);
             message.error('Failed to load report logs');
         } finally {
             setLoading(false);
@@ -129,7 +133,7 @@ const ReportLogsList: React.FC<ReportLogsListProps> = ({ onViewLog, selectedRepo
         const seconds = Math.floor(milliseconds / 1000);
         const minutes = Math.floor(seconds / 60);
         const remainingSeconds = seconds % 60;
-        
+
         if (minutes > 0) {
             return `${minutes}m ${remainingSeconds}s`;
         }
@@ -143,9 +147,9 @@ const ReportLogsList: React.FC<ReportLogsListProps> = ({ onViewLog, selectedRepo
             key: 'reportName',
             render: (text: string, record: ReportLog) => (
                 <div>
-                    <Text 
-                        strong 
-                        style={{ 
+                    <Text
+                        strong
+                        style={{
                             cursor: 'pointer',
                             color: '#ff8c69'
                         }}
@@ -201,7 +205,7 @@ const ReportLogsList: React.FC<ReportLogsListProps> = ({ onViewLog, selectedRepo
                     {record.metadata?.duration ? formatDuration(record.metadata.duration) : 'N/A'}
                 </Text>
             ),
-            sorter: (a: ReportLog, b: ReportLog) => 
+            sorter: (a: ReportLog, b: ReportLog) =>
                 (a.metadata?.duration || 0) - (b.metadata?.duration || 0),
         },
         {
@@ -331,7 +335,7 @@ const ReportLogsList: React.FC<ReportLogsListProps> = ({ onViewLog, selectedRepo
                         pageSize: 20,
                         showSizeChanger: true,
                         showQuickJumper: true,
-                        showTotal: (total, range) => 
+                        showTotal: (total, range) =>
                             `${range[0]}-${range[1]} of ${total} report logs`
                     }}
                     scroll={{ x: 'max-content' }}

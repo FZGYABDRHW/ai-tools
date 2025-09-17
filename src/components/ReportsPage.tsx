@@ -349,6 +349,12 @@ const ReportsPage: React.FC = () => {
         const progress = getGenerationProgress(record.id);
 
         switch (status) {
+            case 'preparing':
+                return (
+                    <Tag color="cyan" style={{ marginLeft: 8 }}>
+                        🔧 Preparing...
+                    </Tag>
+                );
             case 'in_progress':
                 return (
                     <Tag color="blue" style={{ marginLeft: 8 }}>
@@ -450,6 +456,20 @@ const ReportsPage: React.FC = () => {
                                     Start Generation
                                 </Button>
                             </Tooltip>
+                        )}
+
+                        {/* Preparing state - can pause */}
+                        {status === 'preparing' && (
+                            <>
+                                <Button
+                                    danger
+                                    size="small"
+                                    icon={<DeleteOutlined />}
+                                    onClick={() => handleStopGeneration(record.id)}
+                                >
+                                    Stop
+                                </Button>
+                            </>
                         )}
 
                         {/* In Progress state - can pause or complete */}

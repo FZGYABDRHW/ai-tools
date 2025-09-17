@@ -1,23 +1,23 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { 
-    Card, 
-    Typography, 
-    Table, 
-    Button, 
-    Space, 
-    Divider, 
-    Layout, 
-    Row, 
-    Col, 
+import {
+    Card,
+    Typography,
+    Table,
+    Button,
+    Space,
+    Divider,
+    Layout,
+    Row,
+    Col,
     Tag,
     Descriptions,
     Statistic,
     Tooltip,
     message
 } from 'antd';
-import { 
-    DownloadOutlined, 
-    FullscreenOutlined, 
+import {
+    DownloadOutlined,
+    FullscreenOutlined,
     FullscreenExitOutlined,
     ClockCircleOutlined,
     CheckCircleOutlined,
@@ -78,19 +78,25 @@ const ReportLogViewer: React.FC<ReportLogViewerProps> = ({ reportLogId, onBack }
         return () => window.removeEventListener('resize', calculateDynamicPageSize);
     }, [reportLog]);
 
-    const loadReportLog = (id: string) => {
-        const log = reportLogService.getReportLogById(id);
-        if (log) {
-            setReportLog(log);
-        } else {
-            message.error('Report log not found');
+    const loadReportLog = async (id: string) => {
+        try {
+            const log = await reportLogService.getReportLogByIdWithSync(id);
+            if (log) {
+                setReportLog(log);
+            } else {
+                message.error('Report log not found');
+                onBack?.();
+            }
+        } catch (error) {
+            console.error('Error loading report log:', error);
+            message.error('Failed to load report log');
             onBack?.();
         }
     };
 
     const handleDownloadCSV = () => {
         if (!reportLog?.tableData) return;
-        
+
         const blob = new Blob([reportLog.tableData.csv], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
@@ -108,7 +114,7 @@ const ReportLogViewer: React.FC<ReportLogViewerProps> = ({ reportLogId, onBack }
         const seconds = Math.floor(milliseconds / 1000);
         const minutes = Math.floor(seconds / 60);
         const remainingSeconds = seconds % 60;
-        
+
         if (minutes > 0) {
             return `${minutes}m ${remainingSeconds}s`;
         }
@@ -142,7 +148,7 @@ const ReportLogViewer: React.FC<ReportLogViewerProps> = ({ reportLogId, onBack }
 
     return (
         <Layout style={{ background: 'transparent' }}>
-            <Content style={{ 
+            <Content style={{
                 padding: '12px',
                 overflowY: 'auto'
             }}>
@@ -167,8 +173,8 @@ const ReportLogViewer: React.FC<ReportLogViewerProps> = ({ reportLogId, onBack }
                                         Back to Reports
                                     </Button>
                                 )}
-                                <Button 
-                                    type="primary" 
+                                <Button
+                                    type="primary"
                                     icon={<DownloadOutlined />}
                                     onClick={handleDownloadCSV}
                                 >
@@ -187,11 +193,11 @@ const ReportLogViewer: React.FC<ReportLogViewerProps> = ({ reportLogId, onBack }
                                 title="Status"
                                 value={reportLog.status}
                                 prefix={
-                                    reportLog.status === 'completed' 
+                                    reportLog.status === 'completed'
                                         ? <CheckCircleOutlined style={{ color: '#52c41a' }} />
                                         : <CloseCircleOutlined style={{ color: '#ff4d4f' }} />
                                 }
-                                valueStyle={{ 
+                                valueStyle={{
                                     color: reportLog.status === 'completed' ? '#52c41a' : '#ff4d4f',
                                     fontSize: '14px'
                                 }}
@@ -256,9 +262,9 @@ const ReportLogViewer: React.FC<ReportLogViewerProps> = ({ reportLogId, onBack }
                 {/* Prompt */}
                 <Card style={{ marginBottom: '12px' }}>
                     <Title level={5} style={{ marginBottom: '8px' }}>Report Prompt</Title>
-                    <div style={{ 
-                        background: '#f5f5f5', 
-                        padding: '12px', 
+                    <div style={{
+                        background: '#f5f5f5',
+                        padding: '12px',
                         borderRadius: '6px',
                         border: '1px solid #e8e8e8',
                         minHeight: '150px',
@@ -282,16 +288,16 @@ const ReportLogViewer: React.FC<ReportLogViewerProps> = ({ reportLogId, onBack }
                 {reportLog.extractedParameters && reportLog.extractedParameters.humanReadable.length > 0 && (
                     <Card style={{ marginBottom: '12px' }}>
                         <Title level={5} style={{ marginBottom: '8px' }}>Extracted Parameters</Title>
-                        <div style={{ 
-                            padding: '8px 12px', 
-                            background: 'rgba(255, 140, 105, 0.15)', 
+                        <div style={{
+                            padding: '8px 12px',
+                            background: 'rgba(255, 140, 105, 0.15)',
                             borderRadius: '6px',
                             border: '2px solid rgba(255, 140, 105, 0.4)'
                         }}>
                             {reportLog.extractedParameters.humanReadable.map((param, index) => (
-                                <div key={index} style={{ 
-                                    color: '#333', 
-                                    fontSize: '12px', 
+                                <div key={index} style={{
+                                    color: '#333',
+                                    fontSize: '12px',
                                     marginBottom: '4px',
                                     padding: '2px 0'
                                 }}>
@@ -303,7 +309,7 @@ const ReportLogViewer: React.FC<ReportLogViewerProps> = ({ reportLogId, onBack }
                 )}
 
                 {/* Results Table */}
-                <Card 
+                <Card
                     title={
                         <Space>
                             <Title level={4} style={{ margin: 0 }}>
@@ -316,7 +322,7 @@ const ReportLogViewer: React.FC<ReportLogViewerProps> = ({ reportLogId, onBack }
                             />
                         </Space>
                     }
-                    style={{ 
+                    style={{
                         height: isTableFullScreen ? 'calc(100vh - 200px)' : 'auto',
                         position: isTableFullScreen ? 'fixed' : 'relative',
                         top: isTableFullScreen ? '100px' : 'auto',
@@ -325,7 +331,7 @@ const ReportLogViewer: React.FC<ReportLogViewerProps> = ({ reportLogId, onBack }
                         zIndex: isTableFullScreen ? 1000 : 'auto'
                     }}
                 >
-                    <div ref={tableContainerRef} style={{ 
+                    <div ref={tableContainerRef} style={{
                         overflowY: 'auto',
                         height: '400px',
                         minHeight: '300px'
@@ -340,11 +346,11 @@ const ReportLogViewer: React.FC<ReportLogViewerProps> = ({ reportLogId, onBack }
                                 pageSize: dynamicPageSize,
                                 showSizeChanger: true,
                                 showQuickJumper: true,
-                                showTotal: (total, range) => 
+                                showTotal: (total, range) =>
                                     `${range[0]}-${range[1]} of ${total} items`,
                                 size: 'small'
                             }}
-                            scroll={{ 
+                            scroll={{
                                 x: 'max-content',
                                 y: isTableFullScreen ? 'calc(100vh - 300px)' : '400px'
                             }}

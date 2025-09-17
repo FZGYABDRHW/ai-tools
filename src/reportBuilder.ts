@@ -45,6 +45,7 @@ export async function buildReport(
   startOffset: number = 0,
   parameters?: TaskListParameters,
   existingColumns?: string[],
+  onStatusUpdate?: (status: 'preparing' | 'in_progress') => void,
 ): Promise<{
   columns: string[];
   results: Array<Record<string, unknown>>;
@@ -62,6 +63,9 @@ export async function buildReport(
   }
 
   const openai = new OpenAI({dangerouslyAllowBrowser: true, apiKey });
+
+  // Notify that we're preparing (parameter extraction phase)
+  onStatusUpdate?.('preparing');
 
   // 0) Extract parameters from the prompt using OpenAI if not provided
   let extractedParameters = parameters;
@@ -170,6 +174,9 @@ Calculate dates dynamically using the current date provided above. Return only t
     onParametersExtracted(extractedParamsForUI);
   }
 
+  // Notify that we're preparing (schema generation phase)
+  onStatusUpdate?.('preparing');
+
   // 1) Derive the tabular schema (column names) from the raw prompt, or reuse existing ones
   let columns: string[];
   if (existingColumns && Array.isArray(existingColumns) && existingColumns.length > 0) {
@@ -237,6 +244,9 @@ Calculate dates dynamically using the current date provided above. Return only t
   if (results.length === 0) {
     updateProgress();
   }
+
+  // Notify that we're now in progress (task processing phase)
+  onStatusUpdate?.('in_progress');
 
   // Wrap the RxJS pipeline in an explicit promise so we can await completion.
   await new Promise<void>((resolve, reject) => {

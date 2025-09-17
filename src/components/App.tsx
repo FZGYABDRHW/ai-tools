@@ -58,18 +58,27 @@ const App: React.FC = () => {
             console.log('Migration completed successfully');
             message.success('Data migration completed successfully!');
 
-            // Force sync reports from file system to localStorage
+            // Force sync both reports and report logs from file system to localStorage
             try {
                 const { reportService } = await import('../services/reportService');
-                const syncSuccess = await reportService.forceSyncFromFileSystem();
-                console.log('Reports synced from file system after migration:', syncSuccess);
-                if (syncSuccess) {
-                    // Force a page refresh to show the synced reports
-                    console.log('Reports synced successfully after migration, refreshing page...');
+                const { reportLogService } = await import('../services/reportLogService');
+
+                // Sync both reports and report logs in parallel
+                const [reportsSyncSuccess, reportLogsSyncSuccess] = await Promise.all([
+                    reportService.forceSyncFromFileSystem(),
+                    reportLogService.forceSyncFromFileSystem()
+                ]);
+
+                console.log('Reports synced from file system after migration:', reportsSyncSuccess);
+                console.log('Report logs synced from file system after migration:', reportLogsSyncSuccess);
+
+                if (reportsSyncSuccess || reportLogsSyncSuccess) {
+                    // Force a page refresh to show the synced data
+                    console.log('Data synced successfully after migration, refreshing page...');
                     window.location.reload();
                 }
             } catch (error) {
-                console.error('Failed to sync reports after migration:', error);
+                console.error('Failed to sync data after migration:', error);
             }
         }
     };
@@ -85,32 +94,45 @@ const App: React.FC = () => {
         // Check for migration
         checkMigrationStatus();
 
-        // Sync reports from file system if migration was completed previously
-        const syncReportsOnStartup = async () => {
+        // Sync reports and report logs from file system if migration was completed previously
+        const syncDataOnStartup = async () => {
             try {
                 const migrationCompleted = await (window.electronAPI as any)?.migration?.hasCompletedMigration();
                 console.log('Migration completed on startup:', migrationCompleted);
                 if (migrationCompleted) {
                     const { reportService } = await import('../services/reportService');
+                    const { reportLogService } = await import('../services/reportLogService');
+
                     const hasReports = reportService.hasReports();
+                    const hasReportLogs = reportLogService.hasReportLogs();
                     console.log('Has reports in localStorage:', hasReports);
-                    if (!hasReports) {
-                        console.log('Migration completed but no reports in localStorage, syncing from file system...');
-                        const syncSuccess = await reportService.forceSyncFromFileSystem();
-                        console.log('Sync success:', syncSuccess);
-                        if (syncSuccess) {
-                            // Force a page refresh to show the synced reports
-                            console.log('Reports synced successfully, refreshing page...');
+                    console.log('Has report logs in localStorage:', hasReportLogs);
+
+                    if (!hasReports || !hasReportLogs) {
+                        console.log('Migration completed but missing data in localStorage, syncing from file system...');
+
+                        // Sync both reports and report logs in parallel
+                        const [reportsSyncSuccess, reportLogsSyncSuccess] = await Promise.all([
+                            hasReports ? Promise.resolve(true) : reportService.forceSyncFromFileSystem(),
+                            hasReportLogs ? Promise.resolve(true) : reportLogService.forceSyncFromFileSystem()
+                        ]);
+
+                        console.log('Reports sync success:', reportsSyncSuccess);
+                        console.log('Report logs sync success:', reportLogsSyncSuccess);
+
+                        if (reportsSyncSuccess || reportLogsSyncSuccess) {
+                            // Force a page refresh to show the synced data
+                            console.log('Data synced successfully, refreshing page...');
                             window.location.reload();
                         }
                     }
                 }
             } catch (error) {
-                console.error('Failed to sync reports on startup:', error);
+                console.error('Failed to sync data on startup:', error);
             }
         };
 
-        syncReportsOnStartup();
+        syncDataOnStartup();
 
         // Listen for auto-updater events
         if (window.electronAPI) {

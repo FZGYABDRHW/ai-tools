@@ -6,7 +6,7 @@ import { reportLogService } from './reportLogService';
 import { reportCheckpointService } from './reportCheckpointService';
 import { TaskListParameters } from './parameterExtractionService';
 
-export type GenerationStatus = 'in_progress' | 'paused' | 'completed' | 'failed' | 'ready';
+export type GenerationStatus = 'preparing' | 'in_progress' | 'paused' | 'completed' | 'failed' | 'ready';
 
 export interface ReportGenerationState {
     reportId: string;
@@ -126,7 +126,7 @@ class ReportGenerationService {
 
     isGenerating(reportId: string): boolean {
         const state = this.activeGenerations.get(reportId);
-        return state?.status === 'in_progress';
+        return state?.status === 'preparing' || state?.status === 'in_progress';
     }
 
     getGenerationStatus(reportId: string): GenerationStatus | null {
@@ -197,7 +197,7 @@ class ReportGenerationService {
 
     setToPaused(reportId: string): boolean {
         const state = this.activeGenerations.get(reportId);
-        if (state && (state.status === 'in_progress' || state.status === 'failed')) {
+        if (state && (state.status === 'preparing' || state.status === 'in_progress' || state.status === 'failed')) {
             this.updateGenerationStatus(reportId, 'paused');
             return true;
         }
@@ -206,7 +206,7 @@ class ReportGenerationService {
 
     setToCompleted(reportId: string): boolean {
         const state = this.activeGenerations.get(reportId);
-        if (state && (state.status === 'in_progress' || state.status === 'paused')) {
+        if (state && (state.status === 'preparing' || state.status === 'in_progress' || state.status === 'paused')) {
             this.updateGenerationStatus(reportId, 'completed');
             return true;
         }
@@ -292,7 +292,7 @@ class ReportGenerationService {
 
         const generationState: ReportGenerationState = {
             reportId,
-            status: 'in_progress',
+            status: 'preparing',
             progress: existingProgress || null,
             tableData: existingTableData || null,
             startTime,
@@ -371,7 +371,11 @@ class ReportGenerationService {
                 startOffset,
                 parameters,
                 // Reuse existing columns if available to avoid re-fetching schema
-                existingTableData?.columns || report?.tableData?.columns
+                existingTableData?.columns || report?.tableData?.columns,
+                // Status update callback
+                async (status) => {
+                    await this.updateGenerationStatus(reportId, status);
+                }
             );
 
             // Final save - merge with existing data if resuming
@@ -526,7 +530,7 @@ class ReportGenerationService {
 
     reconnectToGeneration(reportId: string, callbacks: GenerationCallbacks): boolean {
         const state = this.getGenerationState(reportId);
-        if (state && state.status === 'in_progress') {
+        if (state && (state.status === 'preparing' || state.status === 'in_progress')) {
             this.setCallbacks(reportId, callbacks);
             // Trigger immediate callback with current state
             if (state.tableData) {
