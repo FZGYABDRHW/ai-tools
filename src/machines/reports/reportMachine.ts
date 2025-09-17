@@ -75,6 +75,21 @@ export default setup({
         }
       }
     },
+    loading: {
+      entry: assign({ lifecycle: 'loading' as const, error: null }),
+      invoke: {
+        src: 'loadReport',
+        input: ({ context }) => ({ reportId: context.reportId }),
+        onDone: {
+          target: 'idle',
+          actions: assign(({ event }) => ({ report: event.output as Report, error: null }))
+        },
+        onError: {
+          target: 'idle',
+          actions: assign(({ event }) => ({ error: (event.error as Error)?.message || 'Failed to load report' }))
+        }
+      }
+    },
     // New preparing branch decoupled from processing
     preparing: {
       initial: 'extracting',
