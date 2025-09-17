@@ -83,7 +83,7 @@ const CustomOperationalReport: React.FC = () => {
         localStorage.setItem(storageKey, reportText);
     }, [reportText, location.search]);
 
-    // Update generation status for UI updates (polling)
+    // Update generation status and table data for UI (polling)
     useEffect(() => {
         const searchParams = new URLSearchParams(location.search);
         const reportId = searchParams.get('reportId');
@@ -92,16 +92,30 @@ const CustomOperationalReport: React.FC = () => {
         const tick = async () => {
             if (!reportId) return;
             try {
-                const status = await effectsApi.getGenerationStatus(reportId);
-                if (!cancelled) setCurrentGenerationStatus(status);
+                const [status, state] = await Promise.all([
+                    effectsApi.getGenerationStatus(reportId),
+                    effectsApi.getGenerationState(reportId)
+                ]);
+                if (!cancelled) {
+                    setCurrentGenerationStatus(status);
+                    // If preparation persisted header-only columns, surface them immediately
+                    if (state?.tableData && state.tableData.columns?.length) {
+                        setTableData({
+                            columns: [...state.tableData.columns],
+                            results: [...(state.tableData.results || [])],
+                            csv: state.tableData.csv
+                        });
+                    }
+                    if (state?.progress) {
+                        setProgressInfo({ processed: state.progress.processed || 0, total: state.progress.total || 0 });
+                    }
+                }
                 if (status === 'ready') {
                     await effectsApi.clearExtractedParameters(reportId);
                 }
             } catch {}
         };
-        // initial
         tick();
-        // poll
         const interval = setInterval(tick, 250);
         return () => { cancelled = true; clearInterval(interval); };
     }, [location.search]);
