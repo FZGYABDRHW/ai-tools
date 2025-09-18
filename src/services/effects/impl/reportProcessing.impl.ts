@@ -76,6 +76,22 @@ export const makeReportProcessingService = (): ReportProcessingService => ({
             const line = effectiveColumns.map((c) => escape((row as any)[c])).join(',');
             return { columns: td.columns, results: nextResults, csv: td.csv + line + '\n' };
           });
+          // Persist immediately for visibility (in addition to periodic loop)
+          try {
+            const td = yield* Ref.get(resultsRef);
+            const st = yield* fs.getGenerationState(reportId);
+            if (st) {
+              yield* fs.saveGenerationState(reportId, { ...st, tableData: td, progress: { processed: td.results.length, total: td.results.length }, status: 'in_progress' } as any);
+              // Also mirror into report record so UI can render without waiting
+              const existing = (yield* fs.getReport(reportId)) as any;
+              if (existing) {
+                const updated = { ...existing, tableData: td, updatedAt: new Date().toISOString() };
+                yield* fs.saveReport(updated as any);
+              }
+            }
+            // eslint-disable-next-line no-console
+            console.log('[Processing] row appended', { total: (yield* Ref.get(resultsRef)).results.length });
+          } catch {}
         });
 
       const concurrency = 20;

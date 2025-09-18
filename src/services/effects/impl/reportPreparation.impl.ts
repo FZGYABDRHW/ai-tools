@@ -51,5 +51,3 @@ export const makeReportPreparationService = (): ReportPreparationService => ({
       return { parameters, columns };
     })
 });
-
-
